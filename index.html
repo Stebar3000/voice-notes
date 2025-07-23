@@ -358,6 +358,11 @@
         
         <div class="timer" id="timer">00:00</div>
         
+        <!-- Indicatore di versione -->
+        <div style="position: absolute; top: 10px; right: 10px; font-size: 0.6rem; color: #64748b; opacity: 0.7;">
+            v1.1
+        </div>
+        
         <div class="speech-controls">
             <button class="speech-toggle active" id="speechToggle">
                 🎤 Trascrizione attiva
@@ -768,41 +773,163 @@
                 return `${dateStr}_${words}`;
             }
             
-            // Download di un singolo file (versione corretta per iOS)
-            downloadFile(content, filename, type = 'text/plain') {
+            // Download di un singolo file (versione iOS-compatible)
+            async downloadFile(content, filename, type = 'text/plain') {
                 const blob = new Blob([content], { type });
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = filename;
                 
-                // Su iOS dobbiamo fare il click per triggerare il download
-                // Il popup "Vuoi scaricare" è necessario per iOS Safari
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
+                // Prova prima con Web Share API (iOS nativo)
+                if (navigator.share && this.isMobileDevice()) {
+                    try {
+                        const file = new File([blob], filename, { type });
+                        await navigator.share({
+                            files: [file],
+                            title: 'Voice Notes',
+                            text: `Condividi ${filename}`
+                        });
+                        return true;
+                    } catch (err) {
+                        console.log('Web Share non disponibile, provo metodo alternativo');
+                    }
+                }
                 
-                // Pulisci l'URL dopo un breve delay per permettere il download
-                setTimeout(() => {
-                    URL.revokeObjectURL(url);
-                }, 1000);
+                // Metodo alternativo: apri blob in nuova finestra
+                try {
+                    const url = URL.createObjectURL(blob);
+                    const newWindow = window.open(url, '_blank');
+                    
+                    if (newWindow) {
+                        // Aggiungi istruzioni per il salvataggio
+                        setTimeout(() => {
+                            newWindow.document.write(`
+                                <html>
+                                    <head><title>${filename}</title></head>
+                                    <body style="font-family: Arial, sans-serif; padding: 20px;">
+                                        <h2>File pronto per il download</h2>
+                                        <p><strong>Nome file:</strong> ${filename}</p>
+                                        <p><strong>Su iOS:</strong> Tocca e tieni premuto il link, poi "Scarica file collegato"</p>
+                                        <p><a href="${url}" download="${filename}">💾 Scarica ${filename}</a></p>
+                                        <hr>
+                                        <h3>Contenuto:</h3>
+                                        <pre style="white-space: pre-wrap; background: #f5f5f5; padding: 10px;">${content}</pre>
+                                    </body>
+                                </html>
+                            `);
+                        }, 100);
+                        
+                        // Pulisci URL dopo 30 secondi
+                        setTimeout(() => {
+                            URL.revokeObjectURL(url);
+                        }, 30000);
+                        
+                        return true;
+                    }
+                } catch (err) {
+                    console.error('Errore apertura nuova finestra:', err);
+                }
+                
+                // Ultimo fallback: metodo classico migliorato
+                return this.downloadFileClassic(blob, filename);
             }
             
-            // Download di un blob (per audio) - versione corretta
-            downloadBlob(blob, filename) {
-                if (!blob) return;
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = filename;
+            // Download classico come ultimo fallback
+            downloadFileClassic(blob, filename) {
+                try {
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = filename;
+                    
+                    // Metodo più robusto per iOS
+                    link.style.display = 'none';
+                    document.body.appendChild(link);
+                    
+                    // Force click con delay
+                    setTimeout(() => {
+                        link.click();
+                        document.body.removeChild(link);
+                        
+                        setTimeout(() => {
+                            URL.revokeObjectURL(url);
+                        }, 2000);
+                    }, 100);
+                    
+                    return true;
+                } catch (err) {
+                    console.error('Errore download classico:', err);
+                    return false;
+                }
+            }
+            
+            // Download di un blob audio (versione iOS-compatible)
+            async downloadBlob(blob, filename) {
+                if (!blob) return false;
                 
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
+                // Prova Web Share API per file audio
+                if (navigator.share && this.isMobileDevice()) {
+                    try {
+                        const file = new File([blob], filename, { type: blob.type });
+                        await navigator.share({
+                            files: [file],
+                            title: 'Voice Note Audio',
+                            text: `Condividi registrazione ${filename}`
+                        });
+                        return true;
+                    } catch (err) {
+                        console.log('Web Share per audio non disponibile');
+                    }
+                }
                 
-                setTimeout(() => {
-                    URL.revokeObjectURL(url);
-                }, 1000);
+                // Metodo alternativo per audio: crea pagina con player e download
+                try {
+                    const url = URL.createObjectURL(blob);
+                    const newWindow = window.open('', '_blank');
+                    
+                    if (newWindow) {
+                        newWindow.document.write(`
+                            <html>
+                                <head>
+                                    <title>${filename}</title>
+                                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                                </head>
+                                <body style="font-family: Arial, sans-serif; padding: 20px; text-align: center;">
+                                    <h2>🎤 Registrazione Vocale</h2>
+                                    <p><strong>${filename}</strong></p>
+                                    <audio controls style="width: 100%; max-width: 400px; margin: 20px 0;">
+                                        <source src="${url}" type="${blob.type}">
+                                    </audio>
+                                    <br><br>
+                                    <a href="${url}" download="${filename}" style="
+                                        background: #007AFF; 
+                                        color: white; 
+                                        padding: 15px 30px; 
+                                        text-decoration: none; 
+                                        border-radius: 8px;
+                                        font-size: 16px;
+                                    ">💾 Scarica Registrazione</a>
+                                    <p style="margin-top: 20px; font-size: 14px; color: #666;">
+                                        Su iOS: tocca e tieni premuto il pulsante di download
+                                    </p>
+                                </body>
+                            </html>
+                        `);
+                        
+                        setTimeout(() => {
+                            URL.revokeObjectURL(url);
+                        }, 300000); // 5 minuti per audio
+                        
+                        return true;
+                    }
+                } catch (err) {
+                    console.error('Errore creazione pagina audio:', err);
+                }
+                
+                // Fallback classico per audio
+                return this.downloadFileClassic(blob, filename);
+            }
+            
+            // Rileva se siamo su dispositivo mobile
+            isMobileDevice() {
+                return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
             }
             
             // Estrai ambito dalla trascrizione con sistema TAG strutturato
@@ -1478,6 +1605,8 @@
                         if (success) {
                             this.lastAutoSave = Date.now();
                             this.autoSaveStatus.textContent = `Ultima nota salvata alle ${new Date().toLocaleTimeString()}`;
+                        } else {
+                            this.autoSaveStatus.textContent = `Errore auto-salvataggio alle ${new Date().toLocaleTimeString()}`;
                         }
                     });
                 }
@@ -1552,11 +1681,13 @@
                     // Event listeners per le azioni
                     noteElement.addEventListener('click', (e) => {
                         if (e.target.classList.contains('transcript-toggle')) {
+                            e.stopPropagation(); // Previeni riproduzione audio
                             this.toggleFullTranscript(e.target, note.transcript);
                             return;
                         }
                         
                         if (e.target.classList.contains('note-btn')) {
+                            e.stopPropagation(); // Previeni riproduzione audio
                             const action = e.target.dataset.action;
                             const noteId = parseInt(e.target.dataset.noteId);
                             
@@ -1568,7 +1699,7 @@
                             return;
                         }
                         
-                        // Click normale per riprodurre
+                        // Click normale per riprodurre (solo se non è su un controllo)
                         this.playNote(note);
                     });
                     
