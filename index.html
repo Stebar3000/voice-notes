@@ -368,6 +368,9 @@
             <button class="export-btn" id="exportAllBtn">
                 💾 Salva tutte le note
             </button>
+            <button class="export-btn" id="exportAggregatedBtn">
+                📚 Export aggregato per ambiti
+            </button>
             <button class="export-btn" id="autoSaveToggle">
                 🔄 Auto-salvataggio ON
             </button>
@@ -639,6 +642,7 @@
                 
                 // Elementi per la persistenza
                 this.exportAllBtn = document.getElementById('exportAllBtn');
+                this.exportAggregatedBtn = document.getElementById('exportAggregatedBtn');
                 this.autoSaveToggle = document.getElementById('autoSaveToggle');
                 this.autoSaveStatus = document.getElementById('autoSaveStatus');
             }
@@ -680,6 +684,7 @@
                 
                 // Controlli di persistenza
                 this.exportAllBtn.addEventListener('click', this.exportAllNotes.bind(this));
+                this.exportAggregatedBtn.addEventListener('click', this.exportAggregatedNotes.bind(this));
                 this.autoSaveToggle.addEventListener('click', this.toggleAutoSave.bind(this));
                 
                 // Previeni comportamenti indesiderati su mobile
@@ -762,30 +767,176 @@
                 return `${dateStr}_${words}`;
             }
             
-            // Download di un singolo file
+            // Download di un singolo file (silenzioso per mobile)
             downloadFile(content, filename, type = 'text/plain') {
                 const blob = new Blob([content], { type });
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement('a');
                 link.href = url;
                 link.download = filename;
+                link.style.display = 'none'; // Nascosto per evitare interferenze UI
                 document.body.appendChild(link);
-                link.click();
+                
+                // Su mobile, non fare click automatico per evitare popup
+                if (this.isMobileDevice()) {
+                    // Salva l'URL per download manuale se necessario
+                    this.pendingDownloads = this.pendingDownloads || [];
+                    this.pendingDownloads.push({ url, filename, type });
+                } else {
+                    link.click();
+                }
+                
                 document.body.removeChild(link);
-                URL.revokeObjectURL(url);
+                // Non revocare immediatamente l'URL su mobile
+                if (!this.isMobileDevice()) {
+                    URL.revokeObjectURL(url);
+                }
             }
             
-            // Download di un blob (per audio)
+            // Download di un blob (per audio) - versione silenziosa
             downloadBlob(blob, filename) {
                 if (!blob) return;
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement('a');
                 link.href = url;
                 link.download = filename;
+                link.style.display = 'none';
                 document.body.appendChild(link);
-                link.click();
+                
+                if (this.isMobileDevice()) {
+                    // Su mobile, aggiungi alla coda di download
+                    this.pendingDownloads = this.pendingDownloads || [];
+                    this.pendingDownloads.push({ url, filename, type: blob.type });
+                } else {
+                    link.click();
+                }
+                
                 document.body.removeChild(link);
-                URL.revokeObjectURL(url);
+                if (!this.isMobileDevice()) {
+                    URL.revokeObjectURL(url);
+                }
+            }
+            
+            // Rileva se siamo su dispositivo mobile
+            isMobileDevice() {
+                return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            }
+            
+            // Estrai ambito dalla trascrizione (prima parola/frase)
+            extractScope(transcript) {
+                if (!transcript || transcript.trim().length === 0) return 'generale';
+                
+                // Cerca pattern comuni per identificare l'ambito
+                const firstWords = transcript.trim().split(' ').slice(0, 3).join(' ').toLowerCase();
+                
+                // Pattern comuni che potresti usare
+                const scopePatterns = [
+                    'urgente', 'importante', 'lavoro', 'famiglia', 'casa', 'salute',
+                    'viaggio', 'progetto', 'idea', 'ricerca', 'studio', 'business',
+                    'personale', 'tecnico', 'creativo', 'finanziario', 'sociale'
+                ];
+                
+                // Trova se una delle prime parole corrisponde a un pattern noto
+                for (const pattern of scopePatterns) {
+                    if (firstWords.includes(pattern)) {
+                        return pattern;
+                    }
+                }
+                
+                // Se non trova pattern noti, usa la prima parola come ambito
+                const firstWord = transcript.trim().split(' ')[0].toLowerCase();
+                return firstWord.length > 2 ? firstWord : 'generale';
+            }
+            
+            // Crea export aggregato per ambiti
+            async createAggregatedExport() {
+                if (this.notes.length === 0) return null;
+                
+                // Raggruppa note per ambito
+                const notesByScope = {};
+                
+                this.notes.forEach(note => {
+                    const scope = this.extractScope(note.transcript);
+                    if (!notesByScope[scope]) {
+                        notesByScope[scope] = [];
+                    }
+                    notesByScope[scope].push(note);
+                });
+                
+                // Crea documento aggregato
+                let aggregatedContent = `# Note Vocali Aggregate - ${new Date().toLocaleDateString('it-IT')}\n\n`;
+                aggregatedContent += `Generato automaticamente da Voice Notes Auto v1.0\n`;
+                aggregatedContent += `Totale note: ${this.notes.length}\n`;
+                aggregatedContent += `Ambiti identificati: ${Object.keys(notesByScope).length}\n\n`;
+                
+                // Aggiungi indice degli ambiti
+                aggregatedContent += `## Indice degli Ambiti\n\n`;
+                Object.keys(notesByScope).sort().forEach(scope => {
+                    const count = notesByScope[scope].length;
+                    const totalWords = notesByScope[scope].reduce((sum, note) => 
+                        sum + (note.transcript ? note.transcript.split(' ').length : 0), 0
+                    );
+                    aggregatedContent += `- **${scope.toUpperCase()}**: ${count} note, ${totalWords} parole totali\n`;
+                });
+                aggregatedContent += `\n---\n\n`;
+                
+                // Priorità speciale per "urgente"
+                if (notesByScope['urgente']) {
+                    aggregatedContent += `## 🚨 AMBITO PRIORITARIO: URGENTE\n\n`;
+                    notesByScope['urgente'].forEach((note, index) => {
+                        aggregatedContent += `### Nota Urgente ${index + 1}\n`;
+                        aggregatedContent += `**Data**: ${note.timestamp} | **Durata**: ${note.duration}s\n\n`;
+                        if (note.transcript) {
+                            aggregatedContent += `${note.transcript}\n\n`;
+                        } else {
+                            aggregatedContent += `[Solo audio - ${(note.size/1024).toFixed(1)}KB]\n\n`;
+                        }
+                        aggregatedContent += `---\n\n`;
+                    });
+                }
+                
+                // Aggiungi tutti gli altri ambiti
+                Object.keys(notesByScope).sort().forEach(scope => {
+                    if (scope === 'urgente') return; // Già processato sopra
+                    
+                    aggregatedContent += `## 📁 AMBITO: ${scope.toUpperCase()}\n\n`;
+                    
+                    notesByScope[scope].forEach((note, index) => {
+                        aggregatedContent += `### ${scope} - Nota ${index + 1}\n`;
+                        aggregatedContent += `**Data**: ${note.timestamp} | **Durata**: ${note.duration}s`;
+                        if (note.hasTranscript) {
+                            aggregatedContent += ` | **Parole**: ${note.transcript.split(' ').length}`;
+                        }
+                        aggregatedContent += `\n\n`;
+                        
+                        if (note.transcript) {
+                            aggregatedContent += `${note.transcript}\n\n`;
+                        } else {
+                            aggregatedContent += `[Solo audio - ${(note.size/1024).toFixed(1)}KB]\n\n`;
+                        }
+                        aggregatedContent += `---\n\n`;
+                    });
+                });
+                
+                // Aggiungi sezione per post-elaborazione AI
+                aggregatedContent += `## 🤖 ISTRUZIONI PER POST-ELABORAZIONE AI\n\n`;
+                aggregatedContent += `Questo documento contiene note vocali organizzate per ambito.\n`;
+                aggregatedContent += `Ogni ambito può essere processato separatamente per:\n\n`;
+                aggregatedContent += `- **Analisi priorità** (specialmente per ambito URGENTE)\n`;
+                aggregatedContent += `- **Sintesi tematiche** per ogni ambito\n`;
+                aggregatedContent += `- **Estrazione action items** dalle note\n`;
+                aggregatedContent += `- **Collegamento cross-ambito** tra temi correlati\n\n`;
+                aggregatedContent += `Ambiti presenti in questo documento: ${Object.keys(notesByScope).join(', ')}\n\n`;
+                
+                return {
+                    content: aggregatedContent,
+                    filename: `note_aggregate_${new Date().toISOString().slice(0, 10)}`,
+                    stats: {
+                        totalNotes: this.notes.length,
+                        scopes: Object.keys(notesByScope),
+                        notesByScope: notesByScope
+                    }
+                };
             }
             
             // Esporta una singola nota con tutti i suoi componenti
@@ -881,6 +1032,68 @@
                 this.autoSaveStatus.textContent = `Auto-salvate ${recentNotes.length} note alle ${new Date().toLocaleTimeString()}`;
             }
             
+            // Export aggregato per ambiti (funzione principale)
+            async exportAggregatedNotes() {
+                if (this.notes.length === 0) {
+                    this.showStatus('Nessuna nota da aggregare');
+                    return;
+                }
+                
+                this.showStatus('Creando export aggregato...');
+                
+                try {
+                    const aggregatedData = await this.createAggregatedExport();
+                    
+                    if (!aggregatedData) {
+                        this.showStatus('Errore nella creazione aggregato');
+                        return;
+                    }
+                    
+                    // Salva il file aggregato
+                    this.downloadFile(
+                        aggregatedData.content, 
+                        `${aggregatedData.filename}.md`, 
+                        'text/markdown'
+                    );
+                    
+                    // Salva anche un JSON con le statistiche
+                    const statsData = {
+                        generated: new Date().toISOString(),
+                        stats: aggregatedData.stats,
+                        instructions: {
+                            purpose: "File di supporto per post-elaborazione AI",
+                            usage: "Usare insieme al file markdown per analisi avanzate",
+                            scopes: aggregatedData.stats.scopes,
+                            priority_scope: "urgente"
+                        }
+                    };
+                    
+                    this.downloadFile(
+                        JSON.stringify(statsData, null, 2),
+                        `${aggregatedData.filename}_stats.json`,
+                        'application/json'
+                    );
+                    
+                    // Feedback di successo
+                    this.showStatus(`✓ Export aggregato creato! ${aggregatedData.stats.scopes.length} ambiti`);
+                    
+                    // Status di dettaglio
+                    setTimeout(() => {
+                        this.autoSaveStatus.textContent = 
+                            `Ambiti trovati: ${aggregatedData.stats.scopes.join(', ')}`;
+                    }, 2000);
+                    
+                    // Feedback tattile per conferma
+                    if (navigator.vibrate) {
+                        navigator.vibrate([100, 50, 100, 50, 100]);
+                    }
+                    
+                } catch (error) {
+                    console.error('Errore export aggregato:', error);
+                    this.showStatus('Errore durante aggregazione');
+                }
+            }
+            
             // Export di emergenza (se la pagina viene chiusa)
             emergencyExportAllNotes() {
                 if (this.notes.length === 0) return;
@@ -894,7 +1107,8 @@
                         timestamp: note.timestamp,
                         duration: note.duration,
                         transcript: note.transcript || '',
-                        hasTranscript: note.hasTranscript
+                        hasTranscript: note.hasTranscript,
+                        scope: this.extractScope(note.transcript) // Includi anche l'ambito
                     }))
                 };
                 
