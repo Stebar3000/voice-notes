@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Voice Notes Auto</title>
+    
+    <!-- PWA Meta Tags per migliore integrazione mobile -->
+    <meta name="theme-color" content="#2563eb">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Voice Notes">
+    
+    <!-- Manifest inline per GitHub Pages -->
+    <link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiVm9pY2UgTm90ZXMgQXV0byIsInNob3J0X25hbWUiOiJWb2ljZU5vdGVzIiwic3RhcnRfdXJsIjoiLyIsImRpc3BsYXkiOiJzdGFuZGFsb25lIiwiYmFja2dyb3VuZF9jb2xvciI6IiMxZTI5M2IiLCJ0aGVtZV9jb2xvciI6IiMyNTYzZWIiLCJpY29ucyI6W3sic3JjIjoiZGF0YTppbWFnZS9zdmcreG1sO2Jhc2U2NCxQSE4yWnlCM2FXUjBhRDBpTWpRaUlHaGxhV2RvZEQwaU1qUWlJSFpwWlhkQ2IzZzlJakFnTUNBeU5DQXlOQ0lnYm1GdFpYTndZV05sUFNKb2RIUndPaTh2ZDNkM0xuY3pMbTl5Wnk4eU1EQXdMM04yWnlJK1BIQmhkR2dnWkQwaVRUZ2dNVE5oTlNBMUlEQWdNUzR4SURFZ01URWdNaVl6SURBZ01URTRNaTQzTlNBek5pNHlOQ0EyTlM0ME15QTFOQ0EwTGpVNElEQWdNUzQ0TGpGaE5TQTFJREFnTUNBMExqVWdNell1TWpSYU1UZ2dNVE52TFRJZ01UQmhOaUEySUdGYU1EQTVMVFV1TVVFMU5TQTFJREFnTUNBNUlGUnRNQ0EzWXpBZ01TNDNMaTQwSURNZ01UUWdNVzV2TVMweUlERXdMaTQySUZObE56QXVOelVnTUNBNUlEVjFMalZoTmkwMklEZ2dPV0ZhSWlCbWFXeHNQU0lqWVdOaVkya2lMejQ4TDNOMlp6ND0iLCJzaXplcyI6IjE5MngxOTIiLCJ0eXBlIjoiaW1hZ2Uvc3ZnK3htbCJ9XX0=">
+    
+    <!-- Favicon inline per evitare richieste esterne -->
+    <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgbmFtZXNwYWNlPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZD0iTTggMTNhNSA1IDAgMCAxIDEwIDJsMyAwIDAgMTE4Mi43NSAzNi4yNCA2NS40MyA1NCA0LjU4IDAgMS44LjFhNSA1IDAgMCAwIDQuNSAzNi4yNFoiIGZpbGw9IiNhY2JjZyIvPjwvc3ZnPg==">
+    
+    <style>
+        /* Reset e configurazione base ottimizzata per mobile */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            touch-action: manipulation; /* Previene zoom accidentali */
+            -webkit-tap-highlight-color: transparent; /* Rimuove highlight su tap iOS */
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            user-select: none;
+            overflow: hidden;
+            /* Migliore rendering su iOS */
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        .container {
+            text-align: center;
+            padding: 20px;
+            width: 100%;
+            max-width: 600px;
+            /* Sicurezza per notch iPhone */
+            padding-top: max(20px, env(safe-area-inset-top));
+            padding-bottom: max(20px, env(safe-area-inset-bottom));
+        }
+
+        .status-text {
+            font-size: 1.8rem;
+            font-weight: 600;
+            margin-bottom: 2rem;
+            height: 80px; /* Più spazio per messaggi multiriga */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            text-align: center;
+            line-height: 1.3;
+        }
+
+        .record-button {
+            width: 300px;
+            height: 300px;
+            border-radius: 50%;
+            border: none;
+            font-size: 2rem;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            margin: 0 auto 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+            /* Ottimizzazioni per touch */
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        .record-button.idle {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+        }
+
+        .record-button.recording {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            animation: pulse 1.5s infinite;
+        }
+
+        .record-button.paused {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+        }
+
+        .record-button.error {
+            background: linear-gradient(135deg, #94a3b8, #64748b);
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .record-button:active {
+            transform: scale(0.95);
+        }
+
+        .timer {
+            font-size: 1.5rem;
+            font-weight: 500;
+            color: #e2e8f0;
+            margin-bottom: 1rem;
+            font-variant-numeric: tabular-nums; /* Numeri allineati */
+        }
+
+        .notes-list {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 2rem;
+            /* Scroll più fluido su iOS */
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .note-item {
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            text-align: left;
+            backdrop-filter: blur(10px);
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .note-item:hover, .note-item:active {
+            background: rgba(255,255,255,0.15);
+        }
+
+        .note-header {
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #f1f5f9;
+        }
+
+        .note-time {
+            font-size: 0.9rem;
+            color: #cbd5e1;
+        }
+
+        .instructions {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.9rem;
+            color: #94a3b8;
+            text-align: center;
+            max-width: 90%;
+            /* Sicurezza per notch */
+            bottom: max(20px, env(safe-area-inset-bottom));
+        }
+
+        .recording-indicator {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            width: 20px;
+            height: 20px;
+            background: #ef4444;
+            border-radius: 50%;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+
+        /* Ottimizzazioni responsive */
+        @media (max-width: 480px) {
+            .record-button {
+                width: 250px;
+                height: 250px;
+                font-size: 1.8rem;
+            }
+            
+            .status-text {
+                font-size: 1.4rem;
+                margin-bottom: 1.5rem;
+            }
+            
+            .container {
+                padding: 15px;
+            }
+        }
+
+        /* Ultra-small devices (molto piccoli) */
+        @media (max-width: 360px) {
+            .record-button {
+                width: 200px;
+                height: 200px;
+                font-size: 1.6rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="status-text" id="statusText">Pronto per registrare</div>
+        
+        <div class="timer" id="timer">00:00</div>
+        
+        <button class="record-button idle" id="recordButton">
+            <span id="buttonText">INIZIA</span>
+            <div class="recording-indicator" id="recordingIndicator" style="display: none;"></div>
+        </button>
+        
+        <div class="notes-list" id="notesList"></div>
+    </div>
+    
+    <div class="instructions">
+        Click: Inizia/Pausa/Riprendi • Doppio Click: Salva e chiudi nota
+    </div>
+
+    <script>
+        class VoiceNotesApp {
+            constructor() {
+                // Stato dell'applicazione
+                this.mediaRecorder = null;
+                this.audioChunks = [];
+                this.isRecording = false;
+                this.isPaused = false;
+                this.startTime = null;
+                this.elapsedTime = 0;
+                this.timerInterval = null;
+                this.notes = [];
+                this.currentNote = null;
+                
+                // Gestione doppio click ottimizzata per mobile
+                this.lastClickTime = 0;
+                this.doubleClickDelay = 400;
+                this.clickTimeout = null;
+                
+                // Stato di errore per retry logic
+                this.hasError = false;
+                
+                this.initializeElements();
+                this.attachEventListeners();
+                this.loadNotes();
+                
+                // Verifica supporto browser all'avvio
+                this.checkBrowserSupport();
+            }
+            
+            checkBrowserSupport() {
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    this.showError('Browser non supportato', 'Usa Chrome, Firefox o Safari aggiornati');
+                    return false;
+                }
+                
+                // Test disponibilità microfono (non richiede permessi)
+                navigator.mediaDevices.enumerateDevices()
+                    .then(devices => {
+                        const hasAudioInput = devices.some(device => device.kind === 'audioinput');
+                        if (!hasAudioInput) {
+                            this.showError('Nessun microfono', 'Verifica che il microfono sia collegato');
+                        }
+                    })
+                    .catch(err => {
+                        console.warn('Impossibile verificare dispositivi audio:', err);
+                    });
+                
+                return true;
+            }
+            
+            initializeElements() {
+                this.recordButton = document.getElementById('recordButton');
+                this.statusText = document.getElementById('statusText');
+                this.buttonText = document.getElementById('buttonText');
+                this.timer = document.getElementById('timer');
+                this.notesList = document.getElementById('notesList');
+                this.recordingIndicator = document.getElementById('recordingIndicator');
+            }
+            
+            attachEventListeners() {
+                // Gestione click/touch ottimizzata per mobile
+                this.recordButton.addEventListener('click', this.handleButtonClick.bind(this));
+                this.recordButton.addEventListener('touchstart', this.handleTouchStart.bind(this));
+                this.recordButton.addEventListener('touchend', this.handleTouchEnd.bind(this));
+                
+                // Previeni comportamenti indesiderati su mobile
+                this.recordButton.addEventListener('touchmove', (e) => e.preventDefault());
+                this.recordButton.addEventListener('selectstart', (e) => e.preventDefault());
+                
+                // Gestione visibilità pagina (importante per risparmio batteria)
+                document.addEventListener('visibilitychange', this.handleVisibilityChange.bind(this));
+            }
+            
+            handleTouchStart(e) {
+                e.preventDefault();
+                // Feedback tattile su dispositivi che lo supportano
+                if (navigator.vibrate) {
+                    navigator.vibrate(10);
+                }
+            }
+            
+            handleTouchEnd(e) {
+                e.preventDefault();
+                this.handleButtonClick();
+            }
+            
+            handleVisibilityChange() {
+                // Se la pagina va in background durante la registrazione, metti in pausa
+                if (document.hidden && this.isRecording) {
+                    this.pauseRecording();
+                    this.showStatus('Pausa automatica (app in background)');
+                }
+            }
+            
+            handleButtonClick() {
+                // Se c'è un errore, il click resetta e riprova
+                if (this.hasError) {
+                    this.resetErrorState();
+                    return;
+                }
+                
+                const currentTime = Date.now();
+                
+                // Clear timeout precedente se esiste
+                if (this.clickTimeout) {
+                    clearTimeout(this.clickTimeout);
+                    this.clickTimeout = null;
+                }
+                
+                // Rileva doppio click
+                if (currentTime - this.lastClickTime < this.doubleClickDelay) {
+                    this.handleDoubleClick();
+                    this.lastClickTime = 0; // Reset per evitare tripli click
+                } else {
+                    // Aspetta per vedere se arriva un secondo click
+                    this.clickTimeout = setTimeout(() => {
+                        this.handleSingleClick();
+                        this.clickTimeout = null;
+                    }, this.doubleClickDelay);
+                    this.lastClickTime = currentTime;
+                }
+            }
+            
+            handleSingleClick() {
+                if (!this.isRecording && !this.isPaused) {
+                    this.startRecording();
+                } else if (this.isRecording) {
+                    this.pauseRecording();
+                } else if (this.isPaused) {
+                    this.resumeRecording();
+                }
+            }
+            
+            handleDoubleClick() {
+                if (this.isRecording || this.isPaused) {
+                    this.stopAndSaveRecording();
+                }
+            }
+            
+            async startRecording() {
+                try {
+                    // Richiesta esplicita del microfono con configurazioni ottimali
+                    const constraints = {
+                        audio: {
+                            echoCancellation: true,
+                            noiseSuppression: true,
+                            autoGainControl: true,
+                            // Qualità bilanciata per note vocali
+                            sampleRate: 44100,
+                            channelCount: 1
+                        }
+                    };
+                    
+                    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                    
+                    // Configurazione MediaRecorder con formato ottimale
+                    const options = {};
+                    if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+                        options.mimeType = 'audio/webm;codecs=opus';
+                    } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+                        options.mimeType = 'audio/mp4';
+                    }
+                    
+                    this.mediaRecorder = new MediaRecorder(stream, options);
+                    this.audioChunks = [];
+                    
+                    // Event handlers per MediaRecorder
+                    this.mediaRecorder.ondataavailable = (event) => {
+                        if (event.data.size > 0) {
+                            this.audioChunks.push(event.data);
+                        }
+                    };
+                    
+                    this.mediaRecorder.onstop = () => {
+                        this.processRecording();
+                        // Chiudi stream per liberare microfono
+                        stream.getTracks().forEach(track => track.stop());
+                    };
+                    
+                    this.mediaRecorder.onerror = (event) => {
+                        console.error('Errore MediaRecorder:', event.error);
+                        this.handleRecordingError(event.error);
+                    };
+                    
+                    // Avvia registrazione
+                    this.mediaRecorder.start(1000); // Chunk ogni secondo per migliore gestione pause
+                    
+                    this.isRecording = true;
+                    this.isPaused = false;
+                    this.hasError = false;
+                    this.startTime = Date.now() - this.elapsedTime;
+                    this.startTimer();
+                    this.updateUI();
+                    
+                } catch (error) {
+                    console.error('Errore avvio registrazione:', error);
+                    this.handleMicrophoneError(error);
+                }
+            }
+            
+            pauseRecording() {
+                if (this.mediaRecorder && this.isRecording) {
+                    this.mediaRecorder.pause();
+                    this.isRecording = false;
+                    this.isPaused = true;
+                    this.stopTimer();
+                    this.updateUI();
+                }
+            }
+            
+            resumeRecording() {
+                if (this.mediaRecorder && this.isPaused) {
+                    this.mediaRecorder.resume();
+                    this.isRecording = true;
+                    this.isPaused = false;
+                    this.startTime = Date.now() - this.elapsedTime;
+                    this.startTimer();
+                    this.updateUI();
+                }
+            }
+            
+            stopAndSaveRecording() {
+                if (this.mediaRecorder && (this.isRecording || this.isPaused)) {
+                    this.mediaRecorder.stop();
+                    this.isRecording = false;
+                    this.isPaused = false;
+                    this.stopTimer();
+                    // L'UI sarà aggiornata quando l'evento onstop viene chiamato
+                }
+            }
+            
+            processRecording() {
+                if (this.audioChunks.length === 0) {
+                    this.showError('Registrazione vuota', 'Riprova a registrare');
+                    this.resetState();
+                    return;
+                }
+                
+                const audioBlob = new Blob(this.audioChunks, { 
+                    type: this.mediaRecorder.mimeType || 'audio/wav' 
+                });
+                this.saveNote(audioBlob);
+                this.resetState();
+            }
+            
+            resetState() {
+                this.elapsedTime = 0;
+                this.updateTimerDisplay();
+                this.updateUI();
+            }
+            
+            resetErrorState() {
+                this.hasError = false;
+                this.showStatus('Pronto per registrare');
+                this.updateUI();
+            }
+            
+            startTimer() {
+                this.timerInterval = setInterval(() => {
+                    this.elapsedTime = Date.now() - this.startTime;
+                    this.updateTimerDisplay();
+                }, 100);
+            }
+            
+            stopTimer() {
+                if (this.timerInterval) {
+                    clearInterval(this.timerInterval);
+                    this.timerInterval = null;
+                }
+            }
+            
+            updateTimerDisplay() {
+                const totalSeconds = Math.floor(this.elapsedTime / 1000);
+                const minutes = Math.floor(totalSeconds / 60);
+                const seconds = totalSeconds % 60;
+                this.timer.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }
+            
+            updateUI() {
+                // Reset classi CSS
+                this.recordButton.className = 'record-button';
+                
+                if (this.hasError) {
+                    this.recordButton.classList.add('error');
+                    this.buttonText.textContent = 'RIPROVA';
+                    this.recordingIndicator.style.display = 'none';
+                } else if (this.isRecording) {
+                    this.recordButton.classList.add('recording');
+                    this.showStatus('Registrando...');
+                    this.buttonText.textContent = 'PAUSA';
+                    this.recordingIndicator.style.display = 'block';
+                } else if (this.isPaused) {
+                    this.recordButton.classList.add('paused');
+                    this.showStatus('In pausa - Click per continuare');
+                    this.buttonText.textContent = 'RIPRENDI';
+                    this.recordingIndicator.style.display = 'none';
+                } else {
+                    this.recordButton.classList.add('idle');
+                    this.showStatus('Pronto per registrare');
+                    this.buttonText.textContent = 'INIZIA';
+                    this.recordingIndicator.style.display = 'none';
+                }
+            }
+            
+            showStatus(message) {
+                this.statusText.textContent = message;
+            }
+            
+            showError(title, description) {
+                this.hasError = true;
+                this.statusText.innerHTML = `
+                    <div style="color: #fca5a5; font-size: 1.2rem;">${title}</div>
+                    <div style="font-size: 0.9rem; margin-top: 8px; color: #cbd5e1; line-height: 1.3;">${description}</div>
+                `;
+                this.updateUI();
+            }
+            
+            handleMicrophoneError(error) {
+                let title, description;
+                
+                switch (error.name) {
+                    case 'NotAllowedError':
+                        title = 'Microfono bloccato';
+                        description = 'Tocca il lucchetto nell\'URL e seleziona "Consenti" per il microfono';
+                        break;
+                    case 'NotFoundError':
+                        title = 'Microfono non trovato';
+                        description = 'Verifica che il microfono sia collegato e funzionante';
+                        break;
+                    case 'NotSupportedError':
+                        title = 'Browser non supportato';
+                        description = 'Aggiorna il browser o prova con Chrome/Safari';
+                        break;
+                    case 'NotReadableError':
+                        title = 'Microfono in uso';
+                        description = 'Chiudi altre app che usano il microfono e riprova';
+                        break;
+                    default:
+                        title = 'Errore microfono';
+                        description = 'Ricarica la pagina e riprova';
+                }
+                
+                this.showError(title, description);
+            }
+            
+            handleRecordingError(error) {
+                console.error('Errore durante registrazione:', error);
+                this.showError('Errore registrazione', 'Interrompi e riprova');
+                this.resetState();
+            }
+            
+            saveNote(audioBlob) {
+                const note = {
+                    id: Date.now(),
+                    timestamp: new Date().toLocaleString('it-IT', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    }),
+                    duration: Math.floor(this.elapsedTime / 1000),
+                    audioUrl: URL.createObjectURL(audioBlob),
+                    size: audioBlob.size
+                };
+                
+                this.notes.unshift(note);
+                
+                // Mantieni solo le ultime 10 note per gestione memoria
+                if (this.notes.length > 10) {
+                    const removedNotes = this.notes.splice(10);
+                    removedNotes.forEach(note => {
+                        URL.revokeObjectURL(note.audioUrl);
+                    });
+                }
+                
+                this.displayNotes();
+                this.showStatus('✓ Nota salvata!');
+                
+                // Feedback tattile su salvataggio
+                if (navigator.vibrate) {
+                    navigator.vibrate([50, 50, 50]);
+                }
+                
+                // Ritorna allo stato normale dopo 2 secondi
+                setTimeout(() => {
+                    if (!this.isRecording && !this.isPaused) {
+                        this.showStatus('Pronto per registrare');
+                    }
+                }, 2000);
+            }
+            
+            displayNotes() {
+                this.notesList.innerHTML = '';
+                this.notes.slice(0, 5).forEach(note => {
+                    const noteElement = document.createElement('div');
+                    noteElement.className = 'note-item';
+                    
+                    const sizeKB = (note.size / 1024).toFixed(1);
+                    noteElement.innerHTML = `
+                        <div class="note-header">Nota ${note.duration}s • ${sizeKB}KB</div>
+                        <div class="note-time">${note.timestamp}</div>
+                    `;
+                    
+                    noteElement.addEventListener('click', () => {
+                        this.playNote(note);
+                    });
+                    
+                    this.notesList.appendChild(noteElement);
+                });
+            }
+            
+            playNote(note) {
+                try {
+                    const audio = new Audio(note.audioUrl);
+                    audio.play().catch(err => {
+                        console.error('Errore riproduzione:', err);
+                        this.showError('Errore riproduzione', 'File audio danneggiato');
+                    });
+                } catch (err) {
+                    console.error('Errore creazione audio:', err);
+                }
+            }
+            
+            loadNotes() {
+                // In una versione futura, qui si potrebbero caricare note da localStorage
+                this.displayNotes();
+            }
+        }
+        
+        // Inizializza l'app quando il DOM è pronto
+        document.addEventListener('DOMContentLoaded', () => {
+            new VoiceNotesApp();
+        });
+        
+        // Service Worker per funzionalità PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                const swData = `
+                    const CACHE_NAME = 'voice-notes-v1';
+                    const urlsToCache = ['/'];
+                    
+                    self.addEventListener('install', event => {
+                        event.waitUntil(
+                            caches.open(CACHE_NAME)
+                                .then(cache => cache.addAll(urlsToCache))
+                        );
+                    });
+                    
+                    self.addEventListener('fetch', event => {
+                        event.respondWith(
+                            caches.match(event.request)
+                                .then(response => response || fetch(event.request))
+                        );
+                    });
+                `;
+                
+                const blob = new Blob([swData], { type: 'application/javascript' });
+                const swUrl = URL.createObjectURL(blob);
+                
+                navigator.serviceWorker.register(swUrl)
+                    .then(registration => {
+                        console.log('SW registrato:', registration.scope);
+                    })
+                    .catch(error => {
+                        console.log('SW registrazione fallita:', error);
+                    });
+            });
+        }
+    </script>
+</body>
+</html>
