@@ -868,85 +868,309 @@
                 document.addEventListener('visibilitychange', this.handleVisibilityChange.bind(this));
             }
             
-            // Export tutte le note dal database locale
+            // Export tutte le note dal database locale (con diagnostica dettagliata)
             async exportAllNotesFromDB() {
-                if (!this.db) {
-                    this.showStatus('Database non disponibile');
-                    return;
-                }
-                
                 try {
-                    this.showStatus('Recuperando note dal backup...');
+                    this.showStatus('Avviando export...');
                     
-                    // Ottieni tutte le note dal database
-                    const transaction = this.db.transaction(['notes'], 'readonly');
-                    const allNotes = await this.promisifyRequest(
-                        transaction.objectStore('notes').getAll()
-                    );
+                    // Verifica 1: Database disponibile
+                    if (!this.db) {
+                        this.showStatus('Errore: Database non inizializzato');
+                        console.error('Database non disponibile');
+                        return await this.fallbackExportFromMemory();
+                    }
+                    
+                    this.showStatus('Database OK, recuperando note...');
+                    
+                    // Verifica 2: Accesso al database
+                    let allNotes;
+                    try {
+                        const transaction = this.db.transaction(['notes'], 'readonly');
+                        allNotes = await this.promisifyRequest(
+                            transaction.objectStore('notes').getAll()
+                        );
+                        console.log('Note recuperate dal DB:', allNotes.length);
+                    } catch (dbError) {
+                        console.error('Errore accesso database:', dbError);
+                        this.showStatus('Errore lettura database');
+                        return await this.fallbackExportFromMemory();
+                    }
                     
                     if (allNotes.length === 0) {
-                        this.showStatus('Nessuna nota nel backup');
+                        this.showStatus('Nessuna nota nel backup - provo memoria...');
+                        return await this.fallbackExportFromMemory();
+                    }
+                    
+                    this.showStatus(`Trovate ${allNotes.length} note, creando export...`);
+                    
+                    // Verifica 3: Creazione indice
+                    let indexData;
+                    try {
+                        allNotes.sort((a, b) => b.id - a.id);
+                        
+                        indexData = {
+                            exported: new Date().toISOString(),
+                            totalNotes: allNotes.length,
+                            appVersion: 'VoiceNotes-Auto-v1.2-backup',
+                            exportMethod: navigator.share ? 'Web Share API disponibile' : 'Download Classico',
+                            debug: {
+                                userAgent: navigator.userAgent.includes('iPhone') ? 'iPhone' : 'Altri',
+                                shareSupported: !!navigator.share,
+                                dbConnected: !!this.db
+                            },
+                            notes: allNotes.map(note => ({
+                                id: note.id,
+                                timestamp: note.timestamp,
+                                duration: note.duration,
+                                hasTranscript: note.hasTranscript,
+                                scope: note.scope || 'generale',
+                                wordCount: note.transcript ? note.transcript.split(' ').length : 0,
+                                preview: note.cleanedTranscript ? note.cleanedTranscript.slice(0, 100) + '...' : 
+                                        note.transcript ? note.transcript.slice(0, 100) + '...' : 'Solo audio'
+                            }))
+                        };
+                        console.log('Indice creato:', indexData);
+                    } catch (indexError) {
+                        console.error('Errore creazione indice:', indexError);
+                        this.showStatus('Errore creazione indice');
                         return;
                     }
                     
-                    // Ordina per timestamp (più recenti prima)
-                    allNotes.sort((a, b) => b.id - a.id);
-                    
-                    // Crea indice generale
-                    const indexData = {
-                        exported: new Date().toISOString(),
-                        totalNotes: allNotes.length,
-                        appVersion: 'VoiceNotes-Auto-v1.1',
-                        exportMethod: 'Database Locale + ' + (navigator.share ? 'Web Share API' : 'Download Classico'),
-                        notes: allNotes.map(note => ({
-                            id: note.id,
-                            timestamp: note.timestamp,
-                            duration: note.duration,
-                            hasTranscript: note.hasTranscript,
-                            scope: note.scope || 'generale',
-                            wordCount: note.transcript ? note.transcript.split(' ').length : 0,
-                            preview: note.cleanedTranscript ? note.cleanedTranscript.slice(0, 100) + '...' : 
-                                    note.transcript ? note.transcript.slice(0, 100) + '...' : 'Solo audio'
-                        }))
-                    };
-                    
-                    // Export indice
-                    const dateStr = new Date().toISOString().slice(0, 10);
-                    const indexSuccess = await this.downloadFile(
-                        JSON.stringify(indexData, null, 2),
-                        `voice_notes_index_${dateStr}.json`,
-                        'application/json'
-                    );
-                    
-                    if (!indexSuccess) {
-                        this.showStatus('Errore export indice');
+                    // Verifica 4: Download indice
+                    this.showStatus('Salvando indice...');
+                    try {
+                        const dateStr = new Date().toISOString().slice(0, 10);
+                        const indexSuccess = await this.debugDownloadFile(
+                            JSON.stringify(indexData, null, 2),
+                            `voice_notes_index_${dateStr}.json`,
+                            'application/json'
+                        );
+                        
+                        if (!indexSuccess) {
+                            this.showStatus('Errore salvataggio indice');
+                            return;
+                        }
+                        console.log('Indice salvato con successo');
+                    } catch (downloadError) {
+                        console.error('Errore download indice:', downloadError);
+                        this.showStatus('Errore download indice: ' + downloadError.message);
                         return;
                     }
                     
-                    // Export note individuali con ritardo per evitare sovraccarico
+                    // Verifica 5: Export note individuali
+                    this.showStatus('Esportando note individuali...');
                     let successCount = 0;
-                    for (let i = 0; i < allNotes.length; i++) {
-                        this.showStatus(`Esportando ${i + 1}/${allNotes.length}...`);
-                        
-                        const success = await this.exportNoteFromDB(allNotes[i].id);
-                        if (success) successCount++;
-                        
-                        // Pausa tra export per non sovraccaricare
-                        if (i < allNotes.length - 1) {
-                            await new Promise(resolve => setTimeout(resolve, 800));
+                    
+                    for (let i = 0; i < Math.min(allNotes.length, 5); i++) { // Limita a 5 per test
+                        try {
+                            this.showStatus(`Esportando ${i + 1}/${Math.min(allNotes.length, 5)}...`);
+                            
+                            const success = await this.debugExportNoteFromDB(allNotes[i].id);
+                            if (success) {
+                                successCount++;
+                                console.log(`Nota ${i + 1} esportata con successo`);
+                            } else {
+                                console.log(`Nota ${i + 1} fallita`);
+                            }
+                            
+                            // Pausa tra export
+                            if (i < allNotes.length - 1) {
+                                await new Promise(resolve => setTimeout(resolve, 500));
+                            }
+                        } catch (noteError) {
+                            console.error(`Errore export nota ${i + 1}:`, noteError);
                         }
                     }
                     
-                    this.showStatus(`✓ Export completato! ${successCount}/${allNotes.length} note esportate`);
+                    this.showStatus(`✓ Export completato! ${successCount}/${Math.min(allNotes.length, 5)} note esportate`);
                     
-                    // Feedback tattile
                     if (navigator.vibrate) {
                         navigator.vibrate([100, 50, 100]);
                     }
                     
                 } catch (error) {
-                    console.error('Errore export completo da DB:', error);
-                    this.showStatus('Errore durante export');
+                    console.error('Errore generale export:', error);
+                    this.showStatus('Errore generale: ' + error.message);
+                    
+                    // Ultimo tentativo con fallback
+                    await this.fallbackExportFromMemory();
+                }
+            }
+            
+            // Sistema di download con diagnostica dettagliata
+            async debugDownloadFile(content, filename, type = 'text/plain') {
+                console.log('Tentativo download:', filename, 'Tipo:', type, 'Dimensione:', content.length);
+                
+                try {
+                    const blob = new Blob([content], { type });
+                    console.log('Blob creato:', blob.size, 'bytes');
+                    
+                    // Verifica Web Share API
+                    if (navigator.share && this.isMobileDevice()) {
+                        console.log('Tentativo Web Share API...');
+                        try {
+                            const file = new File([blob], filename, { type });
+                            console.log('File creato per share:', file.name, file.size);
+                            
+                            await navigator.share({
+                                files: [file],
+                                title: 'Voice Notes Export',
+                                text: `Condividi ${filename}`
+                            });
+                            console.log('Web Share completato con successo');
+                            return true;
+                        } catch (shareError) {
+                            console.log('Web Share fallito:', shareError.name, shareError.message);
+                            if (shareError.name === 'AbortError') {
+                                console.log('Utente ha cancellato condivisione');
+                                return true; // Non è un errore
+                            }
+                            // Continua con fallback
+                        }
+                    } else {
+                        console.log('Web Share non disponibile, usando fallback');
+                    }
+                    
+                    // Fallback: download classico
+                    console.log('Tentativo download classico...');
+                    try {
+                        const url = URL.createObjectURL(blob);
+                        console.log('URL blob creato:', url);
+                        
+                        const link = document.createElement('a');
+                        link.href = url;
+                        link.download = filename;
+                        link.style.display = 'none';
+                        
+                        document.body.appendChild(link);
+                        console.log('Link aggiunto al DOM');
+                        
+                        link.click();
+                        console.log('Click su link eseguito');
+                        
+                        document.body.removeChild(link);
+                        
+                        setTimeout(() => {
+                            URL.revokeObjectURL(url);
+                            console.log('URL blob pulito');
+                        }, 2000);
+                        
+                        return true;
+                    } catch (classicError) {
+                        console.error('Download classico fallito:', classicError);
+                        return false;
+                    }
+                    
+                } catch (error) {
+                    console.error('Errore generale download:', error);
+                    return false;
+                }
+            }
+            
+            // Export singola nota con diagnostica
+            async debugExportNoteFromDB(noteId) {
+                console.log('Export nota ID:', noteId);
+                
+                if (!this.db) {
+                    console.error('Database non disponibile per export nota');
+                    return false;
+                }
+                
+                try {
+                    // Recupera metadati nota
+                    const transaction = this.db.transaction(['notes'], 'readonly');
+                    const noteData = await this.promisifyRequest(
+                        transaction.objectStore('notes').get(noteId)
+                    );
+                    
+                    if (!noteData) {
+                        console.error('Nota non trovata:', noteId);
+                        return false;
+                    }
+                    
+                    console.log('Nota recuperata:', noteData.timestamp, noteData.transcript ? noteData.transcript.slice(0, 50) + '...' : 'no transcript');
+                    
+                    // Crea package JSON
+                    const packageData = {
+                        metadata: {
+                            id: noteData.id,
+                            timestamp: noteData.timestamp,
+                            duration: noteData.duration,
+                            size: noteData.size,
+                            hasTranscript: noteData.hasTranscript,
+                            scope: noteData.scope,
+                            exported: new Date().toISOString(),
+                            appVersion: 'VoiceNotes-Auto-v1.2-backup'
+                        },
+                        transcript: noteData.cleanedTranscript || noteData.transcript || '',
+                        originalTranscript: noteData.transcript || '',
+                        wordCount: noteData.transcript ? noteData.transcript.split(' ').filter(w => w.length > 0).length : 0
+                    };
+                    
+                    const filename = this.generateFilename({
+                        id: noteData.id,
+                        transcript: noteData.transcript
+                    });
+                    
+                    console.log('Package creato per:', filename);
+                    
+                    // Export JSON
+                    const jsonSuccess = await this.debugDownloadFile(
+                        JSON.stringify(packageData, null, 2),
+                        `${filename}.json`,
+                        'application/json'
+                    );
+                    
+                    console.log('JSON export result:', jsonSuccess);
+                    return jsonSuccess;
+                    
+                } catch (error) {
+                    console.error('Errore export nota da DB:', error);
+                    return false;
+                }
+            }
+            
+            // Fallback: export dalle note in memoria
+            async fallbackExportFromMemory() {
+                console.log('Usando fallback: export da memoria');
+                this.showStatus('Fallback: export da memoria...');
+                
+                if (this.notes.length === 0) {
+                    this.showStatus('Nessuna nota in memoria');
+                    return;
+                }
+                
+                try {
+                    const memoryData = {
+                        exported: new Date().toISOString(),
+                        source: 'memoria_fallback',
+                        totalNotes: this.notes.length,
+                        appVersion: 'VoiceNotes-Auto-v1.2-backup',
+                        notes: this.notes.map(note => ({
+                            id: note.id,
+                            timestamp: note.timestamp,
+                            duration: note.duration,
+                            transcript: note.transcript || '',
+                            hasTranscript: note.hasTranscript,
+                            size: note.size
+                        }))
+                    };
+                    
+                    const success = await this.debugDownloadFile(
+                        JSON.stringify(memoryData, null, 2),
+                        `voice_notes_fallback_${Date.now()}.json`,
+                        'application/json'
+                    );
+                    
+                    if (success) {
+                        this.showStatus('✓ Fallback export completato');
+                    } else {
+                        this.showStatus('Errore anche nel fallback');
+                    }
+                    
+                } catch (error) {
+                    console.error('Errore fallback:', error);
+                    this.showStatus('Fallback fallito: ' + error.message);
                 }
             }
             
