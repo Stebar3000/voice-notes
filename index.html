@@ -155,12 +155,66 @@
             font-style: italic;
         }
 
-        .speech-controls {
+        .export-controls {
             display: flex;
             justify-content: center;
             gap: 10px;
             margin: 1rem 0;
             flex-wrap: wrap;
+        }
+
+        .export-btn {
+            background: rgba(34, 197, 94, 0.2);
+            border: 1px solid rgba(34, 197, 94, 0.4);
+            color: #22c55e;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .export-btn:hover {
+            background: rgba(34, 197, 94, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .export-btn:active {
+            transform: translateY(0);
+        }
+
+        .auto-save-status {
+            font-size: 0.7rem;
+            color: #94a3b8;
+            text-align: center;
+            margin-top: 5px;
+        }
+
+        .note-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+            justify-content: flex-end;
+        }
+
+        .note-btn {
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: #cbd5e1;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .note-btn:hover {
+            background: rgba(255,255,255,0.2);
+            color: white;
         }
 
         .speech-toggle {
@@ -310,6 +364,18 @@
             </button>
         </div>
         
+        <div class="export-controls">
+            <button class="export-btn" id="exportAllBtn">
+                💾 Salva tutte le note
+            </button>
+            <button class="export-btn" id="autoSaveToggle">
+                🔄 Auto-salvataggio ON
+            </button>
+        </div>
+        <div class="auto-save-status" id="autoSaveStatus">
+            Auto-salvataggio attivo - Le note vengono salvate automaticamente
+        </div>
+        
         <button class="record-button idle" id="recordButton">
             <span id="buttonText">INIZIA</span>
             <div class="recording-indicator" id="recordingIndicator" style="display: none;"></div>
@@ -358,8 +424,13 @@
                 this.finalTranscript = '';
                 this.interimTranscript = '';
                 
+                // Sistema di persistenza e auto-salvataggio
+                this.autoSaveEnabled = true;
+                this.lastAutoSave = null;
+                
                 this.initializeElements();
                 this.initializeSpeechRecognition();
+                this.initializePersistence();
                 this.attachEventListeners();
                 this.loadNotes();
                 
@@ -565,6 +636,37 @@
                 this.transcriptionArea = document.getElementById('transcriptionArea');
                 this.finalTranscriptElement = document.getElementById('finalTranscript');
                 this.interimTranscriptElement = document.getElementById('interimTranscript');
+                
+                // Elementi per la persistenza
+                this.exportAllBtn = document.getElementById('exportAllBtn');
+                this.autoSaveToggle = document.getElementById('autoSaveToggle');
+                this.autoSaveStatus = document.getElementById('autoSaveStatus');
+            }
+            
+            initializePersistence() {
+                // Carica preferenze auto-salvataggio dal localStorage (se disponibile)
+                const savedAutoSave = localStorage.getItem('voiceNotes_autoSave');
+                if (savedAutoSave !== null) {
+                    this.autoSaveEnabled = savedAutoSave === 'true';
+                }
+                this.updateAutoSaveUI();
+                
+                // Gestisci chiusura improvvisa della pagina
+                window.addEventListener('beforeunload', (e) => {
+                    if (this.notes.length > 0 && this.autoSaveEnabled) {
+                        this.emergencyExportAllNotes();
+                    }
+                });
+                
+                // Auto-salvataggio periodico ogni 5 minuti se ci sono note non salvate
+                setInterval(() => {
+                    if (this.autoSaveEnabled && this.notes.length > 0) {
+                        const now = Date.now();
+                        if (!this.lastAutoSave || (now - this.lastAutoSave) > 300000) { // 5 minuti
+                            this.autoExportRecentNotes();
+                        }
+                    }
+                }, 60000); // Controlla ogni minuto
             }
             
             attachEventListeners() {
@@ -576,12 +678,227 @@
                 // Toggle trascrizione
                 this.speechToggle.addEventListener('click', this.toggleSpeechRecognition.bind(this));
                 
+                // Controlli di persistenza
+                this.exportAllBtn.addEventListener('click', this.exportAllNotes.bind(this));
+                this.autoSaveToggle.addEventListener('click', this.toggleAutoSave.bind(this));
+                
                 // Previeni comportamenti indesiderati su mobile
                 this.recordButton.addEventListener('touchmove', (e) => e.preventDefault());
                 this.recordButton.addEventListener('selectstart', (e) => e.preventDefault());
                 
                 // Gestione visibilità pagina (importante per risparmio batteria)
                 document.addEventListener('visibilitychange', this.handleVisibilityChange.bind(this));
+            }
+            
+            toggleAutoSave() {
+                this.autoSaveEnabled = !this.autoSaveEnabled;
+                
+                // Salva preferenza
+                localStorage.setItem('voiceNotes_autoSave', this.autoSaveEnabled.toString());
+                
+                this.updateAutoSaveUI();
+                
+                // Se attivato e ci sono note, esporta immediatamente
+                if (this.autoSaveEnabled && this.notes.length > 0) {
+                    this.autoExportRecentNotes();
+                }
+            }
+            
+            updateAutoSaveUI() {
+                if (this.autoSaveEnabled) {
+                    this.autoSaveToggle.textContent = '🔄 Auto-salvataggio ON';
+                    this.autoSaveToggle.style.background = 'rgba(34, 197, 94, 0.2)';
+                    this.autoSaveToggle.style.borderColor = 'rgba(34, 197, 94, 0.4)';
+                    this.autoSaveToggle.style.color = '#22c55e';
+                    this.autoSaveStatus.textContent = 'Auto-salvataggio attivo - Le note vengono salvate automaticamente';
+                } else {
+                    this.autoSaveToggle.textContent = '⏸️ Auto-salvataggio OFF';
+                    this.autoSaveToggle.style.background = 'rgba(239, 68, 68, 0.2)';
+                    this.autoSaveToggle.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+                    this.autoSaveToggle.style.color = '#ef4444';
+                    this.autoSaveStatus.textContent = 'Auto-salvataggio disattivato - Ricorda di salvare manualmente';
+                }
+            }
+            
+            // Crea un package completo per Dropbox con audio + trascrizione
+            async createNotePackage(note) {
+                const packageData = {
+                    metadata: {
+                        id: note.id,
+                        timestamp: note.timestamp,
+                        duration: note.duration,
+                        size: note.size,
+                        hasTranscript: note.hasTranscript,
+                        exported: new Date().toISOString(),
+                        appVersion: 'VoiceNotes-Auto-v1.0'
+                    },
+                    transcript: note.transcript || '',
+                    wordCount: note.transcript ? note.transcript.split(' ').filter(w => w.length > 0).length : 0
+                };
+                
+                return {
+                    json: JSON.stringify(packageData, null, 2),
+                    audio: await this.getAudioBlob(note.audioUrl),
+                    filename: this.generateFilename(note)
+                };
+            }
+            
+            async getAudioBlob(audioUrl) {
+                return new Promise((resolve) => {
+                    fetch(audioUrl)
+                        .then(response => response.blob())
+                        .then(blob => resolve(blob))
+                        .catch(err => {
+                            console.error('Errore recupero audio:', err);
+                            resolve(null);
+                        });
+                });
+            }
+            
+            generateFilename(note) {
+                const date = new Date(note.id);
+                const dateStr = date.toISOString().slice(0, 19).replace(/[T:]/g, '-');
+                const words = note.transcript ? note.transcript.slice(0, 30).replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_') : 'nota_vocale';
+                return `${dateStr}_${words}`;
+            }
+            
+            // Download di un singolo file
+            downloadFile(content, filename, type = 'text/plain') {
+                const blob = new Blob([content], { type });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            }
+            
+            // Download di un blob (per audio)
+            downloadBlob(blob, filename) {
+                if (!blob) return;
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            }
+            
+            // Esporta una singola nota con tutti i suoi componenti
+            async exportNote(note) {
+                try {
+                    const notePackage = await this.createNotePackage(note);
+                    
+                    // Download del JSON con metadati e trascrizione
+                    this.downloadFile(notePackage.json, `${notePackage.filename}.json`, 'application/json');
+                    
+                    // Download dell'audio se disponibile
+                    if (notePackage.audio) {
+                        const audioExtension = notePackage.audio.type.includes('webm') ? 'webm' : 'mp4';
+                        this.downloadBlob(notePackage.audio, `${notePackage.filename}.${audioExtension}`);
+                    }
+                    
+                    return true;
+                } catch (error) {
+                    console.error('Errore export nota:', error);
+                    return false;
+                }
+            }
+            
+            // Esporta tutte le note
+            async exportAllNotes() {
+                if (this.notes.length === 0) {
+                    this.showStatus('Nessuna nota da esportare');
+                    return;
+                }
+                
+                this.showStatus('Preparando export...');
+                
+                try {
+                    // Crea un indice generale
+                    const indexData = {
+                        exported: new Date().toISOString(),
+                        totalNotes: this.notes.length,
+                        appVersion: 'VoiceNotes-Auto-v1.0',
+                        notes: this.notes.map(note => ({
+                            id: note.id,
+                            timestamp: note.timestamp,
+                            duration: note.duration,
+                            hasTranscript: note.hasTranscript,
+                            wordCount: note.transcript ? note.transcript.split(' ').length : 0,
+                            preview: note.transcript ? note.transcript.slice(0, 100) + '...' : 'Solo audio'
+                        }))
+                    };
+                    
+                    // Download indice
+                    const dateStr = new Date().toISOString().slice(0, 10);
+                    this.downloadFile(JSON.stringify(indexData, null, 2), `voice_notes_index_${dateStr}.json`, 'application/json');
+                    
+                    // Export di ogni nota individualmente
+                    for (let i = 0; i < this.notes.length; i++) {
+                        await this.exportNote(this.notes[i]);
+                        this.showStatus(`Esportando nota ${i + 1}/${this.notes.length}...`);
+                        
+                        // Piccola pausa per non sovraccaricare il browser
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                    }
+                    
+                    this.lastAutoSave = Date.now();
+                    this.showStatus(`✓ Export completato! ${this.notes.length} note salvate`);
+                    
+                    // Feedback tattile
+                    if (navigator.vibrate) {
+                        navigator.vibrate([100, 50, 100]);
+                    }
+                    
+                } catch (error) {
+                    console.error('Errore export completo:', error);
+                    this.showStatus('Errore durante export');
+                }
+            }
+            
+            // Auto-export delle note recenti (per salvataggio automatico)
+            async autoExportRecentNotes() {
+                if (!this.autoSaveEnabled || this.notes.length === 0) return;
+                
+                const recentNotes = this.notes.filter(note => {
+                    const noteTime = note.id;
+                    const fiveMinutesAgo = Date.now() - 300000;
+                    return noteTime > fiveMinutesAgo;
+                });
+                
+                if (recentNotes.length === 0) return;
+                
+                for (const note of recentNotes) {
+                    await this.exportNote(note);
+                }
+                
+                this.lastAutoSave = Date.now();
+                this.autoSaveStatus.textContent = `Auto-salvate ${recentNotes.length} note alle ${new Date().toLocaleTimeString()}`;
+            }
+            
+            // Export di emergenza (se la pagina viene chiusa)
+            emergencyExportAllNotes() {
+                if (this.notes.length === 0) return;
+                
+                // Export veloce solo dei dati JSON (l'audio potrebbe non fare in tempo)
+                const emergencyData = {
+                    emergency: true,
+                    exported: new Date().toISOString(),
+                    notes: this.notes.map(note => ({
+                        id: note.id,
+                        timestamp: note.timestamp,
+                        duration: note.duration,
+                        transcript: note.transcript || '',
+                        hasTranscript: note.hasTranscript
+                    }))
+                };
+                
+                this.downloadFile(JSON.stringify(emergencyData, null, 2), `emergency_backup_${Date.now()}.json`, 'application/json');
             }
             
             handleTouchStart(e) {
@@ -900,6 +1217,16 @@
                 
                 this.displayNotes();
                 
+                // Auto-salvataggio immediato se abilitato
+                if (this.autoSaveEnabled) {
+                    this.exportNote(note).then(success => {
+                        if (success) {
+                            this.lastAutoSave = Date.now();
+                            this.autoSaveStatus.textContent = `Ultima nota salvata alle ${new Date().toLocaleTimeString()}`;
+                        }
+                    });
+                }
+                
                 // Messaggio di conferma più informativo
                 if (note.hasTranscript) {
                     const wordCount = transcriptText.split(' ').filter(word => word.length > 0).length;
@@ -957,20 +1284,62 @@
                         `;
                     }
                     
+                    // Aggiungi controlli per singola nota
+                    noteHTML += `
+                        <div class="note-actions">
+                            <button class="note-btn" data-action="export" data-note-id="${note.id}">💾 Salva</button>
+                            <button class="note-btn" data-action="delete" data-note-id="${note.id}">🗑️ Elimina</button>
+                        </div>
+                    `;
+                    
                     noteElement.innerHTML = noteHTML;
                     
-                    // Click per riprodurre audio
+                    // Event listeners per le azioni
                     noteElement.addEventListener('click', (e) => {
-                        // Non riprodurre se si clicca sul pulsante "Mostra tutto"
                         if (e.target.classList.contains('transcript-toggle')) {
                             this.toggleFullTranscript(e.target, note.transcript);
                             return;
                         }
+                        
+                        if (e.target.classList.contains('note-btn')) {
+                            const action = e.target.dataset.action;
+                            const noteId = parseInt(e.target.dataset.noteId);
+                            
+                            if (action === 'export') {
+                                this.exportNote(note);
+                            } else if (action === 'delete') {
+                                this.deleteNote(noteId);
+                            }
+                            return;
+                        }
+                        
+                        // Click normale per riprodurre
                         this.playNote(note);
                     });
                     
                     this.notesList.appendChild(noteElement);
                 });
+            }
+            
+            deleteNote(noteId) {
+                const noteIndex = this.notes.findIndex(note => note.id === noteId);
+                if (noteIndex === -1) return;
+                
+                // Libera la memoria dell'audio
+                URL.revokeObjectURL(this.notes[noteIndex].audioUrl);
+                
+                // Rimuovi dalla lista
+                this.notes.splice(noteIndex, 1);
+                
+                // Aggiorna display
+                this.displayNotes();
+                
+                this.showStatus('Nota eliminata');
+                setTimeout(() => {
+                    if (!this.isRecording && !this.isPaused) {
+                        this.showStatus('Pronto per registrare');
+                    }
+                }, 1500);
             }
             
             toggleFullTranscript(button, fullTranscript) {
