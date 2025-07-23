@@ -794,6 +794,23 @@
                 }
             }
             
+            // Rileva se siamo su dispositivo mobile
+            isMobileDevice() {
+                const toMatch = [
+                    /Android/i,
+                    /webOS/i,
+                    /iPhone/i,
+                    /iPad/i,
+                    /iPod/i,
+                    /BlackBerry/i,
+                    /Windows Phone/i
+                ];
+                
+                return toMatch.some((toMatchItem) => {
+                    return navigator.userAgent.match(toMatchItem);
+                });
+            }
+            
             // Utility per convertire request IndexedDB in Promise
             promisifyRequest(request) {
                 return new Promise((resolve, reject) => {
@@ -1174,52 +1191,88 @@
                 }
             }
             
-            // Export aggregato dal database locale
+            // Export aggregato dal database locale (con diagnostica)
             async exportAggregatedNotesFromDB() {
-                if (!this.db) {
-                    this.showStatus('Database non disponibile');
-                    return;
-                }
-                
                 try {
-                    this.showStatus('Creando export aggregato dal backup...');
+                    this.showStatus('Avviando export aggregato...');
+                    console.log('Inizio export aggregato');
                     
-                    // Ottieni tutte le note dal database
-                    const transaction = this.db.transaction(['notes'], 'readonly');
-                    const allNotes = await this.promisifyRequest(
-                        transaction.objectStore('notes').getAll()
-                    );
-                    
-                    if (allNotes.length === 0) {
-                        this.showStatus('Nessuna nota nel backup');
-                        return;
+                    // Verifica database
+                    if (!this.db) {
+                        console.error('Database non disponibile per export aggregato');
+                        this.showStatus('Database non disponibile');
+                        return await this.fallbackAggregatedFromMemory();
                     }
                     
-                    // Crea export aggregato usando le note del database
-                    const aggregatedData = await this.createAggregatedExportFromDB(allNotes);
+                    console.log('Database OK, recuperando note per aggregazione...');
+                    this.showStatus('Recuperando note...');
                     
-                    if (!aggregatedData) {
+                    // Ottieni tutte le note dal database
+                    let allNotes;
+                    try {
+                        const transaction = this.db.transaction(['notes'], 'readonly');
+                        allNotes = await this.promisifyRequest(
+                            transaction.objectStore('notes').getAll()
+                        );
+                        console.log('Note recuperate per aggregazione:', allNotes.length);
+                    } catch (dbError) {
+                        console.error('Errore DB in export aggregato:', dbError);
+                        this.showStatus('Errore lettura database');
+                        return await this.fallbackAggregatedFromMemory();
+                    }
+                    
+                    if (allNotes.length === 0) {
+                        this.showStatus('Nessuna nota nel backup per aggregazione');
+                        return await this.fallbackAggregatedFromMemory();
+                    }
+                    
+                    this.showStatus('Creando aggregazione...');
+                    console.log('Creando export aggregato da', allNotes.length, 'note');
+                    
+                    // Crea export aggregato
+                    let aggregatedData;
+                    try {
+                        aggregatedData = await this.debugCreateAggregatedExportFromDB(allNotes);
+                        console.log('Aggregazione creata:', aggregatedData ? 'SUCCESS' : 'FAILED');
+                    } catch (aggError) {
+                        console.error('Errore creazione aggregazione:', aggError);
                         this.showStatus('Errore creazione aggregato');
                         return;
                     }
                     
+                    if (!aggregatedData) {
+                        this.showStatus('Errore nella creazione aggregato');
+                        return;
+                    }
+                    
                     // Export file markdown
-                    const markdownSuccess = await this.downloadFile(
+                    this.showStatus('Salvando markdown...');
+                    console.log('Tentativo salvataggio markdown, dimensione:', aggregatedData.content.length);
+                    
+                    const markdownSuccess = await this.debugDownloadFile(
                         aggregatedData.content,
                         `${aggregatedData.filename}.md`,
                         'text/markdown'
                     );
                     
                     if (!markdownSuccess) {
-                        this.showStatus('Errore export markdown');
+                        console.error('Fallimento salvataggio markdown');
+                        this.showStatus('Errore salvataggio markdown');
                         return;
                     }
+                    
+                    console.log('Markdown salvato, tentativo salvataggio statistiche...');
                     
                     // Export statistiche
                     const statsData = {
                         generated: new Date().toISOString(),
                         stats: aggregatedData.stats,
                         exportMethod: 'Database Locale + ' + (navigator.share ? 'Web Share API' : 'Download Classico'),
+                        debug: {
+                            totalNotesProcessed: allNotes.length,
+                            scopesFound: aggregatedData.stats.scopes.length,
+                            markdownSize: aggregatedData.content.length
+                        },
                         instructions: {
                             purpose: "File di supporto per post-elaborazione AI",
                             usage: "Usare insieme al file markdown per analisi avanzate",
@@ -1228,13 +1281,14 @@
                         }
                     };
                     
-                    const statsSuccess = await this.downloadFile(
+                    const statsSuccess = await this.debugDownloadFile(
                         JSON.stringify(statsData, null, 2),
                         `${aggregatedData.filename}_stats.json`,
                         'application/json'
                     );
                     
                     if (statsSuccess) {
+                        console.log('Export aggregato completato con successo');
                         this.showStatus(`✓ Export aggregato creato! ${aggregatedData.stats.scopes.length} ambiti`);
                         
                         setTimeout(() => {
@@ -1245,11 +1299,190 @@
                         if (navigator.vibrate) {
                             navigator.vibrate([100, 50, 100, 50, 100]);
                         }
+                    } else {
+                        console.error('Fallimento salvataggio statistiche');
+                        this.showStatus('Errore salvataggio statistiche');
                     }
                     
                 } catch (error) {
-                    console.error('Errore export aggregato da DB:', error);
-                    this.showStatus('Errore export aggregato');
+                    console.error('Errore generale export aggregato:', error);
+                    this.showStatus('Errore aggregato: ' + error.message);
+                    
+                    // Fallback
+                    await this.fallbackAggregatedFromMemory();
+                }
+            }
+            
+            // Versione con diagnostica della creazione aggregato
+            async debugCreateAggregatedExportFromDB(dbNotes) {
+                console.log('Inizio creazione aggregato da', dbNotes.length, 'note DB');
+                
+                if (dbNotes.length === 0) {
+                    console.log('Nessuna nota da aggregare');
+                    return null;
+                }
+                
+                try {
+                    // Raggruppa per ambito
+                    const notesByScope = {};
+                    let processedNotes = 0;
+                    
+                    dbNotes.forEach(note => {
+                        try {
+                            const scope = note.scope || this.extractScope(note.transcript) || 'generale';
+                            if (!notesByScope[scope]) {
+                                notesByScope[scope] = [];
+                            }
+                            notesByScope[scope].push(note);
+                            processedNotes++;
+                        } catch (noteError) {
+                            console.error('Errore processamento nota:', note.id, noteError);
+                        }
+                    });
+                    
+                    console.log('Note processate:', processedNotes, 'Ambiti trovati:', Object.keys(notesByScope));
+                    
+                    // Genera contenuto markdown
+                    let aggregatedContent = `# Note Vocali Aggregate - ${new Date().toLocaleDateString('it-IT')}\n\n`;
+                    aggregatedContent += `Generato da backup locale automatico\n`;
+                    aggregatedContent += `Totale note processate: ${processedNotes}\n`;
+                    aggregatedContent += `Ambiti identificati: ${Object.keys(notesByScope).length}\n\n`;
+                    
+                    // Istruzioni per l'uso dei TAG
+                    aggregatedContent += `## 📋 Sistema di Tag per Ambiti\n\n`;
+                    aggregatedContent += `Per garantire riconoscimento perfetto degli ambiti, usa uno di questi formati:\n\n`;
+                    aggregatedContent += `- **Formato TAG**: "TAG [ambito] - [contenuto]"\n`;
+                    aggregatedContent += `  Esempio: "TAG urgente - chiamare il cliente entro domani"\n\n`;
+                    aggregatedContent += `- **Formato AMBITO**: "AMBITO [nome] FINE [contenuto]"\n`;
+                    aggregatedContent += `  Esempio: "AMBITO spese FINE comprare materiale ufficio"\n\n`;
+                    aggregatedContent += `---\n\n`;
+                    
+                    // Indice ambiti
+                    aggregatedContent += `## Indice degli Ambiti\n\n`;
+                    Object.keys(notesByScope).sort().forEach(scope => {
+                        const count = notesByScope[scope].length;
+                        const totalWords = notesByScope[scope].reduce((sum, note) => {
+                            const text = note.cleanedTranscript || note.transcript || '';
+                            return sum + (text ? text.split(' ').length : 0);
+                        }, 0);
+                        aggregatedContent += `- **${scope.toUpperCase()}**: ${count} note, ${totalWords} parole totali\n`;
+                    });
+                    aggregatedContent += `\n---\n\n`;
+                    
+                    // Sezione prioritaria URGENTE
+                    if (notesByScope['urgente']) {
+                        console.log('Processando sezione URGENTE con', notesByScope['urgente'].length, 'note');
+                        aggregatedContent += `## 🚨 AMBITO PRIORITARIO: URGENTE\n\n`;
+                        notesByScope['urgente'].forEach((note, index) => {
+                            aggregatedContent += `### Nota Urgente ${index + 1}\n`;
+                            aggregatedContent += `**Data**: ${note.timestamp} | **Durata**: ${note.duration}s\n\n`;
+                            const content = note.cleanedTranscript || note.transcript || '[Solo audio]';
+                            aggregatedContent += `${content}\n\n`;
+                            aggregatedContent += `---\n\n`;
+                        });
+                    }
+                    
+                    // Altri ambiti
+                    Object.keys(notesByScope).sort().forEach(scope => {
+                        if (scope === 'urgente') return;
+                        
+                        console.log('Processando ambito:', scope, 'con', notesByScope[scope].length, 'note');
+                        aggregatedContent += `## 📁 AMBITO: ${scope.toUpperCase()}\n\n`;
+                        
+                        notesByScope[scope].forEach((note, index) => {
+                            aggregatedContent += `### ${scope} - Nota ${index + 1}\n`;
+                            aggregatedContent += `**Data**: ${note.timestamp} | **Durata**: ${note.duration}s`;
+                            if (note.hasTranscript) {
+                                const text = note.cleanedTranscript || note.transcript || '';
+                                const wordCount = text ? text.split(' ').length : 0;
+                                aggregatedContent += ` | **Parole**: ${wordCount}`;
+                            }
+                            aggregatedContent += `\n\n`;
+                            
+                            const content = note.cleanedTranscript || note.transcript || '[Solo audio]';
+                            aggregatedContent += `${content}\n\n`;
+                            aggregatedContent += `---\n\n`;
+                        });
+                    });
+                    
+                    // Istruzioni per AI
+                    aggregatedContent += `## 🤖 ISTRUZIONI PER POST-ELABORAZIONE AI\n\n`;
+                    aggregatedContent += `Note recuperate da backup locale automatico.\n`;
+                    aggregatedContent += `I tag di ambito sono già puliti per facilitare l'analisi.\n\n`;
+                    aggregatedContent += `Processamento suggerito per ambito:\n`;
+                    aggregatedContent += `- **URGENTE**: Estrazione immediate action items\n`;
+                    aggregatedContent += `- **Altri ambiti**: Sintesi tematiche e collegamenti\n\n`;
+                    aggregatedContent += `Ambiti presenti: ${Object.keys(notesByScope).join(', ')}\n\n`;
+                    
+                    const result = {
+                        content: aggregatedContent,
+                        filename: `note_aggregate_backup_${new Date().toISOString().slice(0, 10)}`,
+                        stats: {
+                            totalNotes: processedNotes,
+                            scopes: Object.keys(notesByScope),
+                            notesByScope: notesByScope
+                        }
+                    };
+                    
+                    console.log('Aggregato creato, dimensione contenuto:', result.content.length);
+                    return result;
+                    
+                } catch (error) {
+                    console.error('Errore interno creazione aggregato:', error);
+                    return null;
+                }
+            }
+            
+            // Fallback aggregato da memoria
+            async fallbackAggregatedFromMemory() {
+                console.log('Fallback aggregato da memoria');
+                this.showStatus('Fallback: aggregato da memoria...');
+                
+                if (this.notes.length === 0) {
+                    this.showStatus('Nessuna nota in memoria per aggregato');
+                    return;
+                }
+                
+                try {
+                    // Semplice aggregazione dalle note in memoria
+                    const simpleAggregate = {
+                        generated: new Date().toISOString(),
+                        source: 'memoria_fallback_aggregato',
+                        totalNotes: this.notes.length,
+                        notes: this.notes.map(note => ({
+                            timestamp: note.timestamp,
+                            duration: note.duration,
+                            transcript: note.transcript || 'Solo audio',
+                            scope: this.extractScope(note.transcript) || 'generale'
+                        }))
+                    };
+                    
+                    // Crea contenuto semplificato
+                    let content = `# Note Vocali - Fallback Memoria\n\n`;
+                    content += `Totale note: ${this.notes.length}\n\n`;
+                    
+                    this.notes.forEach((note, index) => {
+                        content += `## Nota ${index + 1}\n`;
+                        content += `**Data**: ${note.timestamp} | **Durata**: ${note.duration}s\n\n`;
+                        content += `${note.transcript || 'Solo audio'}\n\n`;
+                        content += `---\n\n`;
+                    });
+                    
+                    const success = await this.debugDownloadFile(
+                        content,
+                        `voice_notes_fallback_aggregate_${Date.now()}.md`,
+                        'text/markdown'
+                    );
+                    
+                    if (success) {
+                        this.showStatus('✓ Fallback aggregato completato');
+                    } else {
+                        this.showStatus('Errore anche nel fallback aggregato');
+                    }
+                    
+                } catch (error) {
+                    console.error('Errore fallback aggregato:', error);
+                    this.showStatus('Fallback aggregato fallito: ' + error.message);
                 }
             }
             
@@ -2429,38 +2662,12 @@
             new VoiceNotesApp();
         });
         
-        // Service Worker per funzionalità PWA
+        // Service Worker registrazione corretta (senza blob)
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                const swData = `
-                    const CACHE_NAME = 'voice-notes-v1';
-                    const urlsToCache = ['/'];
-                    
-                    self.addEventListener('install', event => {
-                        event.waitUntil(
-                            caches.open(CACHE_NAME)
-                                .then(cache => cache.addAll(urlsToCache))
-                        );
-                    });
-                    
-                    self.addEventListener('fetch', event => {
-                        event.respondWith(
-                            caches.match(event.request)
-                                .then(response => response || fetch(event.request))
-                        );
-                    });
-                `;
-                
-                const blob = new Blob([swData], { type: 'application/javascript' });
-                const swUrl = URL.createObjectURL(blob);
-                
-                navigator.serviceWorker.register(swUrl)
-                    .then(registration => {
-                        console.log('SW registrato:', registration.scope);
-                    })
-                    .catch(error => {
-                        console.log('SW registrazione fallita:', error);
-                    });
+                // Per ora disabilitiamo il SW per evitare errori
+                // In futuro potremo creare un file sw.js separato
+                console.log('Service Worker disponibile ma non registrato per questa versione');
             });
         }
     </script>
