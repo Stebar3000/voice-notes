@@ -122,6 +122,67 @@
             font-variant-numeric: tabular-nums; /* Numeri allineati */
         }
 
+        .transcription-area {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 15px;
+            margin: 1rem 0;
+            min-height: 60px;
+            max-height: 120px;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            text-align: left;
+            line-height: 1.4;
+        }
+
+        .transcription-label {
+            font-size: 0.8rem;
+            color: #94a3b8;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 500;
+        }
+
+        .transcription-text {
+            color: #e2e8f0;
+            font-size: 0.95rem;
+        }
+
+        .transcription-interim {
+            color: #94a3b8;
+            font-style: italic;
+        }
+
+        .speech-controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 1rem 0;
+            flex-wrap: wrap;
+        }
+
+        .speech-toggle {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .speech-toggle.active {
+            background: rgba(34, 197, 94, 0.2);
+            border-color: rgba(34, 197, 94, 0.4);
+        }
+
+        .speech-toggle:hover {
+            background: rgba(255,255,255,0.15);
+        }
+
         .notes-list {
             max-height: 200px;
             overflow-y: auto;
@@ -139,6 +200,7 @@
             backdrop-filter: blur(10px);
             cursor: pointer;
             transition: background 0.2s ease;
+            position: relative;
         }
 
         .note-item:hover, .note-item:active {
@@ -149,11 +211,34 @@
             font-weight: 600;
             margin-bottom: 5px;
             color: #f1f5f9;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
         .note-time {
             font-size: 0.9rem;
             color: #cbd5e1;
+        }
+
+        .note-transcript {
+            margin-top: 8px;
+            padding: 8px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 6px;
+            font-size: 0.85rem;
+            color: #cbd5e1;
+            line-height: 1.3;
+            font-style: italic;
+        }
+
+        .transcript-toggle {
+            font-size: 0.7rem;
+            color: #94a3b8;
+            border: none;
+            background: none;
+            cursor: pointer;
+            text-decoration: underline;
         }
 
         .instructions {
@@ -219,10 +304,24 @@
         
         <div class="timer" id="timer">00:00</div>
         
+        <div class="speech-controls">
+            <button class="speech-toggle active" id="speechToggle">
+                🎤 Trascrizione attiva
+            </button>
+        </div>
+        
         <button class="record-button idle" id="recordButton">
             <span id="buttonText">INIZIA</span>
             <div class="recording-indicator" id="recordingIndicator" style="display: none;"></div>
         </button>
+        
+        <div class="transcription-area" id="transcriptionArea" style="display: none;">
+            <div class="transcription-label">Trascrizione in tempo reale:</div>
+            <div class="transcription-text" id="transcriptionText">
+                <span id="finalTranscript"></span>
+                <span class="transcription-interim" id="interimTranscript"></span>
+            </div>
+        </div>
         
         <div class="notes-list" id="notesList"></div>
     </div>
@@ -253,12 +352,183 @@
                 // Stato di errore per retry logic
                 this.hasError = false;
                 
+                // Speech Recognition per trascrizione
+                this.recognition = null;
+                this.speechEnabled = true;
+                this.finalTranscript = '';
+                this.interimTranscript = '';
+                
                 this.initializeElements();
+                this.initializeSpeechRecognition();
                 this.attachEventListeners();
                 this.loadNotes();
                 
                 // Verifica supporto browser all'avvio
                 this.checkBrowserSupport();
+            }
+            
+            initializeSpeechRecognition() {
+                // Controlla supporto Web Speech API
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                
+                if (!SpeechRecognition) {
+                    console.warn('Speech Recognition non supportato');
+                    this.speechEnabled = false;
+                    this.speechToggle.textContent = '❌ Trascrizione non disponibile';
+                    this.speechToggle.classList.remove('active');
+                    this.speechToggle.disabled = true;
+                    return;
+                }
+                
+                this.recognition = new SpeechRecognition();
+                
+                // Configurazione ottimale per note vocali
+                this.recognition.continuous = true; // Registrazione continua
+                this.recognition.interimResults = true; // Risultati intermedi
+                this.recognition.lang = 'it-IT'; // Lingua italiana
+                this.recognition.maxAlternatives = 1; // Una sola alternativa per velocità
+                
+                // Event handlers per la trascrizione
+                this.recognition.onstart = () => {
+                    console.log('Speech recognition avviato');
+                };
+                
+                this.recognition.onresult = (event) => {
+                    this.handleSpeechResult(event);
+                };
+                
+                this.recognition.onerror = (event) => {
+                    console.error('Errore speech recognition:', event.error);
+                    if (event.error === 'no-speech') {
+                        // Normale quando c'è silenzio, non mostrare errore
+                        return;
+                    }
+                    this.showTranscriptionError(event.error);
+                };
+                
+                this.recognition.onend = () => {
+                    console.log('Speech recognition terminato');
+                    // Se stiamo ancora registrando, riavvia il riconoscimento
+                    if (this.isRecording && this.speechEnabled) {
+                        setTimeout(() => {
+                            try {
+                                this.recognition.start();
+                            } catch (e) {
+                                console.warn('Impossibile riavviare speech recognition:', e);
+                            }
+                        }, 100);
+                    }
+                };
+            }
+            
+            handleSpeechResult(event) {
+                let interim = '';
+                let final = '';
+                
+                // Processa tutti i risultati dell'evento
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const transcript = event.results[i][0].transcript;
+                    
+                    if (event.results[i].isFinal) {
+                        final += transcript;
+                    } else {
+                        interim += transcript;
+                    }
+                }
+                
+                // Aggiorna il testo finale accumulato
+                if (final) {
+                    this.finalTranscript += final + ' ';
+                    this.updateTranscriptionDisplay();
+                }
+                
+                // Aggiorna il testo interim (temporaneo)
+                this.interimTranscript = interim;
+                this.updateTranscriptionDisplay();
+            }
+            
+            updateTranscriptionDisplay() {
+                if (!this.transcriptionArea.style.display || this.transcriptionArea.style.display === 'none') {
+                    this.transcriptionArea.style.display = 'block';
+                }
+                
+                this.finalTranscriptElement.textContent = this.finalTranscript;
+                this.interimTranscriptElement.textContent = this.interimTranscript;
+                
+                // Auto-scroll verso il basso
+                this.transcriptionArea.scrollTop = this.transcriptionArea.scrollHeight;
+            }
+            
+            showTranscriptionError(error) {
+                let message = '';
+                switch (error) {
+                    case 'network':
+                        message = 'Errore rete per trascrizione';
+                        break;
+                    case 'not-allowed':
+                        message = 'Microfono bloccato per trascrizione';
+                        break;
+                    case 'service-not-allowed':
+                        message = 'Servizio trascrizione non disponibile';
+                        break;
+                    default:
+                        message = 'Errore trascrizione';
+                }
+                
+                // Mostra errore brevemente senza interrompere la registrazione
+                const originalText = this.statusText.textContent;
+                this.statusText.textContent = message;
+                setTimeout(() => {
+                    if (!this.hasError) {
+                        this.updateUI(); // Ripristina stato normale
+                    }
+                }, 3000);
+            }
+            
+            toggleSpeechRecognition() {
+                if (!this.recognition) return;
+                
+                this.speechEnabled = !this.speechEnabled;
+                
+                if (this.speechEnabled) {
+                    this.speechToggle.textContent = '🎤 Trascrizione attiva';
+                    this.speechToggle.classList.add('active');
+                    
+                    // Se stiamo già registrando, avvia subito il riconoscimento
+                    if (this.isRecording) {
+                        this.startSpeechRecognition();
+                    }
+                } else {
+                    this.speechToggle.textContent = '🔇 Trascrizione disattiva';
+                    this.speechToggle.classList.remove('active');
+                    this.stopSpeechRecognition();
+                    this.transcriptionArea.style.display = 'none';
+                }
+            }
+            
+            startSpeechRecognition() {
+                if (!this.recognition || !this.speechEnabled) return;
+                
+                // Reset trascrizione per nuova registrazione
+                this.finalTranscript = '';
+                this.interimTranscript = '';
+                this.updateTranscriptionDisplay();
+                
+                try {
+                    this.recognition.start();
+                } catch (e) {
+                    console.warn('Speech recognition già attivo o errore:', e);
+                }
+            }
+            
+            stopSpeechRecognition() {
+                if (this.recognition) {
+                    try {
+                        this.recognition.stop();
+                    } catch (e) {
+                        console.warn('Errore stop speech recognition:', e);
+                    }
+                }
             }
             
             checkBrowserSupport() {
@@ -289,6 +559,12 @@
                 this.timer = document.getElementById('timer');
                 this.notesList = document.getElementById('notesList');
                 this.recordingIndicator = document.getElementById('recordingIndicator');
+                
+                // Elementi per la trascrizione
+                this.speechToggle = document.getElementById('speechToggle');
+                this.transcriptionArea = document.getElementById('transcriptionArea');
+                this.finalTranscriptElement = document.getElementById('finalTranscript');
+                this.interimTranscriptElement = document.getElementById('interimTranscript');
             }
             
             attachEventListeners() {
@@ -296,6 +572,9 @@
                 this.recordButton.addEventListener('click', this.handleButtonClick.bind(this));
                 this.recordButton.addEventListener('touchstart', this.handleTouchStart.bind(this));
                 this.recordButton.addEventListener('touchend', this.handleTouchEnd.bind(this));
+                
+                // Toggle trascrizione
+                this.speechToggle.addEventListener('click', this.toggleSpeechRecognition.bind(this));
                 
                 // Previeni comportamenti indesiderati su mobile
                 this.recordButton.addEventListener('touchmove', (e) => e.preventDefault());
@@ -416,8 +695,11 @@
                         this.handleRecordingError(event.error);
                     };
                     
-                    // Avvia registrazione
+                    // Avvia registrazione audio
                     this.mediaRecorder.start(1000); // Chunk ogni secondo per migliore gestione pause
+                    
+                    // Avvia riconoscimento vocale in parallelo
+                    this.startSpeechRecognition();
                     
                     this.isRecording = true;
                     this.isPaused = false;
@@ -435,6 +717,7 @@
             pauseRecording() {
                 if (this.mediaRecorder && this.isRecording) {
                     this.mediaRecorder.pause();
+                    this.stopSpeechRecognition(); // Pausa anche il riconoscimento vocale
                     this.isRecording = false;
                     this.isPaused = true;
                     this.stopTimer();
@@ -445,6 +728,7 @@
             resumeRecording() {
                 if (this.mediaRecorder && this.isPaused) {
                     this.mediaRecorder.resume();
+                    this.startSpeechRecognition(); // Riprendi anche il riconoscimento vocale
                     this.isRecording = true;
                     this.isPaused = false;
                     this.startTime = Date.now() - this.elapsedTime;
@@ -456,6 +740,7 @@
             stopAndSaveRecording() {
                 if (this.mediaRecorder && (this.isRecording || this.isPaused)) {
                     this.mediaRecorder.stop();
+                    this.stopSpeechRecognition(); // Ferma anche il riconoscimento vocale
                     this.isRecording = false;
                     this.isPaused = false;
                     this.stopTimer();
@@ -584,6 +869,9 @@
             }
             
             saveNote(audioBlob) {
+                // Pulisci il testo trascritto (rimuovi spazi extra e normalizza)
+                const transcriptText = this.finalTranscript.trim().replace(/\s+/g, ' ');
+                
                 const note = {
                     id: Date.now(),
                     timestamp: new Date().toLocaleString('it-IT', {
@@ -595,7 +883,9 @@
                     }),
                     duration: Math.floor(this.elapsedTime / 1000),
                     audioUrl: URL.createObjectURL(audioBlob),
-                    size: audioBlob.size
+                    size: audioBlob.size,
+                    transcript: transcriptText, // Testo trascritto
+                    hasTranscript: transcriptText.length > 0 && this.speechEnabled
                 };
                 
                 this.notes.unshift(note);
@@ -609,12 +899,24 @@
                 }
                 
                 this.displayNotes();
-                this.showStatus('✓ Nota salvata!');
+                
+                // Messaggio di conferma più informativo
+                if (note.hasTranscript) {
+                    const wordCount = transcriptText.split(' ').filter(word => word.length > 0).length;
+                    this.showStatus(`✓ Nota salvata! ${wordCount} parole trascritte`);
+                } else {
+                    this.showStatus('✓ Nota audio salvata!');
+                }
                 
                 // Feedback tattile su salvataggio
                 if (navigator.vibrate) {
                     navigator.vibrate([50, 50, 50]);
                 }
+                
+                // Nasconde area trascrizione e resetta
+                this.transcriptionArea.style.display = 'none';
+                this.finalTranscript = '';
+                this.interimTranscript = '';
                 
                 // Ritorna allo stato normale dopo 2 secondi
                 setTimeout(() => {
@@ -631,17 +933,59 @@
                     noteElement.className = 'note-item';
                     
                     const sizeKB = (note.size / 1024).toFixed(1);
-                    noteElement.innerHTML = `
-                        <div class="note-header">Nota ${note.duration}s • ${sizeKB}KB</div>
+                    const transcriptIcon = note.hasTranscript ? '📝' : '🎵';
+                    const transcriptInfo = note.hasTranscript ? 
+                        ` • ${note.transcript.split(' ').length} parole` : '';
+                    
+                    let noteHTML = `
+                        <div class="note-header">
+                            <span>${transcriptIcon} Nota ${note.duration}s • ${sizeKB}KB${transcriptInfo}</span>
+                        </div>
                         <div class="note-time">${note.timestamp}</div>
                     `;
                     
-                    noteElement.addEventListener('click', () => {
+                    // Se c'è una trascrizione, mostrala
+                    if (note.hasTranscript && note.transcript) {
+                        const shortTranscript = note.transcript.length > 100 ? 
+                            note.transcript.substring(0, 100) + '...' : note.transcript;
+                        
+                        noteHTML += `
+                            <div class="note-transcript">
+                                <div>${shortTranscript}</div>
+                                ${note.transcript.length > 100 ? '<button class="transcript-toggle">Mostra tutto</button>' : ''}
+                            </div>
+                        `;
+                    }
+                    
+                    noteElement.innerHTML = noteHTML;
+                    
+                    // Click per riprodurre audio
+                    noteElement.addEventListener('click', (e) => {
+                        // Non riprodurre se si clicca sul pulsante "Mostra tutto"
+                        if (e.target.classList.contains('transcript-toggle')) {
+                            this.toggleFullTranscript(e.target, note.transcript);
+                            return;
+                        }
                         this.playNote(note);
                     });
                     
                     this.notesList.appendChild(noteElement);
                 });
+            }
+            
+            toggleFullTranscript(button, fullTranscript) {
+                const transcriptDiv = button.parentElement.querySelector('div');
+                const isExpanded = button.textContent === 'Mostra meno';
+                
+                if (isExpanded) {
+                    const shortTranscript = fullTranscript.length > 100 ? 
+                        fullTranscript.substring(0, 100) + '...' : fullTranscript;
+                    transcriptDiv.textContent = shortTranscript;
+                    button.textContent = 'Mostra tutto';
+                } else {
+                    transcriptDiv.textContent = fullTranscript;
+                    button.textContent = 'Mostra meno';
+                }
             }
             
             playNote(note) {
