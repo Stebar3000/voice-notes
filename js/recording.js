@@ -18,7 +18,7 @@ class RecordingManager {
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SpeechRecognition) {
             this.speechEnabled = false;
-            window.voiceNotesApp?.uiManager.setSpeechToggleSupported(f                                                                         alse);
+            window.voiceNotesApp?.uiManager.setSpeechToggleSupported(false);
             return;
         }
         
