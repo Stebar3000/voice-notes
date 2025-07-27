@@ -3,261 +3,92 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Voice Notes Auto (v3.0 Safe)</title>
-    <style>
-        :root {
-            --bg-color: #1e293b; --primary-color: #3b82f6; --primary-dark: #2563eb;
-            --record-color: #ef4444; --record-dark: #dc2626; --pause-color: #f59e0b;
-            --pause-dark: #d97706; --text-light: #e2e8f0; --text-dark: #94a3b8;
-            --surface-color: rgba(0,0,0,0.2); --border-color: rgba(255,255,255,0.1);
-        }
-        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        html, body { height: 100%; width: 100%; overflow: hidden; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg-color); color: var(--text-light); user-select: none; }
-        .app-container { display: flex; flex-direction: column; height: 100%; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
-        .main-content { flex-grow: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10px 20px; min-height: 0; }
-        .footer-content { flex-shrink: 0; padding: 15px; background-color: rgba(0,0,0,0.1); border-top: 1px solid var(--border-color); }
-        .app-header { width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 0 5px 15px 5px; color: var(--text-dark); }
-        .app-title, .app-version { font-size: 0.9rem; font-weight: 600; }
-        .status-text { font-size: clamp(1.4rem, 5vw, 1.8rem); font-weight: 600; margin-bottom: 1rem; min-height: 50px; display: flex; align-items: center; justify-content: center; text-align: center; }
-        .timer { font-size: clamp(1.8rem, 7vw, 2.2rem); font-weight: 500; margin-bottom: 1.5rem; font-variant-numeric: tabular-nums; }
-        .record-button { width: clamp(200px, 60vw, 280px); height: clamp(200px, 60vw, 280px); border-radius: 50%; border: none; font-size: clamp(1.8rem, 8vw, 2.2rem); font-weight: bold; color: white; cursor: pointer; transition: all 0.2s ease-in-out; box-shadow: 0 10px 30px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; position: relative; text-transform: uppercase; touch-action: manipulation; }
-        .record-button.idle { background: linear-gradient(145deg, var(--primary-color), var(--primary-dark)); }
-        .record-button.recording { background: linear-gradient(145deg, var(--record-color), var(--record-dark)); animation: pulse 1.5s infinite; }
-        .record-button.paused { background: linear-gradient(145deg, var(--pause-color), var(--pause-dark)); }
-        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.03); } }
-        .transcription-area { background: var(--surface-color); border-radius: 12px; padding: 15px; margin-top: 1.5rem; width: 100%; max-width: 400px; max-height: 100px; overflow-y: auto; text-align: left; border: 1px solid var(--border-color); }
-        .transcription-label { font-size: 0.75rem; color: var(--text-dark); margin-bottom: 8px; }
-        .transcription-text { font-size: 0.9rem; } .transcription-interim { color: var(--text-dark); }
-        .controls-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 10px; }
-        .control-btn { background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); color: var(--text-dark); padding: 10px 5px; border-radius: 8px; font-size: 0.75rem; cursor: pointer; transition: all 0.2s ease; text-align: center; }
-        .control-btn.active { border-color: #16a34a; color: #22c55e; }
-        .instructions { font-size: 0.8rem; color: var(--text-dark); text-align: center; }
-        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; z-index: 1000; }
-        .modal-overlay.show { display: flex; }
-        .modal-content { background: #27364a; border-radius: 16px; width: 95%; max-width: 500px; border: 1px solid var(--border-color); display: flex; flex-direction: column; max-height: 85vh; }
-        .modal-content.small { max-width: 320px; }
-        .modal-header { padding: 15px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
-        .modal-close-btn { background: none; border: none; color: var(--text-dark); font-size: 1.5rem; cursor: pointer; }
-        .modal-body { padding: 15px; overflow-y: auto; }
-        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
-        .modal-btn { padding: 10px 20px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; }
-        .modal-btn.cancel { background: rgba(255,255,255,0.1); color: white; }
-        .modal-btn.confirm { background: var(--primary-color); color: white; }
-        .note-group { background: var(--surface-color); border-radius: 8px; margin-bottom: 15px; border: 1px solid var(--border-color); }
-        .note-group-header { padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); }
-        .note-timestamp { font-size: 0.8rem; color: var(--text-dark); }
-        .note-delete-btn { background: none; border: none; color: #ef4444; cursor: pointer; font-size: 1.2rem; }
-        .note-transcript { padding: 12px; font-size: 0.9rem; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word; }
-    </style>
+    <title>Voice Notes Auto</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#1e293b">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Voice Notes">
+    
+    <!-- Manifest & Icons -->
+    <link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiVm9pY2UgTm90ZXMgQXV0byIsInNob3J0X25hbWUiOiJWb2ljZU5vdGVzIiwic3RhcnRfdXJsIjoiLiIsImRpc3BsYXkiOiJzdGFuZGFsb25lIiwiYmFja2dyb3VuZF9jb2xvciI6IiMxZTI5M2IiLCJ0aGVtZV9jb2xvciI6IiMxZTI5M2IiLCJpY29ucyI6W3sic3JjIjoiZGF0YTppbWFnZS9zdmcreG1sO2Jhc2U2NCxQSE4yWnlCM2FXUjBhRDBpTWpRaUlHaGxhV2RvZEQwaU1qUWlJSFpwWlhkQ2IzZzlJakFnTUNBeU5DQXlOQ0lnYm1GdFpYTndZV05sUFNKb2RIUndPaTh2ZDNkM0xuY3pMbTl5Wnk4eU1EQXdMM04yWnlJK1BIQmhkR2dnWkQwaVRUZ2dNVE5oTlNBMUlEQWdNUzR4SURFZ01URWdNaVl6SURBZ01URTRNaTQzTlNBek5pNHlOQ0EyTlM0ME15QTFOQ0EwTGpVNElEQWdNUzQ0TGpGaE5TQTFJREFnTUNBMExqVWdNell1TWpSYU1UZ2dNVE52TFRJZ01UQmhOaUEySUdGYU1EQTVMVFV1TVVFMU5TQTFJREFnTUNBNUlGUnRNQ0EzWXpBZ01TNDNMaTQwSUVNZ01UUWdNVzV2TVMweUlERXdMaTQySUZObE56QXVOelVnTUNBNUlEVjFMalZoTmkwMklEZ2dPV0ZhSWlCbWFXeHNQU0lqWVdOaVkya2lMejQ4TDNOMlp6ND0iLCJzaXplcyI6IjUxMng1MTIiLCJ0eXBlIjoiaW1hZ2Uvc3ZnK3htbCJ9XX0=">
+    <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTgwIiBoZWlnaHQ9IjE4MCIgdmlld0JveD0iMCAwIDI0IDI0IiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxwYXRoIGQ9Ik0xMiAyQzYuNDggMiAyIDYuNDggMiAxMnM0LjQ4IDEwIDEwIDEwIDEwLTQuNDggMTAtMTBTMTcuNTIgMiAxMiAyem0xIDE1aC0ydi02aDJ2NnptMC04aC0ydi0yaDJ2MnoiIGZpbGw9IiNmMWY1ZjkiLz48L3N2Zz4=">
+    <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAyNCAyNCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMTIgMmM1LjUyIDAgMTAgNC40OCAxMCAxMHMtNC40OCAxMC0xMCAxMCUzIDIzLjUyIDIgMTggMiA2LjQ4IDIgMTJ6bS0xIDVoMlY4aC0ydjR6bTEgN2gydi0yaC0ydi0yLjVoLTJWMTdoMnYyLjV6IiBmaWxsPSIjOWNhM2I4Ii8+PC9zdmc+">
+    
+    <!-- CSS -->
+    <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
     <div class="app-container">
+        <!-- Area Principale -->
         <main class="main-content">
             <header class="app-header">
                 <span class="app-title">Voice Notes Auto</span>
-                <span class="app-version">v3.0-safe</span>
+                <span class="app-version">v2.4</span>
             </header>
-            <div class="status-text" id="statusText">Pronto</div>
+
+            <div class="status-text" id="statusText">Pronto per registrare</div>
             <div class="timer" id="timer">00:00</div>
-            <button class="record-button idle" id="recordButton"><span id="buttonText">INIZIA</span></button>
+
+            <button class="record-button idle" id="recordButton">
+                <span id="buttonText">INIZIA</span>
+                <div class="recording-indicator" id="recordingIndicator" style="display: none;"></div>
+            </button>
+
             <div class="transcription-area" id="transcriptionArea" style="display: none;">
-                <div class="transcription-label">Trascrizione:</div>
-                <div class="transcription-text"><span id="finalTranscript"></span><span class="transcription-interim" id="interimTranscript"></span></div>
+                <div class="transcription-label">Trascrizione in tempo reale:</div>
+                <div class="transcription-text">
+                    <span id="finalTranscript"></span>
+                    <span class="transcription-interim" id="interimTranscript"></span>
+                </div>
             </div>
         </main>
+
+        <!-- Sezione Controlli Inferiore -->
         <footer class="footer-content">
             <div class="controls-grid">
-                <button class="control-btn" id="reviewNotesBtn">📝 Rivedi</button>
+                <button class="control-btn" id="reviewNotesBtn">📝 Rivedi Note</button>
                 <button class="control-btn" id="speechToggle">🎤 Trascrizione</button>
-                <button class="control-btn" id="exportBtn">📦 Export Grezzo</button>
+                <button class="control-btn" id="exportAggregatedBtn">📚 Export</button>
                 <button class="control-btn" id="newSessionBtn">🗑️ Nuova Sessione</button>
             </div>
-            <div class="instructions">Click: Inizia/Pausa • Doppio Click: Salva</div>
+            <div class="instructions">
+                Click: Inizia/Pausa • Doppio Click: Salva
+            </div>
         </footer>
     </div>
-    <div class="modal-overlay" id="reviewModal"><div class="modal-content"><div class="modal-header"><h2>Note Salvate</h2><button class="modal-close-btn" id="reviewModalCloseBtn">&times;</button></div><div class="modal-body" id="notesListContainer"></div></div></div>
-    <div class="modal-overlay" id="confirmModal"><div class="modal-content small"><div class="modal-header"><h3>Conferma</h3></div><div class="modal-body"><p id="confirmModalText"></p><div class="modal-actions"><button class="modal-btn cancel" id="confirmCancelBtn">Annulla</button><button class="modal-btn confirm" id="confirmOkBtn">OK</button></div></div></div></div>
+    
+    <!-- MODALS -->
+    <div class="modal-overlay" id="reviewModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Note Salvate</h2>
+                <button class="modal-close-btn" id="reviewModalCloseBtn">&times;</button>
+            </div>
+            <div class="modal-body" id="notesListContainer"></div>
+        </div>
+    </div>
 
-    <script>
-        class VoiceNotesApp {
-            constructor() {
-                this.isRecording = false; this.isPaused = false; this.isSaving = false; this.hasError = false;
-                this.notes = []; this.pendingAudioBlob = null; this.startTime = null; this.elapsedTime = 0;
-                this.timerInterval = null; this.clickTimeout = null; this.doubleClickDelay = 400;
-                this.storage = new StorageManager(); this.recorder = new RecordingManager(this); this.ui = new UIManager(this);
-                this.initialize();
-            }
-            async initialize() { await this.storage.initialize(); await this.loadNotes(); this.attachEventListeners(); this.ui.update(this.getState()); }
-            attachEventListeners() {
-                const btn = this.ui.elements.recordButton;
-                btn.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
-                btn.addEventListener('touchend', e => { e.preventDefault(); if (this.isSaving) return; this.handleButtonClick(); });
-                btn.addEventListener('click', e => { if (this.isSaving) return; if (e.sourceCapabilities && !e.sourceCapabilities.firesTouchEvents) this.handleButtonClick(); });
-                this.ui.elements.speechToggle?.addEventListener('click', () => this.recorder.toggleSpeechRecognition());
-                this.ui.elements.exportBtn?.addEventListener('click', () => this.exportNotes());
-                this.ui.elements.newSessionBtn?.addEventListener('click', () => this.startNewSession());
-                this.ui.elements.reviewNotesBtn?.addEventListener('click', () => this.ui.showReviewModal(this.notes));
-                this.ui.elements.notesListContainer?.addEventListener('click', e => { if (e.target.classList.contains('note-delete-btn')) this.deleteNote(parseInt(e.target.dataset.id, 10)); });
-            }
-            handleButtonClick() {
-                if (this.hasError) { this.resetErrorState(); return; }
-                if (this.clickTimeout) { clearTimeout(this.clickTimeout); this.clickTimeout = null; this.handleDoubleClick(); } 
-                else { this.clickTimeout = setTimeout(() => { this.handleSingleClick(); this.clickTimeout = null; }, this.doubleClickDelay); }
-            }
-            handleSingleClick() {
-                if (!this.isRecording && !this.isPaused) this.startRecording();
-                else if (this.isRecording) this.pauseRecording();
-                else if (this.isPaused) this.resumeRecording();
-            }
-            handleDoubleClick() { if (this.isRecording || this.isPaused) this.stopAndSaveRecording(); }
-            async startRecording() {
-                if (!(await this.recorder.startRecording())) return;
-                this.isRecording = true; this.isPaused = false; this.hasError = false;
-                this.startTime = Date.now() - this.elapsedTime; this.startTimer(); this.ui.update(this.getState());
-            }
-            pauseRecording() { this.recorder.pauseRecording(); this.isRecording = false; this.isPaused = true; this.stopTimer(); this.ui.update(this.getState()); }
-            resumeRecording() {
-                this.recorder.resumeRecording(); this.isRecording = true; this.isPaused = false;
-                this.startTime = Date.now() - this.elapsedTime; this.startTimer(); this.ui.update(this.getState());
-            }
-            stopAndSaveRecording() { if (this.isSaving) return; this.isSaving = true; this.stopTimer(); this.ui.update(this.getState()); this.recorder.stopRecording(); }
-            handleAudioReady(blob) { this.pendingAudioBlob = blob; }
-            async handleTranscriptionEnd(transcript) {
-                if (!this.pendingAudioBlob && this.recorder.speechEnabled) { this.showError("Errore", "Audio non registrato."); this.resetSavingState(); return; }
-                await this.saveNote(this.pendingAudioBlob, transcript); this.resetSavingState();
-            }
-            async saveNote(audioBlob, transcript) {
-                const note = { id: Date.now(), timestamp: new Date().toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' }), duration: Math.floor(this.elapsedTime / 1000), transcript: transcript };
-                await this.storage.saveNote(note); this.ui.provideFeedback('save'); this.ui.showStatus(`✅ Nota salvata!`);
-                await this.loadNotes(); this.resetRecordingState();
-                setTimeout(() => { if (!this.isRecording && !this.isPaused && !this.isSaving) this.ui.showStatus('Pronto'); }, 3000);
-            }
-            async loadNotes() { this.notes = await this.storage.loadNotes(); }
-            async exportNotes() {
-                if (this.notes.length === 0) { this.ui.showStatus("Nessuna nota da esportare."); return; }
-                let fullText = `NOTE GREGGE ESPORTATE IL ${new Date().toLocaleString('it-IT')}\n\n`;
-                fullText += "========================================\n\n";
-                this.notes.forEach(note => {
-                    fullText += `NOTA DEL: ${note.timestamp} (Durata: ${note.duration}s)\n\n${note.transcript}\n\n========================================\n\n`;
-                });
-                await this.storage.downloadFile(fullText, 'note_grezze.txt', 'text/plain');
-            }
-            async startNewSession() {
-                if (await this.ui.showConfirmModal("Cancellare tutte le note?")) {
-                    await this.storage.clearAllData(); await this.loadNotes(); this.ui.renderNotesList(this.notes); this.ui.showStatus("🗑️ Nuova sessione.");
-                }
-            }
-            async deleteNote(noteId) {
-                if (await this.ui.showConfirmModal("Cancellare questa nota?")) {
-                    await this.storage.deleteNote(noteId); await this.loadNotes(); this.ui.renderNotesList(this.notes); this.ui.showStatus("Nota cancellata.");
-                }
-            }
-            startTimer() { this.timerInterval = setInterval(() => { this.elapsedTime = Date.now() - this.startTime; this.ui.updateTimer(this.elapsedTime); }, 100); }
-            stopTimer() { clearInterval(this.timerInterval); }
-            resetRecordingState() { this.isRecording = false; this.isPaused = false; this.elapsedTime = 0; this.pendingAudioBlob = null; this.recorder.reset(); this.ui.updateTimer(0); this.ui.update(this.getState()); }
-            resetSavingState() { this.isSaving = false; this.ui.update(this.getState()); }
-            resetErrorState() { this.hasError = false; this.ui.showStatus('Pronto'); this.ui.update(this.getState()); }
-            showError(title, desc) { this.hasError = true; this.isSaving = false; this.ui.showError(title, desc); this.ui.update(this.getState()); }
-            getState() { return { isRecording: this.isRecording, isPaused: this.isPaused, isSaving: this.isSaving, hasError: this.hasError, speechActive: this.recorder.speechEnabled }; }
-        }
-        class UIManager {
-            constructor(app) { this.app = app; this.elements = {}; this.initializeElements(); this.attachModalListeners(); }
-            initializeElements() { const ids = ['recordButton', 'statusText', 'buttonText', 'timer', 'speechToggle', 'exportBtn', 'transcriptionArea', 'finalTranscript', 'interimTranscript', 'newSessionBtn', 'reviewNotesBtn', 'reviewModal', 'reviewModalCloseBtn', 'notesListContainer', 'confirmModal', 'confirmModalText', 'confirmOkBtn', 'confirmCancelBtn']; ids.forEach(id => this.elements[id] = document.getElementById(id)); }
-            attachModalListeners() { this.elements.reviewModalCloseBtn?.addEventListener('click', () => this.hideReviewModal()); }
-            update(state) {
-                const { isRecording, isPaused, isSaving, hasError, speechActive } = state;
-                const btn = this.elements.recordButton; if (!btn) return;
-                btn.className = 'record-button';
-                if (hasError) { btn.classList.add('paused'); this.elements.buttonText.textContent = 'Reset'; } 
-                else if (isSaving) { btn.classList.add('paused'); this.elements.buttonText.textContent = 'Salvo...'; } 
-                else if (isRecording) { btn.classList.add('recording'); this.showStatus('🔴 Registrando...'); this.elements.buttonText.textContent = 'Pausa'; } 
-                else if (isPaused) { btn.classList.add('paused'); this.showStatus('⏸️ In pausa'); this.elements.buttonText.textContent = 'Riprendi'; } 
-                else { btn.classList.add('idle'); this.showStatus('Pronto'); this.elements.buttonText.textContent = 'Inizia'; }
-                this.elements.speechToggle?.classList.toggle('active', speechActive);
-            }
-            showStatus(msg) { this.elements.statusText.textContent = msg; }
-            showError(title, desc) { this.elements.statusText.innerHTML = `<div style="color:#fca5a5;font-weight:bold;">${title}</div><div style="font-size:0.9rem;margin-top:4px;">${desc}</div>`; }
-            updateTimer(time) { const s = Math.floor(time / 1000); this.elements.timer.textContent = `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`; }
-            updateTranscriptionDisplay(finalTxt, interimTxt) {
-                if (!this.elements.transcriptionArea) return;
-                this.elements.transcriptionArea.style.display = (finalTxt || interimTxt) ? 'block' : 'none';
-                this.elements.finalTranscript.textContent = finalTxt; this.elements.interimTranscript.textContent = interimTxt;
-                this.elements.transcriptionArea.scrollTop = this.elements.transcriptionArea.scrollHeight;
-            }
-            provideFeedback(type) { if (navigator.vibrate) navigator.vibrate({ tap: [10], save: [50] }[type] || [10]); }
-            showReviewModal(notes) { this.renderNotesList(notes); this.elements.reviewModal?.classList.add('show'); }
-            hideReviewModal() { this.elements.reviewModal?.classList.remove('show'); }
-            renderNotesList(notes) {
-                const c = this.elements.notesListContainer; if (!c) return;
-                if (notes.length === 0) { c.innerHTML = '<p style="text-align:center;color:var(--text-dark);">Nessuna nota.</p>'; return; }
-                c.innerHTML = notes.map(n => `<div class="note-group"><div class="note-group-header"><span class="note-timestamp">${n.timestamp} (${n.duration}s)</span><button class="note-delete-btn" data-id="${n.id}">&times;</button></div><p class="note-transcript">${n.transcript || 'Vuota'}</p></div>`).join('');
-            }
-            showConfirmModal(text) {
-                return new Promise(resolve => {
-                    this.elements.confirmModalText.textContent = text; this.elements.confirmModal.classList.add('show');
-                    const onOk = () => { cleanup(); resolve(true); }; const onCancel = () => { cleanup(); resolve(false); };
-                    const cleanup = () => { this.elements.confirmModal.classList.remove('show'); this.elements.confirmOkBtn.removeEventListener('click', onOk); this.elements.confirmCancelBtn.removeEventListener('click', onCancel); };
-                    this.elements.confirmOkBtn.addEventListener('click', onOk, { once: true }); this.elements.confirmCancelBtn.addEventListener('click', onCancel, { once: true });
-                });
-            }
-        }
-        class RecordingManager {
-            constructor(app) {
-                this.app = app; this.mediaRecorder = null; this.audioChunks = []; this.stream = null; this.recognition = null;
-                this.speechEnabled = true; this.finalTranscript = ''; this.accumulatedTranscript = ''; this.initializeSpeechRecognition();
-            }
-            initializeSpeechRecognition() {
-                const SR = window.SpeechRecognition || window.webkitSpeechRecognition; if (!SR) { this.speechEnabled = false; return; }
-                this.recognition = new SR(); this.recognition.continuous = true; this.recognition.interimResults = true; this.recognition.lang = 'it-IT';
-                this.recognition.onresult = e => this.handleSpeechResult(e);
-                this.recognition.onend = () => { if (this.app.isSaving) this.app.handleTranscriptionEnd(this.finalTranscript.trim()); };
-            }
-            handleSpeechResult(event) {
-                let interim = '', currentFinal = '';
-                for (let i = event.resultIndex; i < event.results.length; i++) {
-                    const transcript = event.results[i][0].transcript;
-                    if (event.results[i].isFinal) currentFinal += transcript; else interim += transcript;
-                }
-                this.finalTranscript = (this.accumulatedTranscript + currentFinal).trim();
-                this.app.ui.updateTranscriptionDisplay(this.finalTranscript, interim);
-            }
-            toggleSpeechRecognition() { if (!this.recognition) return; this.speechEnabled = !this.speechEnabled; this.app.ui.update(this.app.getState()); if (this.speechEnabled && this.app.isRecording) this.startTranscription(false); else this.stopTranscription(); }
-            async startRecording() {
-                try {
-                    this.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
-                    this.mediaRecorder = new MediaRecorder(this.stream); this.audioChunks = [];
-                    this.mediaRecorder.ondataavailable = e => { if (e.data.size > 0) this.audioChunks.push(e.data); };
-                    this.mediaRecorder.onstop = () => { this.processAudio(); this.stopTranscription(); };
-                    this.mediaRecorder.start(); if (this.speechEnabled) this.startTranscription(true); return true;
-                } catch (error) { this.app.showError("Errore Mic", "Controlla permessi."); return false; }
-            }
-            pauseRecording() { if (this.mediaRecorder?.state === 'recording') { this.accumulatedTranscript = this.finalTranscript + ' '; this.mediaRecorder.pause(); this.stopTranscription(); } }
-            resumeRecording() { if (this.mediaRecorder?.state === 'paused') { this.mediaRecorder.resume(); if (this.speechEnabled) this.startTranscription(false); } }
-            stopRecording() { if (this.mediaRecorder?.state !== 'inactive') this.mediaRecorder.stop(); }
-            startTranscription(isNew) { if (!this.recognition || !this.speechEnabled) return; if (isNew) { this.finalTranscript = ''; this.accumulatedTranscript = ''; } this.app.ui.updateTranscriptionDisplay(this.finalTranscript, ''); try { this.recognition.start(); } catch (e) {} }
-            stopTranscription() { if (this.recognition) { try { this.recognition.stop(); } catch (e) {} } }
-            processAudio() {
-                if (this.audioChunks.length === 0 && this.speechEnabled) { this.app.showError('Vuota', 'Nessun audio.'); this.app.resetSavingState(); return; }
-                const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
-                this.app.handleAudioReady(audioBlob);
-            }
-            reset() { this.audioChunks = []; this.finalTranscript = ''; this.accumulatedTranscript = ''; this.stream?.getTracks().forEach(t => t.stop()); this.stream = null; if (this.mediaRecorder?.state !== 'inactive') try { this.mediaRecorder.stop(); } catch (e) {} this.stopTranscription(); }
-        }
-        class StorageManager {
-            constructor() { this.dbName = 'VoiceNotesSafeDB_v3'; }
-            async initialize() {}
-            async saveNote(note) { const notes = this.loadNotes(); notes.unshift(note); localStorage.setItem(this.dbName, JSON.stringify(notes)); }
-            loadNotes() { try { return JSON.parse(localStorage.getItem(this.dbName)) || []; } catch(e) { return []; } }
-            async deleteNote(noteId) { const notes = this.loadNotes().filter(n => n.id !== noteId); localStorage.setItem(this.dbName, JSON.stringify(notes)); }
-            async clearAllData() { localStorage.removeItem(this.dbName); }
-            async downloadFile(content, filename, type) {
-                const file = new File([new Blob([content], { type })], filename, { type });
-                if (navigator.share && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file] }); return; } catch (err) {} }
-                const link = document.createElement('a'); link.href = URL.createObjectURL(file); link.download = filename; link.click(); URL.revokeObjectURL(link.href);
-            }
-        }
-        document.addEventListener('DOMContentLoaded', () => { window.voiceNotesApp = new VoiceNotesApp(); });
-    </script>
+    <div class="modal-overlay" id="confirmModal">
+        <div class="modal-content small">
+            <div class="modal-header">
+                <h3>Conferma Azione</h3>
+            </div>
+            <div class="modal-body">
+                <p id="confirmModalText"></p>
+                <div class="modal-actions">
+                    <button class="modal-btn cancel" id="confirmCancelBtn">Annulla</button>
+                    <button class="modal-btn confirm" id="confirmOkBtn">Conferma</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/storage.js"></script>
+    <script src="js/recording.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/app.js"></script>
 </body>
 </html>

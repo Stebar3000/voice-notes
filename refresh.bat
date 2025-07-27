@@ -1,3 +1,3 @@
 git add .
-git commit -m "v3.0 - Stable versione without parsing"
+git commit -m "v2.4 - the only stable, but with missing functions"
 git push

@@ -1,5 +1,5 @@
 // recording.js - Manages audio recording and speech-to-text transcription
-// v2.6 - Stable pause/resume logic
+// v2.4 - Stable pause/resume logic
 
 class RecordingManager {
     constructor() {
@@ -42,7 +42,7 @@ class RecordingManager {
         for (let i = event.resultIndex; i < event.results.length; i++) {
             const transcript = event.results[i][0].transcript;
             if (event.results[i].isFinal) {
-                currentFinal += transcript;
+                currentFinal += transcript + ' ';
             } else {
                 interimTranscript += transcript;
             }

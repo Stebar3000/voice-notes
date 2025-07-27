@@ -1,9 +1,9 @@
 // app.js - Applicazione principale Voice Notes Auto
-// v2.6 - Logica di parsing robusta e stabilità generale
+// v2.4 - Logica di parsing multi-ambito e file di riepilogo
 
 class VoiceNotesApp {
     constructor() {
-        console.log('🚀 Voice Notes App v2.6 initialization...');
+        console.log('🚀 Voice Notes App v2.4 initialization...');
         this.isRecording = false;
         this.isPaused = false;
         this.isSaving = false;
@@ -175,9 +175,10 @@ class VoiceNotesApp {
     }
 
     async exportNotes() {
-        if (this.isExporting || this.notes.length === 0) {
-            this.showStatus(this.notes.length === 0 ? "Nessuna nota da esportare." : "Export in corso...");
-            if(this.notes.length === 0) setTimeout(() => this.showStatus('Pronto per registrare'), 2000);
+        if (this.isExporting) return;
+        if (this.notes.length === 0) {
+            this.showStatus("Nessuna nota da esportare.");
+            setTimeout(() => this.showStatus('Pronto per registrare'), 2000);
             return;
         }
         this.isExporting = true;
@@ -190,10 +191,20 @@ class VoiceNotesApp {
             
             const dateStr = new Date().toISOString().slice(0, 10);
             
-            await this.storageManager.downloadFiles([
-                { content: markdownContent, filename: `note_aggregate_${dateStr}.md`, type: 'text/markdown' },
-                { content: summaryContent, filename: `export_summary_${dateStr}.txt`, type: 'text/plain' }
-            ]);
+            const filesToExport = [
+                {
+                    content: markdownContent,
+                    filename: `note_aggregate_${dateStr}.md`,
+                    type: 'text/markdown'
+                },
+                {
+                    content: summaryContent,
+                    filename: `export_summary_${dateStr}.txt`,
+                    type: 'text/plain'
+                }
+            ];
+
+            await this.storageManager.downloadFiles(filesToExport);
             this.showStatus('✅ Export completato!');
         } catch (error) {
             this.showError("Export Fallito", "Riprova.");
@@ -205,44 +216,22 @@ class VoiceNotesApp {
     }
 
     parseNotesForExport(notes) {
-        const allItems = [];
-        const ambitoRegex = /ambito\s+([^\s]+)\s+(.*?)fine/gis;
-        const tagRegex = /tag\s+([^\s-]+)[\s-–—]+(.*?)(?=\s*tag\s|\s*ambito\s|$)/gis;
-
-        notes.forEach(note => {
-            let remainingTranscript = note.transcript;
-
-            // Extract all AMBITO blocks first
-            let match;
-            while ((match = ambitoRegex.exec(note.transcript)) !== null) {
-                allItems.push({
-                    scope: match[1].toLowerCase(),
-                    content: match[2].trim(),
-                    timestamp: note.timestamp
-                });
-                // Replace the matched part with placeholders to avoid re-parsing
-                remainingTranscript = remainingTranscript.replace(match[0], '');
-            }
-
-            // Now, extract all TAG blocks from the remaining text
-            while ((match = tagRegex.exec(remainingTranscript)) !== null) {
-                 allItems.push({
-                    scope: `tag-${match[1].toLowerCase()}`,
-                    content: match[2].trim(),
-                    timestamp: note.timestamp
-                });
-            }
-        });
-
-        // Group the extracted items by scope
         const notesByScope = {};
-        allItems.forEach(item => {
-            if (!notesByScope[item.scope]) {
-                notesByScope[item.scope] = [];
-            }
-            notesByScope[item.scope].push(item);
+        notes.forEach(note => {
+            const chunks = note.transcript.split(/(?=ambito |tag )/i);
+            chunks.forEach(chunk => {
+                if (chunk.trim() === '') return;
+                const { scope, content } = this.parseChunk(chunk);
+                if (!notesByScope[scope]) {
+                    notesByScope[scope] = [];
+                }
+                notesByScope[scope].push({
+                    content: content,
+                    timestamp: note.timestamp,
+                    duration: note.duration
+                });
+            });
         });
-
         return notesByScope;
     }
 
@@ -261,41 +250,44 @@ class VoiceNotesApp {
     }
 
     generateSummary(parsedData) {
-        let totalItems = 0;
-        const scopeCounts = {};
-        
-        Object.keys(parsedData).forEach(scope => {
-            const count = parsedData[scope].length;
-            scopeCounts[scope] = count;
-            totalItems += count;
-        });
-
+        let totalNotes = 0;
+        let totalDuration = 0;
         let content = `Riepilogo Esportazione Note\n`;
         content += `============================\n`;
         content += `Data: ${new Date().toLocaleString('it-IT')}\n\n`;
         
         content += `Statistiche per Ambito:\n`;
-        Object.keys(scopeCounts).sort().forEach(scope => {
-            content += `- ${scope.toUpperCase()}: ${scopeCounts[scope]} voce/i\n`;
+        Object.keys(parsedData).sort().forEach(scope => {
+            const items = parsedData[scope];
+            const scopeDuration = items.reduce((sum, item) => sum + item.duration, 0);
+            totalDuration += scopeDuration;
+            totalNotes += items.length;
+            content += `- ${scope.toUpperCase()}: ${items.length} nota(e), durata totale ${scopeDuration}s\n`;
         });
 
         content += `\n----------------------------\n`;
-        content += `Totale Voci Estratte: ${totalItems}\n`;
-        content += `Note Originali: ${this.notes.length}\n`;
+        content += `Totale Note: ${totalNotes}\n`;
+        content += `Durata Totale Complessiva: ${totalDuration} secondi\n`;
 
         return content;
     }
 
-    parseChunk(chunk) { // Used only for the review modal now
+    parseChunk(chunk) {
         chunk = chunk.trim();
         const lowerChunk = chunk.toLowerCase();
+
         if (lowerChunk.startsWith('ambito ')) {
-            const match = chunk.match(/ambito\s+([^\s]+)\s+(.*?)fine/is);
-            if (match) return { scope: match[1].toLowerCase(), content: match[2].trim() };
+            const match = chunk.match(/ambito\s+([^\s]+)\s+fine\s*(.*)/is);
+            if (match) {
+                return { scope: match[1].toLowerCase(), content: match[2].trim() };
+            }
         }
+        
         if (lowerChunk.startsWith('tag ')) {
             const match = chunk.match(/tag\s+([^\s-]+)[\s-–—]+(.*)/is);
-            if (match) return { scope: `tag-${match[1].toLowerCase()}`, content: match[2].trim() };
+            if (match) {
+                return { scope: `tag-${match[1].toLowerCase()}`, content: match[2].trim() };
+            }
         }
         return { scope: 'generale', content: chunk };
     }
