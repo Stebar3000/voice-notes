@@ -1,9 +1,9 @@
 // app.js - Main application logic
-// v2.6 - Robust saving logic and simplified state management.
+// v2.7 - Final robust version.
 
 class VoiceNotesApp {
     constructor() {
-        console.log('🚀 Voice Notes App v2.6 initialization...');
+        console.log('🚀 Voice Notes App v2.7 initialization...');
         this.isRecording = false;
         this.isPaused = false;
         this.isSaving = false;

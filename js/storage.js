@@ -1,5 +1,5 @@
 // storage.js - Manages data persistence and export
-// v2.6 - Improved IndexedDB error handling and removed note limit.
+// v2.7 - Fixed critical ReferenceError during audio save.
 
 class StorageManager {
     constructor() {
@@ -65,7 +65,11 @@ class StorageManager {
         if (!this.db) return false;
         try {
             const tx = this.db.transaction([this.audioStoreName], 'readwrite');
+            // *** THE CRITICAL BUG FIX IS HERE ***
+            // The 'store' variable is now correctly defined before being used.
+            const store = tx.objectStore(this.audioStoreName);
             store.put({ noteId: noteId, blob: audioBlob });
+            
             return await new Promise((resolve, reject) => {
                 tx.oncomplete = () => resolve(true);
                 tx.onerror = (event) => {
