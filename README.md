@@ -1,76 +1,76 @@
-# 🎤 Voice Notes per Auto
+🎤 Voice Notes Auto
+Un'applicazione web minimalista, sicura e offline-first per prendere note vocali strutturate mentre si guida. Progettata per essere usata senza distogliere lo sguardo dalla strada.
 
-Un'applicazione web semplice e sicura per prendere note vocali mentre si guida, progettata specificamente per l'uso hands-free in automobile.
+🚗 Il Problema
+Prendere appunti in auto è spesso necessario, ma le app tradizionali sono complesse e pericolose da usare al volante. Questa app nasce dall'esigenza reale di catturare idee e task in modo rapido, sicuro e organizzato, anche in assenza di connessione internet.
 
-## 🚗 Il Problema
+✨ La Soluzione
+Voice Notes Auto è una Progressive Web App (PWA) che trasforma il tuo telefono in un dittafono intelligente con:
 
-Quando si guida, prendere note è fondamentale ma le app esistenti sono troppo complesse per un uso sicuro alla guida. Serviva un'interfaccia estremamente semplice: un solo pulsante grande per avviare, mettere in pausa, riprendere e salvare le registrazioni vocali.
+Interfaccia a Pulsante Unico: Un grande pulsante centrale per tutte le azioni principali (Inizia, Pausa, Riprendi).
 
-## ✨ La Soluzione
+Controllo Hands-Free: Un click singolo per mettere in pausa/riprendere, un doppio click per salvare la nota.
 
-Un'applicazione web progressiva (PWA) con:
-- **Un singolo pulsone** da 300x300px facilmente raggiungibile senza guardare
-- **Controllo vocale intuitivo**: click per iniziare/pausa/riprendi, doppio-click per salvare
-- **Feedback visivo chiaro** con colori distinti per ogni stato (blu=pronto, rosso=registra, arancione=pausa)
-- **Interfaccia ottimizzata** per l'uso in auto con font grandi e contrasti elevati
+Trascrizione Offline: Sfrutta il motore di riconoscimento vocale del tuo dispositivo per funzionare perfettamente anche in modalità aereo.
 
-## 🎯 Come Funziona
+Organizzazione Automatica: Usa una sintassi semplice (AMBITO e TAG) per categorizzare automaticamente le tue note.
 
-1. **Click singolo**: Avvia la registrazione (o mette in pausa se già attiva, o riprende se in pausa)
-2. **Doppio-click**: Salva la nota corrente e torna allo stato iniziale
-3. **Timer integrato**: Mostra la durata della registrazione in tempo reale
-4. **Lista note**: Le ultime 5 registrazioni sono accessibili toccando per riascoltarle
+100% Privacy: Nessun dato viene mai inviato a server esterni. Tutto rimane sul tuo dispositivo.
 
-## 🔧 Tecnologie Utilizzate
+📖 Guida all'Uso
+Comandi di Base
+Click Singolo:
 
-- **Progressive Web App (PWA)**: Installabile come app nativa su qualsiasi dispositivo
-- **Web Audio API**: Per la registrazione audio di alta qualità
-- **MediaRecorder API**: Gestione pause/ripresa senza perdita di dati
-- **Responsive Design**: Ottimizzata per smartphone, tablet e desktop
-- **HTTPS nativo**: Tramite GitHub Pages per piena compatibilità con i browser moderni
+Se l'app è inattiva -> Avvia la registrazione.
 
-## 📱 Installazione
+Se sta registrando -> Mette in Pausa.
 
-1. Vai su [https://tuonome.github.io/voice-notes](https://tuonome.github.io/voice-notes)
-2. Sul tuo smartphone, tocca "Condividi" > "Aggiungi alla schermata Home"
-3. L'app si installerà come una normale applicazione
-4. Autorizza l'accesso al microfono quando richiesto
+Se è in pausa -> Riprende la registrazione.
 
-## 🚀 Utilizzo in Auto
+Doppio Click Rapido: Salva la nota corrente e si prepara per la successiva.
 
-⚠️ **Sicurezza prima di tutto**: Configura l'app prima di partire. Posiziona il telefono in modo che il pulsante sia facilmente raggiungibile senza distogliere lo sguardo dalla strada.
+La Sintassi dei Comandi Vocali
+Per organizzare le tue note, usa queste semplici parole chiave all'inizio del tuo discorso.
 
-**Flusso d'uso tipico:**
-- Tocca una volta per iniziare a registrare
-- Parla liberamente per tutto il tempo necessario
-- Tocca una volta per mettere in pausa (ad esempio a un semaforo)
-- Tocca di nuovo per riprendere la registrazione
-- Tocca due volte rapidamente quando hai finito per salvare la nota
+AMBITO nome_ambito FINE ...
+Usa AMBITO per note più lunghe e strutturate, come il riassunto di una riunione o un'idea complessa.
 
-## 🛡️ Privacy e Sicurezza
+Esempio:
 
-- **Nessun dato inviato online**: Tutte le registrazioni rimangono sul tuo dispositivo
-- **Nessun tracking**: L'app non raccoglie dati personali o di utilizzo
-- **HTTPS sicuro**: Connessione crittografata tramite GitHub Pages
-- **Codice open source**: Tutto il codice è ispezionabile e modificabile
+AMBITO progetto-alpha FINE la riunione di oggi ha confermato la necessità di accelerare...
 
-## 🤝 Contribuire
+Tutto ciò che viene detto dopo FINE verrà salvato sotto l'ambito "progetto-alpha".
 
-Questo progetto è nato dall'esigenza reale di avere un'app semplice per le note vocali in auto. Se hai suggerimenti, miglioramenti o hai trovato bug, sentiti libero di:
+TAG nome_tag - ...
+Usa TAG per task veloci e promemoria, come una telefonata da fare o un'email da inviare. È fondamentale usare un trattino - dopo il nome del tag.
 
-- Aprire una Issue per segnalazioni
-- Proporre miglioramenti tramite Pull Request
-- Condividere la tua esperienza d'uso
+Esempio:
 
-## 📝 Licenza
+TAG telefonata - Chiamare subito Marco per allinearlo sulle novità...
+TAG email - Inviare un riassunto a tutto il team...
 
-MIT License - Sentiti libero di usare, modificare e distribuire questo codice.
+Tutti i TAG verranno raggruppati in un unico documento di testo per una rapida revisione.
 
-## 🙏 Riconoscimenti
+Funzioni Aggiuntive
+I pulsanti in basso ti permettono di:
 
-Progetto sviluppato con l'assistenza di Claude AI per risolvere un problema reale di user experience nelle applicazioni vocali per automobilisti.
+Rivedi Note: Visualizza, leggi ed elimina le note salvate nella sessione corrente.
 
----
+Export: Salva tutte le tue note in un unico file di testo, formattato e suddiviso per ambiti, pronto per essere condiviso su WhatsApp, email o salvato su file.
 
-**Nota per gli sviluppatori**: Questo è un esempio perfetto di come una PWA possa risolvere problemi specifici che le app native complesse non affrontano adeguatamente. Il codice è intenzionalmente semplice e ben commentato per favorire l'apprendimento e la personalizzazione.# voice-notes
-Hands free voice recorder (PWA version)
+Nuova Sessione: Cancella permanentemente tutte le note salvate sul dispositivo. Utile per ripartire da zero dopo aver esportato e archiviato il lavoro di una giornata.
+
+📱 Installazione (PWA)
+Per un accesso più rapido, puoi installare l'app sulla schermata Home del tuo telefono:
+
+Apri l'indirizzo dell'app nel tuo browser (Safari su iPhone, Chrome su Android).
+
+Tocca il pulsante "Condividi".
+
+Seleziona "Aggiungi alla schermata Home".
+
+🤝 Contribuire
+Questo progetto è open source. Contributi, suggerimenti e segnalazioni di bug sono i benvenuti. Sentiti libero di aprire una "Issue" sul repository GitHub.
+
+📝 Licenza
+MIT License.

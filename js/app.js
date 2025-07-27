@@ -1,9 +1,9 @@
 // app.js - Main application logic
-// v2.9 - TEXT-ONLY FINAL VERSION.
+// v3.0 - FINAL VERSION. Implemented robust TAG parsing.
 
 class VoiceNotesApp {
     constructor() {
-        console.log('🚀 Voice Notes App v2.9 initialization...');
+        console.log('🚀 Voice Notes App v3.0 initialization...');
         this.isRecording = false;
         this.isPaused = false;
         this.isSaving = false;
@@ -188,9 +188,11 @@ class VoiceNotesApp {
             const summaryContent = this.generateSummary(parsedData);
             const dateStr = new Date().toISOString().slice(0, 10);
             
+            // For WhatsApp sharing, we combine everything into one message.
+            const combinedContent = `${markdownContent}\n\n\n${summaryContent}`;
+
             await this.storageManager.downloadFiles([
-                { content: markdownContent, filename: `note_aggregate_${dateStr}.md`, type: 'text/markdown' },
-                { content: summaryContent, filename: `export_summary_${dateStr}.txt`, type: 'text/plain' }
+                { content: combinedContent, filename: `note_export_${dateStr}.txt`, type: 'text/plain' }
             ]);
             this.showStatus('✅ Export completato!');
         } catch (error) {
@@ -204,7 +206,8 @@ class VoiceNotesApp {
 
     parseNotesForExport(notes) {
         const notesByScope = {};
-        notes.forEach(note => {
+        // We process in reverse to have the oldest notes first in the final output.
+        notes.slice().reverse().forEach(note => {
             const chunks = this.splitByKeywords(note.transcript);
             chunks.forEach(chunk => {
                 if (chunk.trim() === '') return;
@@ -238,7 +241,7 @@ class VoiceNotesApp {
         Object.keys(parsedData).sort().forEach(scope => {
             const items = parsedData[scope];
             totalItems += items.length;
-            content += `- ${scope.toUpperCase()}: ${items.length} nota(e)\n`;
+            content += `- ${scope.toUpperCase()}: ${items.length} voce/i\n`;
         });
         content += `\n----------------------------\n`;
         content += `Totale Voci Registrate: ${totalItems}\n`;
@@ -254,11 +257,14 @@ class VoiceNotesApp {
             return { scope: ambitoMatch[1].trim(), content: chunk.replace(/^ambito .*? fine/i, '').trim() };
         }
         
-        const tagMatch = chunk.match(/^tag (.*?)(?:[\s-]+)(.*)/is);
+        // *** THE FINAL FIX ***
+        // This regex now requires a hyphen as a separator for tags, making it robust.
+        const tagMatch = chunk.match(/^tag\s+(.+?)\s*-\s*(.*)/is);
         if (tagMatch) {
             return { scope: 'TAGS', content: `**${tagMatch[1].trim().toUpperCase()}:** ${tagMatch[2].trim()}` };
         }
         
+        // If no specific keyword matches, it's a general note.
         return { scope: 'GENERALE', content: chunk };
     }
 

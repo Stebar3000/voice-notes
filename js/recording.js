@@ -1,5 +1,5 @@
 // recording.js - Manages audio recording and speech-to-text transcription
-// v2.9 - TEXT-ONLY FINAL VERSION. Audio blob handling removed.
+// v3.0 - TEXT-ONLY FINAL VERSION. Audio blob handling removed.
 
 class RecordingManager {
     constructor() {

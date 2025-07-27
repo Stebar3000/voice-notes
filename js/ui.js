@@ -1,5 +1,5 @@
 // ui.js - Manages all UI updates and user feedback
-// v2.4 - UI is stable
+// v3.0 - UI is stable
 
 class UIManager {
     constructor() {

@@ -1,5 +1,5 @@
 // storage.js - Manages data persistence and export
-// v2.9 - TEXT-ONLY FINAL VERSION. Ultra-reliable, uses localStorage only.
+// v3.0 - TEXT-ONLY FINAL VERSION. Ultra-reliable, uses localStorage only.
 
 class StorageManager {
     constructor() {
