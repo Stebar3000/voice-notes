@@ -1,9 +1,9 @@
 // app.js - Applicazione principale Voice Notes Auto
-// v2.5 - Logica di parsing multi-ambito e file di riepilogo
+// v2.6 - Logica di parsing robusta e stabilità generale
 
 class VoiceNotesApp {
     constructor() {
-        console.log('🚀 Voice Notes App v2.5 initialization...');
+        console.log('🚀 Voice Notes App v2.6 initialization...');
         this.isRecording = false;
         this.isPaused = false;
         this.isSaving = false;
@@ -205,22 +205,44 @@ class VoiceNotesApp {
     }
 
     parseNotesForExport(notes) {
-        const notesByScope = {};
+        const allItems = [];
+        const ambitoRegex = /ambito\s+([^\s]+)\s+(.*?)fine/gis;
+        const tagRegex = /tag\s+([^\s-]+)[\s-–—]+(.*?)(?=\s*tag\s|\s*ambito\s|$)/gis;
+
         notes.forEach(note => {
-            const chunks = note.transcript.split(/(?=ambito |tag )/i);
-            chunks.forEach(chunk => {
-                if (chunk.trim() === '') return;
-                const { scope, content } = this.parseChunk(chunk);
-                if (!notesByScope[scope]) {
-                    notesByScope[scope] = [];
-                }
-                notesByScope[scope].push({
-                    content: content,
-                    timestamp: note.timestamp,
-                    duration: note.duration // Using the full note duration for simplicity
+            let remainingTranscript = note.transcript;
+
+            // Extract all AMBITO blocks first
+            let match;
+            while ((match = ambitoRegex.exec(note.transcript)) !== null) {
+                allItems.push({
+                    scope: match[1].toLowerCase(),
+                    content: match[2].trim(),
+                    timestamp: note.timestamp
                 });
-            });
+                // Replace the matched part with placeholders to avoid re-parsing
+                remainingTranscript = remainingTranscript.replace(match[0], '');
+            }
+
+            // Now, extract all TAG blocks from the remaining text
+            while ((match = tagRegex.exec(remainingTranscript)) !== null) {
+                 allItems.push({
+                    scope: `tag-${match[1].toLowerCase()}`,
+                    content: match[2].trim(),
+                    timestamp: note.timestamp
+                });
+            }
         });
+
+        // Group the extracted items by scope
+        const notesByScope = {};
+        allItems.forEach(item => {
+            if (!notesByScope[item.scope]) {
+                notesByScope[item.scope] = [];
+            }
+            notesByScope[item.scope].push(item);
+        });
+
         return notesByScope;
     }
 
@@ -264,24 +286,16 @@ class VoiceNotesApp {
         return content;
     }
 
-    parseChunk(chunk) {
+    parseChunk(chunk) { // Used only for the review modal now
         chunk = chunk.trim();
         const lowerChunk = chunk.toLowerCase();
-
-        // Regex per AMBITO, non-greedy
         if (lowerChunk.startsWith('ambito ')) {
             const match = chunk.match(/ambito\s+([^\s]+)\s+(.*?)fine/is);
-            if (match) {
-                return { scope: match[1].toLowerCase(), content: match[2].trim() };
-            }
+            if (match) return { scope: match[1].toLowerCase(), content: match[2].trim() };
         }
-        
-        // Regex per TAG
         if (lowerChunk.startsWith('tag ')) {
             const match = chunk.match(/tag\s+([^\s-]+)[\s-–—]+(.*)/is);
-            if (match) {
-                return { scope: `tag-${match[1].toLowerCase()}`, content: match[2].trim() };
-            }
+            if (match) return { scope: `tag-${match[1].toLowerCase()}`, content: match[2].trim() };
         }
         return { scope: 'generale', content: chunk };
     }

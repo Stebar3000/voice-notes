@@ -1,5 +1,5 @@
 // recording.js - Manages audio recording and speech-to-text transcription
-// v2.5 - Stable pause/resume logic
+// v2.6 - Stable pause/resume logic
 
 class RecordingManager {
     constructor() {

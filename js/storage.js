@@ -1,5 +1,5 @@
 // storage.js - Manages data persistence and export
-// v2.5 - Handles multiple file downloads
+// v2.6 - Handles multiple file downloads
 
 class StorageManager {
     constructor() {
