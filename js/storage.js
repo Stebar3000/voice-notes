@@ -1,10 +1,9 @@
 // storage.js - Manages data persistence and export
-// v2.4 - Handles multiple file downloads
+// v2.6 - Improved IndexedDB error handling and removed note limit.
 
 class StorageManager {
     constructor() {
         this.db = null;
-        this.isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
         this.dbName = 'VoiceNotesDB';
         this.dbVersion = 1;
         this.notesStoreName = 'notes';
@@ -12,19 +11,17 @@ class StorageManager {
     }
 
     async initialize() {
-        if (!this.isIOS && window.indexedDB) {
+        if (window.indexedDB) {
             try {
                 this.db = await this.openIndexedDB();
+                console.log("✅ IndexedDB initialized successfully.");
             } catch (error) {
-                this.isIOS = true; 
-                this.initializeLocalStorage();
+                console.error("🚨 IndexedDB initialization failed. Audio blobs will not be saved.", error);
             }
         } else {
-            this.initializeLocalStorage();
+            console.warn("⚠️ IndexedDB not supported. Audio blobs will not be saved.");
         }
     }
-
-    initializeLocalStorage() { console.log(`📱 Using localStorage for metadata`); }
 
     openIndexedDB() {
         return new Promise((resolve, reject) => {
@@ -41,7 +38,9 @@ class StorageManager {
 
     async saveNote(note, audioBlob) {
         this.saveNoteToLocalStorage(note);
-        if (this.db) return this.saveNoteToIndexedDB(note, audioBlob);
+        if (this.db && audioBlob) {
+            return await this.saveAudioToIndexedDB(note.id, audioBlob);
+        }
         return true;
     }
 
@@ -49,22 +48,35 @@ class StorageManager {
         try {
             const notes = this.getNotesFromLocalStorage();
             const existingIndex = notes.findIndex(n => n.id === note.id);
-            if (existingIndex > -1) notes[existingIndex] = note;
-            else notes.unshift(note);
-            if (notes.length > 100) notes.splice(100);
+            if (existingIndex > -1) {
+                notes[existingIndex] = note;
+            } else {
+                notes.unshift(note);
+            }
             localStorage.setItem(this.dbName, JSON.stringify(notes));
             return true;
-        } catch (e) { return false; }
+        } catch (e) {
+            console.error("🚨 Failed to save note metadata to localStorage:", e);
+            return false;
+        }
     }
 
-    async saveNoteToIndexedDB(note, audioBlob) {
+    async saveAudioToIndexedDB(noteId, audioBlob) {
         if (!this.db) return false;
         try {
-            const tx = this.db.transaction([this.notesStoreName, this.audioStoreName], 'readwrite');
-            await this.promisifyRequest(tx.objectStore(this.notesStoreName).put({ ...note }));
-            if (audioBlob) await this.promisifyRequest(tx.objectStore(this.audioStoreName).put({ noteId: note.id, blob: audioBlob }));
-            return true;
-        } catch (e) { return false; }
+            const tx = this.db.transaction([this.audioStoreName], 'readwrite');
+            store.put({ noteId: noteId, blob: audioBlob });
+            return await new Promise((resolve, reject) => {
+                tx.oncomplete = () => resolve(true);
+                tx.onerror = (event) => {
+                    console.error("IndexedDB transaction error:", event.target.error);
+                    reject(event.target.error);
+                };
+            });
+        } catch (e) {
+            console.error("🚨 Failed to save audio blob to IndexedDB:", e);
+            return false;
+        }
     }
 
     async loadNotes() {
@@ -74,7 +86,9 @@ class StorageManager {
     getNotesFromLocalStorage() {
         try {
             return JSON.parse(localStorage.getItem(this.dbName)) || [];
-        } catch (e) { return []; }
+        } catch (e) {
+            return [];
+        }
     }
 
     async downloadFiles(files) {
@@ -92,25 +106,30 @@ class StorageManager {
             }
         }
         
-        // Fallback for desktop browsers: download files one by one
         shareableFiles.forEach((file, index) => {
             setTimeout(() => {
                 const url = URL.createObjectURL(file);
                 const link = document.createElement('a');
                 link.href = url;
                 link.download = file.name;
+                document.body.appendChild(link);
                 link.click();
+                document.body.removeChild(link);
                 URL.revokeObjectURL(url);
-            }, index * 500); // Stagger downloads
+            }, index * 500);
         });
     }
 
     async clearAllData() {
         localStorage.removeItem(this.dbName);
         if (this.db) {
-            const tx = this.db.transaction([this.notesStoreName, this.audioStoreName], 'readwrite');
-            await this.promisifyRequest(tx.objectStore(this.notesStoreName).clear());
-            await this.promisifyRequest(tx.objectStore(this.audioStoreName).clear());
+            try {
+                const tx = this.db.transaction([this.notesStoreName, this.audioStoreName], 'readwrite');
+                await this.promisifyRequest(tx.objectStore(this.notesStoreName).clear());
+                await this.promisifyRequest(tx.objectStore(this.audioStoreName).clear());
+            } catch (e) {
+                 console.error("🚨 Error clearing IndexedDB:", e);
+            }
         }
     }
 
@@ -118,9 +137,13 @@ class StorageManager {
         const notes = this.getNotesFromLocalStorage().filter(n => n.id !== noteId);
         localStorage.setItem(this.dbName, JSON.stringify(notes));
         if (this.db) {
-            const tx = this.db.transaction([this.notesStoreName, this.audioStoreName], 'readwrite');
-            await this.promisifyRequest(tx.objectStore(this.notesStoreName).delete(noteId));
-            await this.promisifyRequest(tx.objectStore(this.audioStoreName).delete(noteId));
+            try {
+                const tx = this.db.transaction([this.notesStoreName, this.audioStoreName], 'readwrite');
+                await this.promisifyRequest(tx.objectStore(this.notesStoreName).delete(noteId));
+                await this.promisifyRequest(tx.objectStore(this.audioStoreName).delete(noteId));
+            } catch(e) {
+                 console.error("🚨 Error deleting note from IndexedDB:", e);
+            }
         }
     }
 

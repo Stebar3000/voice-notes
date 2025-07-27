@@ -7,6 +7,7 @@
     
     <!-- PWA Meta Tags -->
     <meta name="theme-color" content="#1e293b">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Voice Notes">
@@ -14,18 +15,17 @@
     <!-- Manifest & Icons -->
     <link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiVm9pY2UgTm90ZXMgQXV0byIsInNob3J0X25hbWUiOiJWb2ljZU5vdGVzIiwic3RhcnRfdXJsIjoiLiIsImRpc3BsYXkiOiJzdGFuZGFsb25lIiwiYmFja2dyb3VuZF9jb2xvciI6IiMxZTI5M2IiLCJ0aGVtZV9jb2xvciI6IiMxZTI5M2IiLCJpY29ucyI6W3sic3JjIjoiZGF0YTppbWFnZS9zdmcreG1sO2Jhc2U2NCxQSE4yWnlCM2FXUjBhRDBpTWpRaUlHaGxhV2RvZEQwaU1qUWlJSFpwWlhkQ2IzZzlJakFnTUNBeU5DQXlOQ0lnYm1GdFpYTndZV05sUFNKb2RIUndPaTh2ZDNkM0xuY3pMbTl5Wnk4eU1EQXdMM04yWnlJK1BIQmhkR2dnWkQwaVRUZ2dNVE5oTlNBMUlEQWdNUzR4SURFZ01URWdNaVl6SURBZ01URTRNaTQzTlNBek5pNHlOQ0EyTlM0ME15QTFOQ0EwTGpVNElEQWdNUzQ0TGpGaE5TQTFJREFnTUNBMExqVWdNell1TWpSYU1UZ2dNVE52TFRJZ01UQmhOaUEySUdGYU1EQTVMVFV1TVVFMU5TQTFJREFnTUNBNUlGUnRNQ0EzWXpBZ01TNDNMaTQwSUVNZ01UUWdNVzV2TVMweUlERXdMaTQySUZObE56QXVOelVnTUNBNUlEVjFMalZoTmkwMklEZ2dPV0ZhSWlCbWFXeHNQU0lqWVdOaVkya2lMejQ4TDNOMlp6ND0iLCJzaXplcyI6IjUxMng1MTIiLCJ0eXBlIjoiaW1hZ2Uvc3ZnK3htbCJ9XX0=">
     <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTgwIiBoZWlnaHQ9IjE4MCIgdmlld0JveD0iMCAwIDI0IDI0IiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxwYXRoIGQ9Ik0xMiAyQzYuNDggMiAyIDYuNDggMiAxMnM0LjQ4IDEwIDEwIDEwIDEwLTQuNDggMTAtMTBTMTcuNTIgMiAxMiAyem0xIDE1aC0ydi02aDJ2NnptMC04aC0ydi0yaDJ2MnoiIGZpbGw9IiNmMWY1ZjkiLz48L3N2Zz4=">
-    <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAyNCAyNCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMTIgMmM1LjUyIDAgMTAgNC40OCAxMCAxMHMtNC40OCAxMC0xMCAxMCUzIDIzLjUyIDIgMTggMiA2LjQ4IDIgMTJ6bS0xIDVoMlY4aC0ydjR6bTEgN2gydi0yaC0ydi0yLjVoLTJWMTdoMnYyLjV6IiBmaWxsPSIjOWNhM2I4Ii8+PC9zdmc+">
+    <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAyNCAyNCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMTIgMmM1LjUyIDAgMTAgNC44IDIgMTggMiA2LjQ4IDIgMTJ6bS0xIDVoMlY4aC0ydjR6bTEgN2gydi0yaC0ydi0yLjVoLTJWMTdoMnYyLjV6IiBmaWxsPSIjOWNhM2I4Ii8+PC9zdmc+">
     
     <!-- CSS -->
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
     <div class="app-container">
-        <!-- Area Principale -->
         <main class="main-content">
             <header class="app-header">
                 <span class="app-title">Voice Notes Auto</span>
-                <span class="app-version">v2.4</span>
+                <span class="app-version">v2.6</span>
             </header>
 
             <div class="status-text" id="statusText">Pronto per registrare</div>
@@ -38,28 +38,27 @@
 
             <div class="transcription-area" id="transcriptionArea" style="display: none;">
                 <div class="transcription-label">Trascrizione in tempo reale:</div>
-                <div class="transcription-text">
-                    <span id="finalTranscript"></span>
-                    <span class="transcription-interim" id="interimTranscript"></span>
+                <div class="transcription-text-wrapper">
+                    <div class="transcription-text" id="transcriptionText">
+                        <span id="finalTranscript"></span><span class="transcription-interim" id="interimTranscript"></span>
+                    </div>
                 </div>
             </div>
         </main>
 
-        <!-- Sezione Controlli Inferiore -->
         <footer class="footer-content">
             <div class="controls-grid">
-                <button class="control-btn" id="reviewNotesBtn">📝 Rivedi Note</button>
-                <button class="control-btn" id="speechToggle">🎤 Trascrizione</button>
-                <button class="control-btn" id="exportAggregatedBtn">📚 Export</button>
-                <button class="control-btn" id="newSessionBtn">🗑️ Nuova Sessione</button>
+                <button class="control-btn" id="reviewNotesBtn">Rivedi Note</button>
+                <button class="control-btn" id="speechToggle">Trascrizione</button>
+                <button class="control-btn" id="exportAggregatedBtn">Export</button>
+                <button class="control-btn" id="newSessionBtn">Nuova Sessione</button>
             </div>
             <div class="instructions">
-                Click: Inizia/Pausa • Doppio Click: Salva
+                Click: Inizia/Pausa &bull; Doppio Click: Salva
             </div>
         </footer>
     </div>
     
-    <!-- MODALS -->
     <div class="modal-overlay" id="reviewModal">
         <div class="modal-content">
             <div class="modal-header">
@@ -85,10 +84,10 @@
         </div>
     </div>
 
-    <!-- Scripts -->
+    <!-- Scripts (L'ordine è importante!) -->
     <script src="js/storage.js"></script>
-    <script src="js/recording.js"></script>
     <script src="js/ui.js"></script>
+    <script src="js/recording.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>

@@ -1,5 +1,5 @@
 // recording.js - Manages audio recording and speech-to-text transcription
-// v2.4 - Stable pause/resume logic
+// v2.6 - Final fix for transcript overwrite and online/offline race condition.
 
 class RecordingManager {
     constructor() {
@@ -8,8 +8,9 @@ class RecordingManager {
         this.stream = null;
         this.recognition = null;
         this.speechEnabled = true;
+        
+        // This is the main transcript variable. It will be continuously appended to.
         this.finalTranscript = '';
-        this.accumulatedTranscript = '';
         
         this.initializeSpeechRecognition();
     }
@@ -18,7 +19,8 @@ class RecordingManager {
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SpeechRecognition) {
             this.speechEnabled = false;
-            window.voiceNotesApp?.uiManager.setSpeechToggleSupported(false);
+            // Use a timeout to ensure the UI manager is initialized
+            setTimeout(() => window.voiceNotesApp?.uiManager.setSpeechToggleSupported(false), 100);
             return;
         }
         
@@ -28,26 +30,27 @@ class RecordingManager {
         this.recognition.lang = 'it-IT';
         
         this.recognition.onresult = (event) => this.handleSpeechResult(event);
-        this.recognition.onerror = (event) => console.error('❌ Transcription error:', event.error);
-        this.recognition.onend = () => {
-            if (window.voiceNotesApp?.isSaving) {
-                window.voiceNotesApp.handleTranscriptionEnd(this.finalTranscript.trim());
+        this.recognition.onerror = (event) => {
+            // Ignore 'network' errors which can happen when switching modes.
+            if (event.error !== 'network') {
+                console.error('❌ Transcription error:', event.error);
             }
         };
     }
     
     handleSpeechResult(event) {
         let interimTranscript = '';
-        let currentFinal = '';
         for (let i = event.resultIndex; i < event.results.length; i++) {
-            const transcript = event.results[i][0].transcript;
+            const transcriptPart = event.results[i][0].transcript;
             if (event.results[i].isFinal) {
-                currentFinal += transcript + ' ';
+                // *** THE CORE BUG FIX ***
+                // Always append the final part to the main transcript string.
+                // This prevents overwriting after a pause or a long silence.
+                this.finalTranscript += transcriptPart.trim() + ' ';
             } else {
-                interimTranscript += transcript;
+                interimTranscript += transcriptPart;
             }
         }
-        this.finalTranscript = (this.accumulatedTranscript + currentFinal).trim();
         this.updateTranscriptionDisplay(this.finalTranscript, interimTranscript);
     }
     
@@ -61,7 +64,7 @@ class RecordingManager {
         window.voiceNotesApp?.updateUI();
         
         if (this.speechEnabled && window.voiceNotesApp?.isRecording) {
-            this.startTranscription(false);
+            this.startTranscription();
         } else {
             this.stopTranscription();
         }
@@ -76,11 +79,9 @@ class RecordingManager {
             this.mediaRecorder = new MediaRecorder(this.stream, options);
             this.audioChunks = [];
             this.mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) this.audioChunks.push(e.data); };
-            this.mediaRecorder.onstop = () => { this.processAudio(); this.stopTranscription(); };
-            this.mediaRecorder.onerror = (e) => window.voiceNotesApp?.showError('Errore Registrazione', e.error.message);
             
             this.mediaRecorder.start();
-            if (this.speechEnabled) this.startTranscription(true);
+            if (this.speechEnabled) this.startTranscription();
             return true;
         } catch (error) {
             window.voiceNotesApp?.handleMicrophoneError(error);
@@ -90,7 +91,6 @@ class RecordingManager {
     
     pauseRecording() {
         if (this.mediaRecorder?.state === 'recording') {
-            this.accumulatedTranscript = this.finalTranscript + ' ';
             this.mediaRecorder.pause();
             this.stopTranscription();
         }
@@ -99,42 +99,45 @@ class RecordingManager {
     resumeRecording() {
         if (this.mediaRecorder?.state === 'paused') {
             this.mediaRecorder.resume();
-            if (this.speechEnabled) this.startTranscription(false);
+            if (this.speechEnabled) this.startTranscription();
         }
     }
     
     stopRecording() {
-        if (this.mediaRecorder?.state !== 'inactive') this.mediaRecorder.stop();
+        return new Promise((resolve) => {
+            if (this.mediaRecorder?.state === 'inactive' || !this.mediaRecorder) {
+                resolve({ audioBlob: null, transcript: this.finalTranscript.trim() });
+                return;
+            }
+
+            // This new sequence prevents the online/offline race condition.
+            this.mediaRecorder.onstop = () => {
+                const audioBlob = new Blob(this.audioChunks, { type: this.mediaRecorder.mimeType || 'audio/webm' });
+                resolve({ audioBlob, transcript: this.finalTranscript.trim() });
+            };
+
+            this.stopTranscription();
+            if (this.mediaRecorder.state === 'recording' || this.mediaRecorder.state === 'paused') {
+                this.mediaRecorder.stop();
+            }
+        });
     }
     
-    startTranscription(isNewRecording) {
+    startTranscription() {
         if (!this.recognition || !this.speechEnabled) return;
-        if (isNewRecording) {
-            this.finalTranscript = '';
-            this.accumulatedTranscript = '';
-        }
         this.updateTranscriptionDisplay(this.finalTranscript, '');
-        try { this.recognition.start(); } catch (e) { /* ignore */ }
+        try { this.recognition.start(); } catch (e) { /* ignore if already started */ }
     }
     
     stopTranscription() {
-        if (this.recognition) { try { this.recognition.stop(); } catch (e) { /* ignore */ } }
-    }
-    
-    processAudio() {
-        if (this.audioChunks.length === 0) {
-            window.voiceNotesApp?.showError('Registrazione Vuota', 'Nessun audio catturato.');
-            window.voiceNotesApp?.resetSavingState();
-            return;
+        if (this.recognition) { 
+            try { this.recognition.stop(); } catch (e) { /* ignore if already stopped */ } 
         }
-        const audioBlob = new Blob(this.audioChunks, { type: this.mediaRecorder.mimeType || 'audio/webm' });
-        window.voiceNotesApp?.handleAudioReady(audioBlob);
     }
     
     reset() {
         this.audioChunks = [];
-        this.finalTranscript = '';
-        this.accumulatedTranscript = '';
+        this.finalTranscript = ''; // Reset transcript only for a new recording
         this.stream?.getTracks().forEach(track => track.stop());
         this.stream = null;
         if (this.mediaRecorder?.state !== 'inactive') try { this.mediaRecorder.stop(); } catch (e) {}

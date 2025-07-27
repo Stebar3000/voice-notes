@@ -1,21 +1,22 @@
-// app.js - Applicazione principale Voice Notes Auto
-// v2.4 - Logica di parsing multi-ambito e file di riepilogo
+// app.js - Main application logic
+// v2.6 - Robust saving logic and simplified state management.
 
 class VoiceNotesApp {
     constructor() {
-        console.log('🚀 Voice Notes App v2.4 initialization...');
+        console.log('🚀 Voice Notes App v2.6 initialization...');
         this.isRecording = false;
         this.isPaused = false;
         this.isSaving = false;
         this.isExporting = false;
         this.hasError = false;
         this.notes = [];
-        this.pendingAudioBlob = null;
         this.startTime = null;
         this.elapsedTime = 0;
         this.timerInterval = null;
+        
         this.clickTimeout = null;
-        this.doubleClickDelay = 400;
+        this.clickCount = 0;
+        this.clickDelay = 300; // ms to wait for a double click
 
         this.storageManager = new window.StorageManager();
         this.recordingManager = new window.RecordingManager();
@@ -48,17 +49,21 @@ class VoiceNotesApp {
     attachEventListeners() {
         const recordButton = this.uiManager.elements.recordButton;
         
-        recordButton.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
-        recordButton.addEventListener('touchend', e => {
+        recordButton.addEventListener('click', (e) => {
             e.preventDefault();
             if (this.isSaving || this.isExporting) return;
-            this.handleButtonClick();
-        });
-        recordButton.addEventListener('click', e => {
-             if (this.isSaving || this.isExporting) return;
-             if (e.sourceCapabilities && !e.sourceCapabilities.firesTouchEvents) {
-                this.handleButtonClick();
-             }
+
+            this.clickCount++;
+            if (this.clickTimeout) clearTimeout(this.clickTimeout);
+            
+            this.clickTimeout = setTimeout(() => {
+                if (this.clickCount === 1) {
+                    this.handleSingleClick();
+                } else if (this.clickCount >= 2) {
+                    this.handleDoubleClick();
+                }
+                this.clickCount = 0;
+            }, this.clickDelay);
         });
 
         this.uiManager.elements.speechToggle?.addEventListener('click', () => this.recordingManager.toggleSpeechRecognition());
@@ -76,29 +81,21 @@ class VoiceNotesApp {
         document.addEventListener('visibilitychange', () => this.handleVisibilityChange());
     }
     
-    handleButtonClick() {
+    handleSingleClick() {
         if (this.hasError) { this.resetErrorState(); return; }
         
-        if (this.clickTimeout) {
-            clearTimeout(this.clickTimeout);
-            this.clickTimeout = null;
-            this.handleDoubleClick();
-        } else {
-            this.clickTimeout = setTimeout(() => {
-                this.handleSingleClick();
-                this.clickTimeout = null;
-            }, this.doubleClickDelay);
-        }
-    }
-    
-    handleSingleClick() {
         if (!this.isRecording && !this.isPaused) this.startRecording();
         else if (this.isRecording) this.pauseRecording();
         else if (this.isPaused) this.resumeRecording();
+        
+        this.uiManager.provideFeedback('tap');
     }
     
     handleDoubleClick() {
-        if (this.isRecording || this.isPaused) this.stopAndSaveRecording();
+        if (this.isRecording || this.isPaused) {
+            this.stopAndSaveRecording();
+            this.uiManager.provideFeedback('save');
+        }
     }
     
     async startRecording() {
@@ -128,46 +125,48 @@ class VoiceNotesApp {
         this.updateUI();
     }
     
-    stopAndSaveRecording() {
+    async stopAndSaveRecording() {
         if (this.isSaving) return;
+        
         this.isSaving = true;
         this.stopTimer();
         this.updateUI();
-        this.recordingManager.stopRecording();
-    }
 
-    handleAudioReady(audioBlob) { this.pendingAudioBlob = audioBlob; }
-
-    async handleTranscriptionEnd(transcript) {
-        if (!this.pendingAudioBlob) {
-            this.showError("Errore Salvataggio", "Audio non registrato.");
-            this.resetSavingState();
-            return;
-        }
-        await this.saveNote(this.pendingAudioBlob, transcript);
-        this.resetSavingState();
-    }
-    
-    async saveNote(audioBlob, transcript) {
-        const note = {
-            id: Date.now(),
-            timestamp: new Date().toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' }),
-            duration: Math.floor(this.elapsedTime / 1000),
-            size: audioBlob.size,
-            transcript: transcript,
-        };
-        
-        const saved = await this.storageManager.saveNote(note, audioBlob);
-        this.uiManager.provideFeedback('save');
-        this.showStatus(saved ? `✅ Nota salvata!` : `⚠️ Salvataggio fallito.`);
-        await this.loadNotes();
-        this.resetRecordingState();
-        
-        setTimeout(() => {
-            if (!this.isRecording && !this.isPaused && !this.isSaving) {
-                this.showStatus('Pronto per registrare');
+        try {
+            const { audioBlob, transcript } = await this.recordingManager.stopRecording();
+            
+            if (!transcript && (!audioBlob || audioBlob.size === 0)) {
+                this.showStatus("Nota vuota, non salvata.");
+            } else {
+                const note = {
+                    id: Date.now(),
+                    timestamp: new Date().toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' }),
+                    duration: Math.floor(this.elapsedTime / 1000),
+                    size: audioBlob ? audioBlob.size : 0,
+                    transcript: transcript,
+                };
+                
+                const saved = await this.storageManager.saveNote(note, audioBlob);
+                if (saved) {
+                    this.showStatus("✅ Nota salvata!");
+                    await this.loadNotes();
+                } else {
+                     this.showError("⚠️ Salvataggio fallito", "Controlla la console per dettagli.");
+                }
             }
-        }, 3000);
+        } catch (error) {
+            console.error("Error during save process:", error);
+            this.showError("Errore Critico", "Impossibile salvare la nota.");
+        } finally {
+            this.resetRecordingState();
+            this.isSaving = false;
+            this.updateUI();
+            setTimeout(() => {
+                if (!this.isRecording && !this.isPaused && !this.isSaving) {
+                    this.showStatus('Pronto per registrare');
+                }
+            }, 2000);
+        }
     }
     
     async loadNotes() {
@@ -188,23 +187,12 @@ class VoiceNotesApp {
             const parsedData = this.parseNotesForExport(this.notes);
             const markdownContent = this.generateMarkdown(parsedData);
             const summaryContent = this.generateSummary(parsedData);
-            
             const dateStr = new Date().toISOString().slice(0, 10);
             
-            const filesToExport = [
-                {
-                    content: markdownContent,
-                    filename: `note_aggregate_${dateStr}.md`,
-                    type: 'text/markdown'
-                },
-                {
-                    content: summaryContent,
-                    filename: `export_summary_${dateStr}.txt`,
-                    type: 'text/plain'
-                }
-            ];
-
-            await this.storageManager.downloadFiles(filesToExport);
+            await this.storageManager.downloadFiles([
+                { content: markdownContent, filename: `note_aggregate_${dateStr}.md`, type: 'text/markdown' },
+                { content: summaryContent, filename: `export_summary_${dateStr}.txt`, type: 'text/plain' }
+            ]);
             this.showStatus('✅ Export completato!');
         } catch (error) {
             this.showError("Export Fallito", "Riprova.");
@@ -218,32 +206,25 @@ class VoiceNotesApp {
     parseNotesForExport(notes) {
         const notesByScope = {};
         notes.forEach(note => {
-            const chunks = note.transcript.split(/(?=ambito |tag )/i);
+            const chunks = this.splitByKeywords(note.transcript);
             chunks.forEach(chunk => {
                 if (chunk.trim() === '') return;
                 const { scope, content } = this.parseChunk(chunk);
                 if (!notesByScope[scope]) {
                     notesByScope[scope] = [];
                 }
-                notesByScope[scope].push({
-                    content: content,
-                    timestamp: note.timestamp,
-                    duration: note.duration
-                });
+                notesByScope[scope].push({ content: content, timestamp: note.timestamp, duration: note.duration });
             });
         });
         return notesByScope;
     }
 
     generateMarkdown(parsedData) {
-        let content = `# Note Vocali Aggregate\n`;
-        content += `Data export: ${new Date().toLocaleString('it-IT')}\n\n`;
-        
+        let content = `# Note Vocali Aggregate\nData export: ${new Date().toLocaleString('it-IT')}\n\n`;
         Object.keys(parsedData).sort().forEach(scope => {
             content += `## 📁 AMBITO: ${scope.toUpperCase()}\n\n`;
             parsedData[scope].forEach(item => {
-                content += `**Registrato il:** ${item.timestamp}\n`;
-                content += `> ${item.content}\n\n---\n\n`;
+                content += `**Registrato il:** ${item.timestamp}\n> ${item.content}\n\n---\n\n`;
             });
         });
         return content;
@@ -252,11 +233,7 @@ class VoiceNotesApp {
     generateSummary(parsedData) {
         let totalNotes = 0;
         let totalDuration = 0;
-        let content = `Riepilogo Esportazione Note\n`;
-        content += `============================\n`;
-        content += `Data: ${new Date().toLocaleString('it-IT')}\n\n`;
-        
-        content += `Statistiche per Ambito:\n`;
+        let content = `Riepilogo Esportazione Note\n============================\nData: ${new Date().toLocaleString('it-IT')}\n\nStatistiche per Ambito:\n`;
         Object.keys(parsedData).sort().forEach(scope => {
             const items = parsedData[scope];
             const scopeDuration = items.reduce((sum, item) => sum + item.duration, 0);
@@ -264,32 +241,19 @@ class VoiceNotesApp {
             totalNotes += items.length;
             content += `- ${scope.toUpperCase()}: ${items.length} nota(e), durata totale ${scopeDuration}s\n`;
         });
-
-        content += `\n----------------------------\n`;
-        content += `Totale Note: ${totalNotes}\n`;
-        content += `Durata Totale Complessiva: ${totalDuration} secondi\n`;
-
+        content += `\n----------------------------\nTotale Note: ${totalNotes}\nDurata Totale Complessiva: ${totalDuration} secondi\n`;
         return content;
     }
 
+    splitByKeywords(text) { return text.split(/(?=ambito |tag )/i); }
+
     parseChunk(chunk) {
         chunk = chunk.trim();
-        const lowerChunk = chunk.toLowerCase();
-
-        if (lowerChunk.startsWith('ambito ')) {
-            const match = chunk.match(/ambito\s+([^\s]+)\s+fine\s*(.*)/is);
-            if (match) {
-                return { scope: match[1].toLowerCase(), content: match[2].trim() };
-            }
-        }
-        
-        if (lowerChunk.startsWith('tag ')) {
-            const match = chunk.match(/tag\s+([^\s-]+)[\s-–—]+(.*)/is);
-            if (match) {
-                return { scope: `tag-${match[1].toLowerCase()}`, content: match[2].trim() };
-            }
-        }
-        return { scope: 'generale', content: chunk };
+        const ambitoMatch = chunk.match(/^ambito (.*?) fine/i);
+        const tagMatch = chunk.match(/^tag (.*?)(?:\s|$)/i);
+        if (ambitoMatch) return { scope: ambitoMatch[1].trim(), content: chunk.replace(/^ambito .*? fine/i, '').trim() };
+        if (tagMatch) return { scope: `TAG-${tagMatch[1].trim().toUpperCase()}`, content: chunk.replace(/^tag .*?(?:\s|$)/i, '').trim() };
+        return { scope: 'GENERALE', content: chunk };
     }
 
     async startNewSession() {
@@ -313,6 +277,7 @@ class VoiceNotesApp {
     }
     
     startTimer() {
+        this.stopTimer();
         this.timerInterval = setInterval(() => {
             this.elapsedTime = Date.now() - this.startTime;
             this.uiManager.updateTimer(this.elapsedTime);
@@ -345,11 +310,11 @@ class VoiceNotesApp {
     
     resetRecordingState() {
         this.isRecording = false; this.isPaused = false; this.elapsedTime = 0;
-        this.pendingAudioBlob = null; this.recordingManager.reset();
-        this.uiManager.updateTimer(0); this.updateUI();
+        this.recordingManager.reset();
+        this.uiManager.updateTimer(0);
+        this.uiManager.updateTranscriptionDisplay('', '');
+        this.updateUI();
     }
-
-    resetSavingState() { this.isSaving = false; this.updateUI(); }
     
     resetErrorState() {
         this.hasError = false; this.showStatus('Pronto per registrare'); this.updateUI();
@@ -364,5 +329,5 @@ class VoiceNotesApp {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(() => { window.voiceNotesApp = new VoiceNotesApp(); }, 100);
+    window.voiceNotesApp = new VoiceNotesApp();
 });
