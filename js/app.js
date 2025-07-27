@@ -1,11 +1,9 @@
 // app.js - Applicazione principale Voice Notes Auto
-// v2.2-final - Aggiunte gestione sessione e revisione note
+// v2.4 - Logica di parsing multi-ambito e file di riepilogo
 
 class VoiceNotesApp {
     constructor() {
-        console.log('🚀 Voice Notes App v2.2-final initialization...');
-        
-        // State
+        console.log('🚀 Voice Notes App v2.4 initialization...');
         this.isRecording = false;
         this.isPaused = false;
         this.isSaving = false;
@@ -13,15 +11,12 @@ class VoiceNotesApp {
         this.hasError = false;
         this.notes = [];
         this.pendingAudioBlob = null;
-        
-        // Timing & Click
         this.startTime = null;
         this.elapsedTime = 0;
         this.timerInterval = null;
         this.clickTimeout = null;
         this.doubleClickDelay = 400;
 
-        // Managers
         this.storageManager = new window.StorageManager();
         this.recordingManager = new window.RecordingManager();
         this.uiManager = new window.UIManager();
@@ -32,12 +27,10 @@ class VoiceNotesApp {
     async initialize() {
         try {
             if (!this.checkBrowserSupport()) return;
-            
             await this.storageManager.initialize();
             await this.loadNotes();
             this.attachEventListeners();
             this.updateUI();
-            
             console.log('✅ App fully initialized');
         } catch (error) {
             this.showError('Errore Avvio', 'Impossibile inizializzare l\'app.');
@@ -61,23 +54,18 @@ class VoiceNotesApp {
             if (this.isSaving || this.isExporting) return;
             this.handleButtonClick();
         });
-        // Add click for desktop
         recordButton.addEventListener('click', e => {
              if (this.isSaving || this.isExporting) return;
-             // touchend already handles the logic, so on desktop we need a separate path
-             // This check prevents double-firing on touch devices that also emulate click
              if (e.sourceCapabilities && !e.sourceCapabilities.firesTouchEvents) {
                 this.handleButtonClick();
              }
         });
 
-        // Other controls
         this.uiManager.elements.speechToggle?.addEventListener('click', () => this.recordingManager.toggleSpeechRecognition());
         this.uiManager.elements.exportAggregatedBtn?.addEventListener('click', () => this.exportNotes());
         this.uiManager.elements.newSessionBtn?.addEventListener('click', () => this.startNewSession());
         this.uiManager.elements.reviewNotesBtn?.addEventListener('click', () => this.uiManager.showReviewModal(this.notes));
 
-        // Note deletion (event delegation)
         this.uiManager.elements.notesListContainer?.addEventListener('click', e => {
             if (e.target.classList.contains('note-delete-btn')) {
                 const noteId = parseInt(e.target.dataset.id, 10);
@@ -86,14 +74,10 @@ class VoiceNotesApp {
         });
         
         document.addEventListener('visibilitychange', () => this.handleVisibilityChange());
-        console.log('✅ Event listeners attached');
     }
     
     handleButtonClick() {
-        if (this.hasError) {
-            this.resetErrorState();
-            return;
-        }
+        if (this.hasError) { this.resetErrorState(); return; }
         
         if (this.clickTimeout) {
             clearTimeout(this.clickTimeout);
@@ -118,9 +102,7 @@ class VoiceNotesApp {
     }
     
     async startRecording() {
-        const started = await this.recordingManager.startRecording();
-        if (!started) return;
-        
+        if (!(await this.recordingManager.startRecording())) return;
         this.isRecording = true;
         this.isPaused = false;
         this.hasError = false;
@@ -154,9 +136,7 @@ class VoiceNotesApp {
         this.recordingManager.stopRecording();
     }
 
-    handleAudioReady(audioBlob) {
-        this.pendingAudioBlob = audioBlob;
-    }
+    handleAudioReady(audioBlob) { this.pendingAudioBlob = audioBlob; }
 
     async handleTranscriptionEnd(transcript) {
         if (!this.pendingAudioBlob) {
@@ -175,7 +155,6 @@ class VoiceNotesApp {
             duration: Math.floor(this.elapsedTime / 1000),
             size: audioBlob.size,
             transcript: transcript,
-            hasTranscript: transcript.length > 0 && this.recordingManager.speechEnabled
         };
         
         const saved = await this.storageManager.saveNote(note, audioBlob);
@@ -193,18 +172,41 @@ class VoiceNotesApp {
     
     async loadNotes() {
         this.notes = await this.storageManager.loadNotes();
-        console.log(`✅ ${this.notes.length} notes loaded`);
     }
 
     async exportNotes() {
         if (this.isExporting) return;
+        if (this.notes.length === 0) {
+            this.showStatus("Nessuna nota da esportare.");
+            setTimeout(() => this.showStatus('Pronto per registrare'), 2000);
+            return;
+        }
         this.isExporting = true;
         this.updateUI();
+
         try {
-            await this.storageManager.exportAggregatedNotes(this.notes);
+            const parsedData = this.parseNotesForExport(this.notes);
+            const markdownContent = this.generateMarkdown(parsedData);
+            const summaryContent = this.generateSummary(parsedData);
+            
+            const dateStr = new Date().toISOString().slice(0, 10);
+            
+            const filesToExport = [
+                {
+                    content: markdownContent,
+                    filename: `note_aggregate_${dateStr}.md`,
+                    type: 'text/markdown'
+                },
+                {
+                    content: summaryContent,
+                    filename: `export_summary_${dateStr}.txt`,
+                    type: 'text/plain'
+                }
+            ];
+
+            await this.storageManager.downloadFiles(filesToExport);
             this.showStatus('✅ Export completato!');
         } catch (error) {
-            console.error("Export failed:", error);
             this.showError("Export Fallito", "Riprova.");
         } finally {
             this.isExporting = false;
@@ -213,26 +215,99 @@ class VoiceNotesApp {
         }
     }
 
+    parseNotesForExport(notes) {
+        const notesByScope = {};
+        notes.forEach(note => {
+            const chunks = note.transcript.split(/(?=ambito |tag )/i);
+            chunks.forEach(chunk => {
+                if (chunk.trim() === '') return;
+                const { scope, content } = this.parseChunk(chunk);
+                if (!notesByScope[scope]) {
+                    notesByScope[scope] = [];
+                }
+                notesByScope[scope].push({
+                    content: content,
+                    timestamp: note.timestamp,
+                    duration: note.duration
+                });
+            });
+        });
+        return notesByScope;
+    }
+
+    generateMarkdown(parsedData) {
+        let content = `# Note Vocali Aggregate\n`;
+        content += `Data export: ${new Date().toLocaleString('it-IT')}\n\n`;
+        
+        Object.keys(parsedData).sort().forEach(scope => {
+            content += `## 📁 AMBITO: ${scope.toUpperCase()}\n\n`;
+            parsedData[scope].forEach(item => {
+                content += `**Registrato il:** ${item.timestamp}\n`;
+                content += `> ${item.content}\n\n---\n\n`;
+            });
+        });
+        return content;
+    }
+
+    generateSummary(parsedData) {
+        let totalNotes = 0;
+        let totalDuration = 0;
+        let content = `Riepilogo Esportazione Note\n`;
+        content += `============================\n`;
+        content += `Data: ${new Date().toLocaleString('it-IT')}\n\n`;
+        
+        content += `Statistiche per Ambito:\n`;
+        Object.keys(parsedData).sort().forEach(scope => {
+            const items = parsedData[scope];
+            const scopeDuration = items.reduce((sum, item) => sum + item.duration, 0);
+            totalDuration += scopeDuration;
+            totalNotes += items.length;
+            content += `- ${scope.toUpperCase()}: ${items.length} nota(e), durata totale ${scopeDuration}s\n`;
+        });
+
+        content += `\n----------------------------\n`;
+        content += `Totale Note: ${totalNotes}\n`;
+        content += `Durata Totale Complessiva: ${totalDuration} secondi\n`;
+
+        return content;
+    }
+
+    parseChunk(chunk) {
+        chunk = chunk.trim();
+        const lowerChunk = chunk.toLowerCase();
+
+        if (lowerChunk.startsWith('ambito ')) {
+            const match = chunk.match(/ambito\s+([^\s]+)\s+fine\s*(.*)/is);
+            if (match) {
+                return { scope: match[1].toLowerCase(), content: match[2].trim() };
+            }
+        }
+        
+        if (lowerChunk.startsWith('tag ')) {
+            const match = chunk.match(/tag\s+([^\s-]+)[\s-–—]+(.*)/is);
+            if (match) {
+                return { scope: `tag-${match[1].toLowerCase()}`, content: match[2].trim() };
+            }
+        }
+        return { scope: 'generale', content: chunk };
+    }
+
     async startNewSession() {
-        const confirmed = await this.uiManager.showConfirmModal(
-            "Sei sicuro di voler iniziare una nuova sessione? Tutte le note salvate verranno cancellate in modo permanente."
-        );
+        const confirmed = await this.uiManager.showConfirmModal("Cancellare tutte le note salvate?");
         if (confirmed) {
             await this.storageManager.clearAllData();
             await this.loadNotes();
-            this.uiManager.renderNotesList(this.notes); // Update review modal if open
-            this.showStatus("🗑️ Note cancellate. Nuova sessione iniziata.");
+            this.uiManager.renderNotesList(this.notes);
+            this.showStatus("🗑️ Nuova sessione iniziata.");
         }
     }
 
     async deleteNote(noteId) {
-        const confirmed = await this.uiManager.showConfirmModal(
-            "Sei sicuro di voler cancellare questa nota?"
-        );
+        const confirmed = await this.uiManager.showConfirmModal("Cancellare questa nota?");
         if (confirmed) {
             await this.storageManager.deleteNote(noteId);
             await this.loadNotes();
-            this.uiManager.renderNotesList(this.notes); // Re-render the list in the modal
+            this.uiManager.renderNotesList(this.notes);
             this.showStatus("Nota cancellata.");
         }
     }
@@ -248,21 +323,16 @@ class VoiceNotesApp {
     
     updateUI() {
         this.uiManager.updateUI({
-            isRecording: this.isRecording,
-            isPaused: this.isPaused,
-            isSaving: this.isSaving,
-            isExporting: this.isExporting,
-            hasError: this.hasError,
-            speechActive: this.recordingManager.speechEnabled
+            isRecording: this.isRecording, isPaused: this.isPaused,
+            isSaving: this.isSaving, isExporting: this.isExporting,
+            hasError: this.hasError, speechActive: this.recordingManager.speechEnabled
         });
     }
     
     showStatus(message) { this.uiManager.showStatus(message); }
     
     showError(title, description) {
-        this.hasError = true;
-        this.isSaving = false;
-        this.isExporting = false;
+        this.hasError = true; this.isSaving = false; this.isExporting = false;
         this.uiManager.showError(title, description);
         this.updateUI();
     }
@@ -274,24 +344,15 @@ class VoiceNotesApp {
     }
     
     resetRecordingState() {
-        this.isRecording = false;
-        this.isPaused = false;
-        this.elapsedTime = 0;
-        this.pendingAudioBlob = null;
-        this.recordingManager.reset();
-        this.uiManager.updateTimer(0);
-        this.updateUI();
+        this.isRecording = false; this.isPaused = false; this.elapsedTime = 0;
+        this.pendingAudioBlob = null; this.recordingManager.reset();
+        this.uiManager.updateTimer(0); this.updateUI();
     }
 
-    resetSavingState() {
-        this.isSaving = false;
-        this.updateUI();
-    }
+    resetSavingState() { this.isSaving = false; this.updateUI(); }
     
     resetErrorState() {
-        this.hasError = false;
-        this.showStatus('Pronto per registrare');
-        this.updateUI();
+        this.hasError = false; this.showStatus('Pronto per registrare'); this.updateUI();
     }
     
     handleVisibilityChange() {
@@ -300,27 +361,8 @@ class VoiceNotesApp {
             this.showStatus('Pausa automatica');
         }
     }
-    
-    extractScope(transcript) {
-        if (!transcript) return 'generale';
-        const clean = transcript.trim().toLowerCase();
-        const tagMatch = clean.match(/^tag\s+([^\s-]+)/);
-        if (tagMatch) return `tag-${tagMatch[1]}`;
-        const ambitoMatch = clean.match(/^ambito\s+([^\s]+)/);
-        if (ambitoMatch) return ambitoMatch[1];
-        return 'generale';
-    }
-    
-    cleanNoteContent(transcript) {
-        if (!transcript) return '';
-        let clean = transcript.trim();
-        clean = clean.replace(/^tag\s+[^\s-]+\s*[-–—]\s*/i, '');
-        clean = clean.replace(/^ambito\s+[^\s]+\s+fine\s*/i, '');
-        return clean.trim();
-    }
 }
 
-// Global initialization
 document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => { window.voiceNotesApp = new VoiceNotesApp(); }, 100);
 });

@@ -1,12 +1,11 @@
 // ui.js - Manages all UI updates and user feedback
-// v2.2-final - Added modals for review and confirmation
+// v2.4 - UI is stable
 
 class UIManager {
     constructor() {
         this.elements = {};
         this.initializeElements();
         this.attachModalListeners();
-        console.log('🎨 UI Manager initialized');
     }
     
     initializeElements() {
@@ -21,7 +20,6 @@ class UIManager {
             transcriptionArea: document.getElementById('transcriptionArea'),
             finalTranscript: document.querySelector('#transcriptionArea #finalTranscript'),
             interimTranscript: document.querySelector('#transcriptionArea #interimTranscript'),
-            // New elements
             newSessionBtn: document.getElementById('newSessionBtn'),
             reviewNotesBtn: document.getElementById('reviewNotesBtn'),
             reviewModal: document.getElementById('reviewModal'),
@@ -46,7 +44,7 @@ class UIManager {
         button.className = 'record-button';
         
         if (hasError) {
-            button.classList.add('paused'); // Use a neutral color for error
+            button.classList.add('paused');
             this.elements.buttonText.textContent = 'Reset';
         } else if (isSaving) {
             button.classList.add('paused');
@@ -121,7 +119,6 @@ class UIManager {
         this.showError(title, description);
     }
 
-    // Modal Management
     showReviewModal(notes) {
         this.renderNotesList(notes);
         this.elements.reviewModal?.classList.add('show');
@@ -141,16 +138,21 @@ class UIManager {
         }
 
         container.innerHTML = notes.map(note => {
-            const scope = window.voiceNotesApp.extractScope(note.transcript);
-            const isTag = scope.startsWith('tag-');
-            const cleanedContent = window.voiceNotesApp.cleanNoteContent(note.transcript);
+            const chunks = note.transcript.split(/(?=ambito |tag )/i);
+            const contentHTML = chunks.map(chunk => {
+                if (chunk.trim() === '') return '';
+                const { scope, content } = window.voiceNotesApp.parseChunk(chunk);
+                const isTag = scope.startsWith('tag-');
+                return `<div class="note-item ${isTag ? 'is-tag' : ''}"><p class="note-transcript">${content || 'Contenuto vuoto'}</p></div>`;
+            }).join('');
+
             return `
-                <div class="note-item ${isTag ? 'is-tag' : ''}">
-                    <div class="note-header">
+                <div class="note-group">
+                    <div class="note-group-header">
                         <span class="note-timestamp">${note.timestamp} (${note.duration}s)</span>
                         <button class="note-delete-btn" data-id="${note.id}">&times;</button>
                     </div>
-                    <p class="note-transcript">${cleanedContent || 'Solo audio'}</p>
+                    ${contentHTML}
                 </div>
             `;
         }).join('');
@@ -166,13 +168,11 @@ class UIManager {
                 cleanup();
                 resolve(true);
             };
-
             const cancelListener = () => {
                 this.elements.confirmModal.classList.remove('show');
                 cleanup();
                 resolve(false);
             };
-
             const cleanup = () => {
                 this.elements.confirmOkBtn.removeEventListener('click', okListener);
                 this.elements.confirmCancelBtn.removeEventListener('click', cancelListener);
@@ -184,5 +184,4 @@ class UIManager {
     }
 }
 
-// Export globally
 window.UIManager = UIManager;

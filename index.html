@@ -23,6 +23,11 @@
     <div class="app-container">
         <!-- Area Principale -->
         <main class="main-content">
+            <header class="app-header">
+                <span class="app-title">Voice Notes Auto</span>
+                <span class="app-version">v2.4</span>
+            </header>
+
             <div class="status-text" id="statusText">Pronto per registrare</div>
             <div class="timer" id="timer">00:00</div>
 
@@ -55,20 +60,16 @@
     </div>
     
     <!-- MODALS -->
-    <!-- Modal Rivedi Note -->
     <div class="modal-overlay" id="reviewModal">
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Note Salvate</h2>
                 <button class="modal-close-btn" id="reviewModalCloseBtn">&times;</button>
             </div>
-            <div class="modal-body" id="notesListContainer">
-                <!-- Le note verranno inserite qui da ui.js -->
-            </div>
+            <div class="modal-body" id="notesListContainer"></div>
         </div>
     </div>
 
-    <!-- Modal Conferma Cancellazione -->
     <div class="modal-overlay" id="confirmModal">
         <div class="modal-content small">
             <div class="modal-header">
@@ -83,9 +84,6 @@
             </div>
         </div>
     </div>
-
-    <!-- Indicatore di versione -->
-    <div class="version-indicator" id="versionIndicator">v2.2-final</div>
 
     <!-- Scripts -->
     <script src="js/storage.js"></script>
