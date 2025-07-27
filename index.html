@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Voice Notes Auto (Safe)</title>
+    <title>Voice Notes Auto (v3.0 Safe)</title>
     <style>
-        /* CSS Integrato */
         :root {
             --bg-color: #1e293b; --primary-color: #3b82f6; --primary-dark: #2563eb;
             --record-color: #ef4444; --record-dark: #dc2626; --pause-color: #f59e0b;
@@ -14,10 +13,7 @@
         }
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         html, body { height: 100%; width: 100%; overflow: hidden; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-            background: var(--bg-color); color: var(--text-light); user-select: none;
-        }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg-color); color: var(--text-light); user-select: none; }
         .app-container { display: flex; flex-direction: column; height: 100%; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
         .main-content { flex-grow: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10px 20px; min-height: 0; }
         .footer-content { flex-shrink: 0; padding: 15px; background-color: rgba(0,0,0,0.1); border-top: 1px solid var(--border-color); }
@@ -32,11 +28,10 @@
         @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.03); } }
         .transcription-area { background: var(--surface-color); border-radius: 12px; padding: 15px; margin-top: 1.5rem; width: 100%; max-width: 400px; max-height: 100px; overflow-y: auto; text-align: left; border: 1px solid var(--border-color); }
         .transcription-label { font-size: 0.75rem; color: var(--text-dark); margin-bottom: 8px; }
-        .transcription-text { font-size: 0.9rem; }
-        .transcription-interim { color: var(--text-dark); }
+        .transcription-text { font-size: 0.9rem; } .transcription-interim { color: var(--text-dark); }
         .controls-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 10px; }
         .control-btn { background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); color: var(--text-dark); padding: 10px 5px; border-radius: 8px; font-size: 0.75rem; cursor: pointer; transition: all 0.2s ease; text-align: center; }
-        .control-btn.active { background: var(--tag-highlight); border-color: #16a34a; color: #22c55e; }
+        .control-btn.active { border-color: #16a34a; color: #22c55e; }
         .instructions { font-size: 0.8rem; color: var(--text-dark); text-align: center; }
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; z-index: 1000; }
         .modal-overlay.show { display: flex; }
@@ -68,9 +63,7 @@
             <button class="record-button idle" id="recordButton"><span id="buttonText">INIZIA</span></button>
             <div class="transcription-area" id="transcriptionArea" style="display: none;">
                 <div class="transcription-label">Trascrizione:</div>
-                <div class="transcription-text">
-                    <span id="finalTranscript"></span><span class="transcription-interim" id="interimTranscript"></span>
-                </div>
+                <div class="transcription-text"><span id="finalTranscript"></span><span class="transcription-interim" id="interimTranscript"></span></div>
             </div>
         </main>
         <footer class="footer-content">
@@ -83,38 +76,19 @@
             <div class="instructions">Click: Inizia/Pausa • Doppio Click: Salva</div>
         </footer>
     </div>
-    <div class="modal-overlay" id="reviewModal">
-        <div class="modal-content">
-            <div class="modal-header"><h2>Note Salvate</h2><button class="modal-close-btn" id="reviewModalCloseBtn">&times;</button></div>
-            <div class="modal-body" id="notesListContainer"></div>
-        </div>
-    </div>
-    <div class="modal-overlay" id="confirmModal">
-        <div class="modal-content small">
-            <div class="modal-header"><h3>Conferma</h3></div>
-            <div class="modal-body">
-                <p id="confirmModalText"></p>
-                <div class="modal-actions">
-                    <button class="modal-btn cancel" id="confirmCancelBtn">Annulla</button>
-                    <button class="modal-btn confirm" id="confirmOkBtn">OK</button>
-                </div>
-            </div>
-        </div>
-    </div>
+    <div class="modal-overlay" id="reviewModal"><div class="modal-content"><div class="modal-header"><h2>Note Salvate</h2><button class="modal-close-btn" id="reviewModalCloseBtn">&times;</button></div><div class="modal-body" id="notesListContainer"></div></div></div>
+    <div class="modal-overlay" id="confirmModal"><div class="modal-content small"><div class="modal-header"><h3>Conferma</h3></div><div class="modal-body"><p id="confirmModalText"></p><div class="modal-actions"><button class="modal-btn cancel" id="confirmCancelBtn">Annulla</button><button class="modal-btn confirm" id="confirmOkBtn">OK</button></div></div></div></div>
 
     <script>
-        // JavaScript Integrato
         class VoiceNotesApp {
             constructor() {
                 this.isRecording = false; this.isPaused = false; this.isSaving = false; this.hasError = false;
                 this.notes = []; this.pendingAudioBlob = null; this.startTime = null; this.elapsedTime = 0;
                 this.timerInterval = null; this.clickTimeout = null; this.doubleClickDelay = 400;
-                this.storage = new StorageManager(); this.recorder = new RecordingManager(); this.ui = new UIManager();
+                this.storage = new StorageManager(); this.recorder = new RecordingManager(this); this.ui = new UIManager(this);
                 this.initialize();
             }
-            async initialize() {
-                await this.storage.initialize(); await this.loadNotes(); this.attachEventListeners(); this.ui.update(this.getState());
-            }
+            async initialize() { await this.storage.initialize(); await this.loadNotes(); this.attachEventListeners(); this.ui.update(this.getState()); }
             attachEventListeners() {
                 const btn = this.ui.elements.recordButton;
                 btn.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
@@ -124,9 +98,7 @@
                 this.ui.elements.exportBtn?.addEventListener('click', () => this.exportNotes());
                 this.ui.elements.newSessionBtn?.addEventListener('click', () => this.startNewSession());
                 this.ui.elements.reviewNotesBtn?.addEventListener('click', () => this.ui.showReviewModal(this.notes));
-                this.ui.elements.notesListContainer?.addEventListener('click', e => {
-                    if (e.target.classList.contains('note-delete-btn')) this.deleteNote(parseInt(e.target.dataset.id, 10));
-                });
+                this.ui.elements.notesListContainer?.addEventListener('click', e => { if (e.target.classList.contains('note-delete-btn')) this.deleteNote(parseInt(e.target.dataset.id, 10)); });
             }
             handleButtonClick() {
                 if (this.hasError) { this.resetErrorState(); return; }
@@ -144,20 +116,15 @@
                 this.isRecording = true; this.isPaused = false; this.hasError = false;
                 this.startTime = Date.now() - this.elapsedTime; this.startTimer(); this.ui.update(this.getState());
             }
-            pauseRecording() {
-                this.recorder.pauseRecording(); this.isRecording = false; this.isPaused = true; this.stopTimer(); this.ui.update(this.getState());
-            }
+            pauseRecording() { this.recorder.pauseRecording(); this.isRecording = false; this.isPaused = true; this.stopTimer(); this.ui.update(this.getState()); }
             resumeRecording() {
                 this.recorder.resumeRecording(); this.isRecording = true; this.isPaused = false;
                 this.startTime = Date.now() - this.elapsedTime; this.startTimer(); this.ui.update(this.getState());
             }
-            stopAndSaveRecording() {
-                if (this.isSaving) return;
-                this.isSaving = true; this.stopTimer(); this.ui.update(this.getState()); this.recorder.stopRecording();
-            }
+            stopAndSaveRecording() { if (this.isSaving) return; this.isSaving = true; this.stopTimer(); this.ui.update(this.getState()); this.recorder.stopRecording(); }
             handleAudioReady(blob) { this.pendingAudioBlob = blob; }
             async handleTranscriptionEnd(transcript) {
-                if (!this.pendingAudioBlob) { this.showError("Errore", "Audio non registrato."); this.resetSavingState(); return; }
+                if (!this.pendingAudioBlob && this.recorder.speechEnabled) { this.showError("Errore", "Audio non registrato."); this.resetSavingState(); return; }
                 await this.saveNote(this.pendingAudioBlob, transcript); this.resetSavingState();
             }
             async saveNote(audioBlob, transcript) {
@@ -172,9 +139,7 @@
                 let fullText = `NOTE GREGGE ESPORTATE IL ${new Date().toLocaleString('it-IT')}\n\n`;
                 fullText += "========================================\n\n";
                 this.notes.forEach(note => {
-                    fullText += `NOTA DEL: ${note.timestamp} (Durata: ${note.duration}s)\n\n`;
-                    fullText += `${note.transcript}\n\n`;
-                    fullText += "========================================\n\n";
+                    fullText += `NOTA DEL: ${note.timestamp} (Durata: ${note.duration}s)\n\n${note.transcript}\n\n========================================\n\n`;
                 });
                 await this.storage.downloadFile(fullText, 'note_grezze.txt', 'text/plain');
             }
@@ -190,22 +155,15 @@
             }
             startTimer() { this.timerInterval = setInterval(() => { this.elapsedTime = Date.now() - this.startTime; this.ui.updateTimer(this.elapsedTime); }, 100); }
             stopTimer() { clearInterval(this.timerInterval); }
-            resetRecordingState() {
-                this.isRecording = false; this.isPaused = false; this.elapsedTime = 0; this.pendingAudioBlob = null;
-                this.recorder.reset(); this.ui.updateTimer(0); this.ui.update(this.getState());
-            }
+            resetRecordingState() { this.isRecording = false; this.isPaused = false; this.elapsedTime = 0; this.pendingAudioBlob = null; this.recorder.reset(); this.ui.updateTimer(0); this.ui.update(this.getState()); }
             resetSavingState() { this.isSaving = false; this.ui.update(this.getState()); }
             resetErrorState() { this.hasError = false; this.ui.showStatus('Pronto'); this.ui.update(this.getState()); }
             showError(title, desc) { this.hasError = true; this.isSaving = false; this.ui.showError(title, desc); this.ui.update(this.getState()); }
             getState() { return { isRecording: this.isRecording, isPaused: this.isPaused, isSaving: this.isSaving, hasError: this.hasError, speechActive: this.recorder.speechEnabled }; }
         }
-
         class UIManager {
-            constructor() { this.elements = {}; this.initializeElements(); this.attachModalListeners(); }
-            initializeElements() {
-                const ids = ['recordButton', 'statusText', 'buttonText', 'timer', 'speechToggle', 'exportBtn', 'transcriptionArea', 'finalTranscript', 'interimTranscript', 'newSessionBtn', 'reviewNotesBtn', 'reviewModal', 'reviewModalCloseBtn', 'notesListContainer', 'confirmModal', 'confirmModalText', 'confirmOkBtn', 'confirmCancelBtn'];
-                ids.forEach(id => this.elements[id] = document.getElementById(id));
-            }
+            constructor(app) { this.app = app; this.elements = {}; this.initializeElements(); this.attachModalListeners(); }
+            initializeElements() { const ids = ['recordButton', 'statusText', 'buttonText', 'timer', 'speechToggle', 'exportBtn', 'transcriptionArea', 'finalTranscript', 'interimTranscript', 'newSessionBtn', 'reviewNotesBtn', 'reviewModal', 'reviewModalCloseBtn', 'notesListContainer', 'confirmModal', 'confirmModalText', 'confirmOkBtn', 'confirmCancelBtn']; ids.forEach(id => this.elements[id] = document.getElementById(id)); }
             attachModalListeners() { this.elements.reviewModalCloseBtn?.addEventListener('click', () => this.hideReviewModal()); }
             update(state) {
                 const { isRecording, isPaused, isSaving, hasError, speechActive } = state;
@@ -220,7 +178,7 @@
             }
             showStatus(msg) { this.elements.statusText.textContent = msg; }
             showError(title, desc) { this.elements.statusText.innerHTML = `<div style="color:#fca5a5;font-weight:bold;">${title}</div><div style="font-size:0.9rem;margin-top:4px;">${desc}</div>`; }
-            updateTimer(time) { const secs = Math.floor(time / 1000); const mins = Math.floor(secs / 60); this.elements.timer.textContent = `${String(mins).padStart(2, '0')}:${String(secs % 60).padStart(2, '0')}`; }
+            updateTimer(time) { const s = Math.floor(time / 1000); this.elements.timer.textContent = `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`; }
             updateTranscriptionDisplay(finalTxt, interimTxt) {
                 if (!this.elements.transcriptionArea) return;
                 this.elements.transcriptionArea.style.display = (finalTxt || interimTxt) ? 'block' : 'none';
@@ -231,41 +189,29 @@
             showReviewModal(notes) { this.renderNotesList(notes); this.elements.reviewModal?.classList.add('show'); }
             hideReviewModal() { this.elements.reviewModal?.classList.remove('show'); }
             renderNotesList(notes) {
-                const container = this.elements.notesListContainer; if (!container) return;
-                if (notes.length === 0) { container.innerHTML = '<p style="text-align:center;color:var(--text-dark);">Nessuna nota.</p>'; return; }
-                container.innerHTML = notes.map(note => `
-                    <div class="note-group">
-                        <div class="note-group-header">
-                            <span class="note-timestamp">${note.timestamp} (${note.duration}s)</span>
-                            <button class="note-delete-btn" data-id="${note.id}">&times;</button>
-                        </div>
-                        <p class="note-transcript">${note.transcript || 'Vuota'}</p>
-                    </div>`).join('');
+                const c = this.elements.notesListContainer; if (!c) return;
+                if (notes.length === 0) { c.innerHTML = '<p style="text-align:center;color:var(--text-dark);">Nessuna nota.</p>'; return; }
+                c.innerHTML = notes.map(n => `<div class="note-group"><div class="note-group-header"><span class="note-timestamp">${n.timestamp} (${n.duration}s)</span><button class="note-delete-btn" data-id="${n.id}">&times;</button></div><p class="note-transcript">${n.transcript || 'Vuota'}</p></div>`).join('');
             }
             showConfirmModal(text) {
                 return new Promise(resolve => {
                     this.elements.confirmModalText.textContent = text; this.elements.confirmModal.classList.add('show');
                     const onOk = () => { cleanup(); resolve(true); }; const onCancel = () => { cleanup(); resolve(false); };
-                    const cleanup = () => {
-                        this.elements.confirmModal.classList.remove('show');
-                        this.elements.confirmOkBtn.removeEventListener('click', onOk); this.elements.confirmCancelBtn.removeEventListener('click', onCancel);
-                    };
+                    const cleanup = () => { this.elements.confirmModal.classList.remove('show'); this.elements.confirmOkBtn.removeEventListener('click', onOk); this.elements.confirmCancelBtn.removeEventListener('click', onCancel); };
                     this.elements.confirmOkBtn.addEventListener('click', onOk, { once: true }); this.elements.confirmCancelBtn.addEventListener('click', onCancel, { once: true });
                 });
             }
         }
-
         class RecordingManager {
-            constructor() {
-                this.mediaRecorder = null; this.audioChunks = []; this.stream = null; this.recognition = null;
-                this.speechEnabled = true; this.finalTranscript = ''; this.accumulatedTranscript = '';
-                this.initializeSpeechRecognition();
+            constructor(app) {
+                this.app = app; this.mediaRecorder = null; this.audioChunks = []; this.stream = null; this.recognition = null;
+                this.speechEnabled = true; this.finalTranscript = ''; this.accumulatedTranscript = ''; this.initializeSpeechRecognition();
             }
             initializeSpeechRecognition() {
                 const SR = window.SpeechRecognition || window.webkitSpeechRecognition; if (!SR) { this.speechEnabled = false; return; }
                 this.recognition = new SR(); this.recognition.continuous = true; this.recognition.interimResults = true; this.recognition.lang = 'it-IT';
                 this.recognition.onresult = e => this.handleSpeechResult(e);
-                this.recognition.onend = () => { if (window.voiceNotesApp?.isSaving) window.voiceNotesApp.handleTranscriptionEnd(this.finalTranscript.trim()); };
+                this.recognition.onend = () => { if (this.app.isSaving) this.app.handleTranscriptionEnd(this.finalTranscript.trim()); };
             }
             handleSpeechResult(event) {
                 let interim = '', currentFinal = '';
@@ -274,9 +220,9 @@
                     if (event.results[i].isFinal) currentFinal += transcript; else interim += transcript;
                 }
                 this.finalTranscript = (this.accumulatedTranscript + currentFinal).trim();
-                window.voiceNotesApp.ui.updateTranscriptionDisplay(this.finalTranscript, interim);
+                this.app.ui.updateTranscriptionDisplay(this.finalTranscript, interim);
             }
-            toggleSpeechRecognition() { if (!this.recognition) return; this.speechEnabled = !this.speechEnabled; window.voiceNotesApp.ui.update(window.voiceNotesApp.getState()); if (this.speechEnabled && window.voiceNotesApp?.isRecording) this.startTranscription(false); else this.stopTranscription(); }
+            toggleSpeechRecognition() { if (!this.recognition) return; this.speechEnabled = !this.speechEnabled; this.app.ui.update(this.app.getState()); if (this.speechEnabled && this.app.isRecording) this.startTranscription(false); else this.stopTranscription(); }
             async startRecording() {
                 try {
                     this.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
@@ -284,31 +230,25 @@
                     this.mediaRecorder.ondataavailable = e => { if (e.data.size > 0) this.audioChunks.push(e.data); };
                     this.mediaRecorder.onstop = () => { this.processAudio(); this.stopTranscription(); };
                     this.mediaRecorder.start(); if (this.speechEnabled) this.startTranscription(true); return true;
-                } catch (error) { window.voiceNotesApp.showError("Errore Mic", "Controlla permessi."); return false; }
+                } catch (error) { this.app.showError("Errore Mic", "Controlla permessi."); return false; }
             }
             pauseRecording() { if (this.mediaRecorder?.state === 'recording') { this.accumulatedTranscript = this.finalTranscript + ' '; this.mediaRecorder.pause(); this.stopTranscription(); } }
             resumeRecording() { if (this.mediaRecorder?.state === 'paused') { this.mediaRecorder.resume(); if (this.speechEnabled) this.startTranscription(false); } }
             stopRecording() { if (this.mediaRecorder?.state !== 'inactive') this.mediaRecorder.stop(); }
-            startTranscription(isNew) { if (!this.recognition || !this.speechEnabled) return; if (isNew) { this.finalTranscript = ''; this.accumulatedTranscript = ''; } window.voiceNotesApp.ui.updateTranscriptionDisplay(this.finalTranscript, ''); try { this.recognition.start(); } catch (e) {} }
+            startTranscription(isNew) { if (!this.recognition || !this.speechEnabled) return; if (isNew) { this.finalTranscript = ''; this.accumulatedTranscript = ''; } this.app.ui.updateTranscriptionDisplay(this.finalTranscript, ''); try { this.recognition.start(); } catch (e) {} }
             stopTranscription() { if (this.recognition) { try { this.recognition.stop(); } catch (e) {} } }
             processAudio() {
-                if (this.audioChunks.length === 0) { window.voiceNotesApp.showError('Vuota', 'Nessun audio.'); window.voiceNotesApp.resetSavingState(); return; }
+                if (this.audioChunks.length === 0 && this.speechEnabled) { this.app.showError('Vuota', 'Nessun audio.'); this.app.resetSavingState(); return; }
                 const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
-                window.voiceNotesApp.handleAudioReady(audioBlob);
+                this.app.handleAudioReady(audioBlob);
             }
-            reset() {
-                this.audioChunks = []; this.finalTranscript = ''; this.accumulatedTranscript = '';
-                this.stream?.getTracks().forEach(t => t.stop()); this.stream = null;
-                if (this.mediaRecorder?.state !== 'inactive') try { this.mediaRecorder.stop(); } catch (e) {}
-                this.stopTranscription();
-            }
+            reset() { this.audioChunks = []; this.finalTranscript = ''; this.accumulatedTranscript = ''; this.stream?.getTracks().forEach(t => t.stop()); this.stream = null; if (this.mediaRecorder?.state !== 'inactive') try { this.mediaRecorder.stop(); } catch (e) {} this.stopTranscription(); }
         }
-
         class StorageManager {
-            constructor() { this.dbName = 'VoiceNotesSafeDB'; }
+            constructor() { this.dbName = 'VoiceNotesSafeDB_v3'; }
             async initialize() {}
             async saveNote(note) { const notes = this.loadNotes(); notes.unshift(note); localStorage.setItem(this.dbName, JSON.stringify(notes)); }
-            loadNotes() { return JSON.parse(localStorage.getItem(this.dbName)) || []; }
+            loadNotes() { try { return JSON.parse(localStorage.getItem(this.dbName)) || []; } catch(e) { return []; } }
             async deleteNote(noteId) { const notes = this.loadNotes().filter(n => n.id !== noteId); localStorage.setItem(this.dbName, JSON.stringify(notes)); }
             async clearAllData() { localStorage.removeItem(this.dbName); }
             async downloadFile(content, filename, type) {
@@ -317,7 +257,6 @@
                 const link = document.createElement('a'); link.href = URL.createObjectURL(file); link.download = filename; link.click(); URL.revokeObjectURL(link.href);
             }
         }
-
         document.addEventListener('DOMContentLoaded', () => { window.voiceNotesApp = new VoiceNotesApp(); });
     </script>
 </body>

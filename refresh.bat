@@ -1,3 +1,3 @@
 git add .
-git commit -m "v2.2 - Solve bugs in pause and export notes functions"
+git commit -m "v3.0 - Stable versione without parsing"
 git push
