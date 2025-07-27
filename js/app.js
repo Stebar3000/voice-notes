@@ -1,13 +1,14 @@
 // app.js - Applicazione principale Voice Notes Auto
-// v1.5-modular - Coordinatore dei moduli
+// v2.0-stable - Coordinatore dei moduli con logica di salvataggio asincrona
 
 class VoiceNotesApp {
     constructor() {
-        console.log('🚀 Voice Notes App v1.5-modular inizializzazione...');
+        console.log('🚀 Voice Notes App v2.0-stable initialization...');
         
-        // Stato dell'applicazione
+        // Application state
         this.isRecording = false;
         this.isPaused = false;
+        this.isSaving = false; // New state for async saving
         this.hasError = false;
         this.notes = [];
         
@@ -16,151 +17,102 @@ class VoiceNotesApp {
         this.elapsedTime = 0;
         this.timerInterval = null;
         
-        // Gestione doppio click
+        // Double click handling
         this.lastClickTime = 0;
-        this.doubleClickDelay = 400;
+        this.doubleClickDelay = 400; // ms
         this.clickTimeout = null;
+
+        // State for async save
+        this.pendingAudioBlob = null;
         
-        // Inizializza i manager
+        // Initialize managers
         this.initializeManagers();
         
-        // Inizializza l'app
+        // Initialize the app
         this.initialize();
     }
     
-    // Inizializza i manager dei vari moduli
+    // Initialize all module managers
     initializeManagers() {
         try {
-            // Storage Manager
             this.storageManager = new window.StorageManager();
-            window.storageManager = this.storageManager; // Per accesso globale
-            
-            // Recording Manager
             this.recordingManager = new window.RecordingManager();
-            
-            // UI Manager
             this.uiManager = new window.UIManager();
-            
-            console.log('✅ Tutti i manager inizializzati');
+            console.log('✅ All managers initialized');
         } catch (error) {
-            console.error('❌ Errore inizializzazione manager:', error);
-            this.showError('Errore inizializzazione', 'Ricarica la pagina');
+            console.error('❌ Manager initialization error:', error);
+            this.showError('Initialization Error', 'Please reload the page');
         }
     }
     
-    // Inizializzazione asincrona
+    // Async app initialization
     async initialize() {
         try {
-            // Verifica supporto browser
-            if (!this.checkBrowserSupport()) {
-                return;
-            }
+            if (!this.checkBrowserSupport()) return;
             
-            // Inizializza storage
             await this.storageManager.initialize();
-            
-            // Carica note salvate
             await this.loadNotes();
-            
-            // Collega event listeners
             this.attachEventListeners();
-            
-            // Aggiorna UI iniziale
             this.updateUI();
             
-            console.log('✅ App completamente inizializzata');
+            console.log('✅ App fully initialized');
             
         } catch (error) {
-            console.error('❌ Errore inizializzazione app:', error);
-            this.showError('Errore avvio', 'Riprova o contatta supporto');
+            console.error('❌ App initialization error:', error);
+            this.showError('Startup Error', 'Please try again or contact support');
         }
     }
     
-    // Verifica supporto browser
+    // Check for browser support for necessary APIs
     checkBrowserSupport() {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            this.showError('Browser non supportato', 'Usa Chrome, Firefox o Safari aggiornati');
+            this.showError('Browser Not Supported', 'Use an updated version of Chrome, Firefox, or Safari');
             return false;
         }
-        
-        // Verifica dispositivi audio disponibili
-        navigator.mediaDevices.enumerateDevices()
-            .then(devices => {
-                const hasAudioInput = devices.some(device => device.kind === 'audioinput');
-                if (!hasAudioInput) {
-                    console.warn('⚠️ Nessun microfono rilevato');
-                }
-            })
-            .catch(err => {
-                console.warn('⚠️ Impossibile verificare dispositivi:', err);
-            });
-        
         return true;
     }
     
-    // Collega tutti gli event listener
+    // Attach all event listeners
     attachEventListeners() {
         const recordButton = document.getElementById('recordButton');
         if (!recordButton) {
-            console.error('❌ Pulsante registrazione non trovato');
+            console.error('❌ Record button not found');
             return;
         }
         
-        // Click principale
+        // Use 'click' as the primary event for both desktop and mobile
         recordButton.addEventListener('click', (e) => {
             e.preventDefault();
+            if (this.isSaving) return; // Prevent actions while saving
             this.handleButtonClick();
         });
         
-        // Touch per mobile
+        // Add haptic feedback on touch start for mobile
         recordButton.addEventListener('touchstart', (e) => {
             e.preventDefault();
+            if (this.isSaving) return;
             this.uiManager.provideFeedback('tap');
+        }, { passive: false });
+
+        // Speech recognition toggle
+        document.getElementById('speechToggle')?.addEventListener('click', () => {
+            this.recordingManager.toggleSpeechRecognition();
         });
-        
-        recordButton.addEventListener('touchend', (e) => {
-            e.preventDefault();
-            this.handleButtonClick();
-        });
-        
-        // Previeni comportamenti indesiderati
-        recordButton.addEventListener('touchmove', (e) => e.preventDefault());
-        recordButton.addEventListener('selectstart', (e) => e.preventDefault());
-        
-        // Toggle trascrizione
-        const speechToggle = document.getElementById('speechToggle');
-        if (speechToggle) {
-            speechToggle.addEventListener('click', () => {
-                this.recordingManager.toggleSpeechRecognition();
-            });
-        }
         
         // Export buttons
-        const exportAllBtn = document.getElementById('exportAllBtn');
-        if (exportAllBtn) {
-            exportAllBtn.addEventListener('click', () => {
-                this.storageManager.exportAllNotes();
-            });
-        }
-        
-        const exportAggregatedBtn = document.getElementById('exportAggregatedBtn');
-        if (exportAggregatedBtn) {
-            exportAggregatedBtn.addEventListener('click', () => {
-                this.storageManager.exportAggregatedNotes();
-            });
-        }
-        
-        // Gestione visibilità pagina
-        document.addEventListener('visibilitychange', () => {
-            this.handleVisibilityChange();
+        document.getElementById('exportAggregatedBtn')?.addEventListener('click', () => {
+            this.storageManager.exportAggregatedNotes();
         });
         
-        console.log('✅ Event listeners collegati');
+        // Page visibility handling
+        document.addEventListener('visibilitychange', () => this.handleVisibilityChange());
+        
+        console.log('✅ Event listeners attached');
     }
     
-    // Gestione click con rilevamento doppio click
+    // Click handler with double-click detection
     handleButtonClick() {
-        console.log('🎯 Click rilevato');
+        console.log('🎯 Click detected');
         
         if (this.hasError) {
             this.resetErrorState();
@@ -169,29 +121,24 @@ class VoiceNotesApp {
         
         const currentTime = Date.now();
         
-        // Clear timeout precedente
         if (this.clickTimeout) {
             clearTimeout(this.clickTimeout);
             this.clickTimeout = null;
-        }
-        
-        // Rileva doppio click
-        if (currentTime - this.lastClickTime < this.doubleClickDelay) {
-            console.log('🎯 Doppio click');
+            // Double click detected
+            console.log('🎯 Double click');
             this.handleDoubleClick();
             this.lastClickTime = 0;
         } else {
-            // Aspetta per vedere se arriva un secondo click
+            // Single click action (will be delayed)
             this.clickTimeout = setTimeout(() => {
-                console.log('🎯 Click singolo');
+                console.log('🎯 Single click');
                 this.handleSingleClick();
                 this.clickTimeout = null;
             }, this.doubleClickDelay);
-            this.lastClickTime = currentTime;
         }
     }
     
-    // Click singolo: start/pause/resume
+    // Single click: start/pause/resume
     handleSingleClick() {
         if (!this.isRecording && !this.isPaused) {
             this.startRecording();
@@ -202,17 +149,16 @@ class VoiceNotesApp {
         }
     }
     
-    // Doppio click: stop e salva
+    // Double click: stop and save
     handleDoubleClick() {
         if (this.isRecording || this.isPaused) {
             this.stopAndSaveRecording();
         }
     }
     
-    // Avvia registrazione
+    // Start recording
     async startRecording() {
-        console.log('🎙️ Avvio registrazione');
-        
+        console.log('🎙️ Starting recording...');
         const started = await this.recordingManager.startRecording();
         if (!started) return;
         
@@ -222,14 +168,11 @@ class VoiceNotesApp {
         this.startTime = Date.now() - this.elapsedTime;
         this.startTimer();
         this.updateUI();
-        
-        this.uiManager.provideFeedback('tap');
     }
     
-    // Pausa registrazione
+    // Pause recording
     pauseRecording() {
-        console.log('⏸️ Pausa registrazione');
-        
+        console.log('⏸️ Pausing recording');
         this.recordingManager.pauseRecording();
         this.isRecording = false;
         this.isPaused = true;
@@ -237,10 +180,9 @@ class VoiceNotesApp {
         this.updateUI();
     }
     
-    // Riprendi registrazione
+    // Resume recording
     resumeRecording() {
-        console.log('▶️ Ripresa registrazione');
-        
+        console.log('▶️ Resuming recording');
         this.recordingManager.resumeRecording();
         this.isRecording = true;
         this.isPaused = false;
@@ -249,109 +191,87 @@ class VoiceNotesApp {
         this.updateUI();
     }
     
-    // Ferma e salva registrazione
+    // Stop and save recording (new async flow)
     stopAndSaveRecording() {
-        console.log('⏹️ Stop e salvataggio');
-        
-        this.recordingManager.stopRecording();
-        this.isRecording = false;
-        this.isPaused = false;
+        console.log('⏹️ Stopping and saving...');
+        if (this.isSaving) return;
+
+        this.isSaving = true;
         this.stopTimer();
-        // L'UI sarà aggiornata quando il recording manager chiama saveNote
+        this.updateUI(); // Show "Finalizing..." state
+
+        this.recordingManager.stopRecording();
+        // The rest of the process is handled by event callbacks:
+        // 1. recordingManager fires onAudioReady
+        // 2. recordingManager fires onTranscriptionEnd
+        // 3. onTranscriptionEnd calls the final saveNote
+    }
+
+    // Called by RecordingManager when audio blob is ready
+    handleAudioReady(audioBlob) {
+        console.log('Audio blob is ready, waiting for transcript...');
+        this.pendingAudioBlob = audioBlob;
+    }
+
+    // Called by RecordingManager when transcription is final
+    async handleTranscriptionEnd(transcript) {
+        console.log('Transcription is final. Proceeding to save.');
+        if (!this.pendingAudioBlob) {
+            console.error("❌ Transcription ended but no audio blob was ready. Aborting save.");
+            this.resetSavingState();
+            this.showError("Save Error", "Audio was not recorded correctly.");
+            return;
+        }
+
+        await this.saveNote(this.pendingAudioBlob, transcript);
+        this.resetSavingState();
     }
     
-    // Salva nota (chiamato dal recording manager)
-    async saveNote(audioBlob) {
-        console.log('💾 Salvataggio nota...');
-        
-        const transcript = this.recordingManager.getCurrentTranscript();
+    // Save note data
+    async saveNote(audioBlob, transcript) {
+        console.log('💾 Saving note...');
         
         const note = {
             id: Date.now(),
-            timestamp: new Date().toLocaleString('it-IT', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            }),
+            timestamp: new Date().toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' }),
             duration: Math.floor(this.elapsedTime / 1000),
-            audioUrl: URL.createObjectURL(audioBlob),
             size: audioBlob.size,
             transcript: transcript,
             hasTranscript: transcript.length > 0 && this.recordingManager.speechEnabled
         };
         
-        // Salva nel database/storage
+        // Save to storage (IndexedDB or localStorage)
         const saved = await this.storageManager.saveNote(note, audioBlob);
         
-        // Aggiungi alla lista in memoria
-        this.notes.unshift(note);
-        
-        // Mantieni solo le ultime 10 in memoria
-        if (this.notes.length > 10) {
-            const removed = this.notes.splice(10);
-            removed.forEach(n => {
-                if (n.audioUrl) URL.revokeObjectURL(n.audioUrl);
-            });
-        }
-        
-        // Aggiorna UI
-        this.uiManager.displayNotes(this.notes);
-        
-        // Messaggio di conferma
-        if (note.hasTranscript) {
-            const wordCount = transcript.split(' ').filter(w => w.length > 0).length;
-            const status = saved ? '✓ Salvata' : '⚠️ Solo memoria';
-            this.showStatus(`${status} | ${wordCount} parole`);
-        } else {
-            const status = saved ? '✓ Audio salvato' : '⚠️ Solo memoria';
-            this.showStatus(status);
-        }
-        
-        // Aggiorna contatore
-        const count = await this.storageManager.getNotesCount();
-        this.uiManager.updateAutoSaveStatus(`${count} note salvate`);
-        
-        // Feedback tattile
+        // Update UI
         this.uiManager.provideFeedback('save');
+        if (saved) {
+            this.showStatus(`✅ Nota salvata!`);
+        } else {
+            this.showStatus(`⚠️ Nota non salvata, errore storage.`);
+        }
         
-        // Reset stato
-        this.resetState();
+        // Refresh notes list in UI
+        await this.loadNotes();
         
-        // Messaggio normale dopo 3 secondi
+        // Reset state for next recording
+        this.resetRecordingState();
+        
+        // Revert to default status message after a delay
         setTimeout(() => {
-            if (!this.isRecording && !this.isPaused) {
+            if (!this.isRecording && !this.isPaused && !this.isSaving) {
                 this.showStatus('Pronto per registrare');
             }
         }, 3000);
     }
     
-    // Carica note salvate
+    // Load saved notes from storage
     async loadNotes() {
         const savedNotes = await this.storageManager.loadNotes();
-        
-        // Converti al formato UI
-        this.notes = savedNotes.map(note => ({
-            id: note.id,
-            timestamp: note.timestamp,
-            duration: note.duration,
-            transcript: note.transcript || '',
-            hasTranscript: note.hasTranscript,
-            size: note.size || 0,
-            audioUrl: null // Verrà creato on-demand
-        }));
-        
-        // Ordina per più recenti
-        this.notes.sort((a, b) => b.id - a.id);
-        
-        // Mostra in UI
-        this.uiManager.displayNotes(this.notes);
-        
-        if (this.notes.length > 0) {
-            console.log(`✅ ${this.notes.length} note caricate`);
-            this.uiManager.updateAutoSaveStatus(`${this.notes.length} note recuperate`);
-        }
+        this.notes = savedNotes.sort((a, b) => b.id - a.id);
+        const count = await this.storageManager.getNotesCount();
+        this.uiManager.updateAutoSaveStatus(`${count} note nel backup`);
+        console.log(`✅ ${this.notes.length} notes loaded`);
     }
     
     // Timer management
@@ -363,28 +283,28 @@ class VoiceNotesApp {
     }
     
     stopTimer() {
-        if (this.timerInterval) {
-            clearInterval(this.timerInterval);
-            this.timerInterval = null;
-        }
+        clearInterval(this.timerInterval);
+        this.timerInterval = null;
     }
     
-    // Aggiorna UI
+    // Update UI based on app state
     updateUI() {
         this.uiManager.updateUI({
             isRecording: this.isRecording,
             isPaused: this.isPaused,
+            isSaving: this.isSaving,
             hasError: this.hasError
         });
     }
     
-    // Gestione errori
+    // Error and status handling
     showStatus(message) {
         this.uiManager.showStatus(message);
     }
     
     showError(title, description) {
         this.hasError = true;
+        this.isSaving = false; // Ensure saving is cancelled on error
         this.uiManager.showError(title, description);
         this.updateUI();
     }
@@ -395,16 +315,19 @@ class VoiceNotesApp {
         this.updateUI();
     }
     
-    handleRecordingError(error) {
-        console.error('Errore registrazione:', error);
-        this.showError('Errore registrazione', 'Interrompi e riprova');
-        this.resetState();
-    }
-    
-    // Reset stati
-    resetState() {
+    // State reset functions
+    resetRecordingState() {
+        this.isRecording = false;
+        this.isPaused = false;
         this.elapsedTime = 0;
+        this.pendingAudioBlob = null;
+        this.recordingManager.reset();
         this.uiManager.updateTimer(0);
+        this.updateUI();
+    }
+
+    resetSavingState() {
+        this.isSaving = false;
         this.updateUI();
     }
     
@@ -414,133 +337,50 @@ class VoiceNotesApp {
         this.updateUI();
     }
     
-    // Gestione visibilità pagina
+    // Handle page visibility change
     handleVisibilityChange() {
         if (document.hidden && this.isRecording) {
             this.pauseRecording();
-            this.uiManager.handleVisibilityChange(true);
+            this.uiManager.showStatus('Pausa automatica (app in background)');
         }
     }
     
-    // Funzioni per le note
-    async playNote(noteId) {
-        console.log('▶️ Play nota:', noteId);
-        const note = this.notes.find(n => n.id === noteId);
-        if (!note) return;
-        
-        if (!note.audioUrl) {
-            this.showStatus('Audio non disponibile');
-            return;
-        }
-        
-        const audio = new Audio(note.audioUrl);
-        audio.play().catch(err => {
-            console.error('Errore riproduzione:', err);
-            this.showStatus('Errore riproduzione');
-        });
-    }
-    
-    async exportNote(noteId) {
-        console.log('💾 Export nota:', noteId);
-        // Delegato al storage manager che gestisce il formato
-        this.showStatus('Export in corso...');
-        // Per ora esporta solo i metadati dalla memoria
-        const note = this.notes.find(n => n.id === noteId);
-        if (!note) return;
-        
-        const noteData = {
-            metadata: {
-                id: note.id,
-                timestamp: note.timestamp,
-                duration: note.duration,
-                hasTranscript: note.hasTranscript,
-                exported: new Date().toISOString()
-            },
-            transcript: note.transcript || ''
-        };
-        
-        const filename = `nota_${note.id}.json`;
-        await this.storageManager.downloadFile(
-            JSON.stringify(noteData, null, 2),
-            filename,
-            'application/json'
-        );
-        
-        this.showStatus('✓ Nota esportata');
-    }
-    
-    // Utility per estrazione ambito (usato dai moduli)
+    // Utility for extracting scope from transcript
     extractScope(transcript) {
         if (!transcript || transcript.trim().length === 0) return 'generale';
         
         const cleanTranscript = transcript.trim().toLowerCase();
         
-        // Sistema TAG
-        const tagMatch = cleanTranscript.match(/^tag\s+([^\s-]+)\s*[-–—]\s*/);
-        if (tagMatch) return tagMatch[1].toLowerCase();
+        const tagMatch = cleanTranscript.match(/^tag\s+([^\s-]+)/);
+        if (tagMatch) return `tag-${tagMatch[1]}`;
         
-        // Sistema AMBITO
-        const ambitoMatch = cleanTranscript.match(/^ambito\s+([^\s]+)\s+fine/);
-        if (ambitoMatch) return ambitoMatch[1].toLowerCase();
-        
-        // Pattern comuni
-        const patterns = ['urgente', 'importante', 'lavoro', 'famiglia', 'casa'];
-        const firstWords = cleanTranscript.split(' ').slice(0, 3).join(' ');
-        
-        for (const pattern of patterns) {
-            if (firstWords.includes(pattern)) return pattern;
-        }
+        const ambitoMatch = cleanTranscript.match(/^ambito\s+([^\s]+)/);
+        if (ambitoMatch) return ambitoMatch[1];
         
         return 'generale';
     }
     
-    // Pulisci contenuto nota
-    cleanNoteContent(transcript, scope) {
+    // Utility for cleaning note content
+    cleanNoteContent(transcript) {
         if (!transcript || transcript.trim().length === 0) return transcript;
         
-        const cleanTranscript = transcript.trim();
+        let clean = transcript.trim();
+        clean = clean.replace(/^tag\s+[^\s-]+\s*[-–—]\s*/i, '');
+        clean = clean.replace(/^ambito\s+[^\s]+\s+fine\s*/i, '');
         
-        // Rimuovi TAG
-        const tagCleaned = cleanTranscript.replace(/^tag\s+[^\s-]+\s*[-–—]\s*/i, '');
-        if (tagCleaned !== cleanTranscript) return tagCleaned;
-        
-        // Rimuovi AMBITO
-        const ambitoCleaned = cleanTranscript.replace(/^ambito\s+[^\s]+\s+fine\s*/i, '');
-        if (ambitoCleaned !== cleanTranscript) return ambitoCleaned;
-        
-        return cleanTranscript;
+        return clean.trim();
     }
 }
 
-// Inizializzazione globale quando il DOM è pronto
+// Global initialization
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('📄 DOM pronto - inizializzo Voice Notes App');
-    
-    // Piccolo delay per sicurezza
+    // A small delay to ensure all scripts are parsed
     setTimeout(() => {
         try {
             window.voiceNotesApp = new VoiceNotesApp();
-            console.log('🎉 App avviata con successo!');
         } catch (error) {
-            console.error('❌ Errore critico:', error);
-            const statusEl = document.getElementById('statusText');
-            if (statusEl) {
-                statusEl.textContent = 'Errore avvio - Ricarica pagina';
-            }
+            console.error('❌ Critical startup error:', error);
+            document.getElementById('statusText').textContent = 'Errore critico - Ricarica la pagina';
         }
     }, 100);
 });
-
-// Fallback se DOM già caricato
-if (document.readyState !== 'loading') {
-    console.log('📄 DOM già caricato - avvio immediato');
-    setTimeout(() => {
-        if (!window.voiceNotesApp) {
-            try {
-                window.voiceNotesApp = new VoiceNotesApp();
-            } catch (error) {
-                console.error('❌ Errore fallback:', error);
-            }
-        }
-    }, 50);
-}

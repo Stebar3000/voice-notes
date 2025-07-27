@@ -1,407 +1,300 @@
-/* Voice Notes Auto - Style Sheet v1.5 */
-/* Reset e configurazione base ottimizzata per mobile */
+/* Voice Notes Auto - Style Sheet v2.0 */
+
+/* Reset e configurazione base */
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    touch-action: manipulation; /* Previene zoom accidentali */
     -webkit-tap-highlight-color: transparent; /* Rimuove highlight su tap iOS */
+}
+
+html, body {
+    height: 100%;
+    width: 100%;
+    overflow: hidden; /* Previene scroll a livello di body */
 }
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    color: white;
+    background: #1e293b;
+    color: #e2e8f0;
     user-select: none;
-    overflow: hidden;
-    /* Migliore rendering su iOS */
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
 }
 
-.container {
-    text-align: center;
-    padding: 20px;
+/* Contenitore principale dell'app con layout flex */
+.app-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
     width: 100%;
-    max-width: 600px;
-    /* Sicurezza per notch iPhone */
-    padding-top: max(20px, env(safe-area-inset-top));
-    padding-bottom: max(20px, env(safe-area-inset-bottom));
+    /* Padding per le aree sicure (notch e barra home iPhone) */
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+}
+
+/* Area principale con pulsante e timer */
+.main-content {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    min-height: 0; /* Necessario per flexbox in contenitori scrollabili */
+}
+
+/* Area inferiore con controlli e istruzioni */
+.footer-content {
+    flex-shrink: 0; /* Impedisce che il footer si rimpicciolisca */
+    padding: 15px;
+    background-color: rgba(0,0,0,0.1);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .status-text {
-    font-size: 1.8rem;
+    font-size: clamp(1.2rem, 5vw, 1.6rem); /* Dimensione fluida */
     font-weight: 600;
-    margin-bottom: 2rem;
-    height: 80px; /* Più spazio per messaggi multiriga */
+    margin-bottom: 1rem;
+    min-height: 50px;
     display: flex;
     align-items: center;
     justify-content: center;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    text-shadow: 0 1px 3px rgba(0,0,0,0.2);
     text-align: center;
     line-height: 1.3;
 }
 
+.timer {
+    font-size: clamp(1.5rem, 6vw, 2rem);
+    font-weight: 500;
+    color: #e2e8f0;
+    margin-bottom: 1.5rem;
+    font-variant-numeric: tabular-nums; /* Numeri allineati */
+}
+
 .record-button {
-    width: 300px;
-    height: 300px;
+    width: clamp(200px, 60vw, 280px); /* Dimensione fluida */
+    height: clamp(200px, 60vw, 280px);
     border-radius: 50%;
     border: none;
-    font-size: 2rem;
+    font-size: clamp(1.8rem, 8vw, 2.2rem);
     font-weight: bold;
     color: white;
     cursor: pointer;
-    transition: all 0.2s ease;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-    margin: 0 auto 2rem;
+    transition: all 0.2s ease-in-out;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3), inset 0 2px 4px rgba(255,255,255,0.1);
     display: flex;
     align-items: center;
     justify-content: center;
     position: relative;
     overflow: hidden;
-    /* Ottimizzazioni per touch */
-    -webkit-user-select: none;
-    user-select: none;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    touch-action: manipulation;
 }
 
 .record-button.idle {
-    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    background: linear-gradient(145deg, #3b82f6, #2563eb);
 }
-
 .record-button.recording {
-    background: linear-gradient(135deg, #ef4444, #dc2626);
+    background: linear-gradient(145deg, #ef4444, #dc2626);
     animation: pulse 1.5s infinite;
 }
-
 .record-button.paused {
-    background: linear-gradient(135deg, #f59e0b, #d97706);
+    background: linear-gradient(145deg, #f59e0b, #d97706);
 }
-
 .record-button.error {
-    background: linear-gradient(135deg, #94a3b8, #64748b);
+    background: linear-gradient(145deg, #94a3b8, #64748b);
+}
+.record-button:active {
+    transform: scale(0.95);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.4);
 }
 
 @keyframes pulse {
     0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.05); }
+    50% { transform: scale(1.03); }
 }
 
-.record-button:active {
-    transform: scale(0.95);
+.recording-indicator {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 15px;
+    height: 15px;
+    background: white;
+    border-radius: 50%;
+    animation: blink 1s infinite alternate;
 }
 
-.timer {
-    font-size: 1.5rem;
-    font-weight: 500;
-    color: #e2e8f0;
-    margin-bottom: 1rem;
-    font-variant-numeric: tabular-nums; /* Numeri allineati */
+@keyframes blink {
+    from { opacity: 1; }
+    to { opacity: 0.3; }
 }
 
+/* Area Trascrizione */
 .transcription-area {
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(0,0,0,0.2);
     border-radius: 12px;
     padding: 15px;
-    margin: 1rem 0;
-    min-height: 60px;
-    max-height: 120px;
+    margin-top: 1.5rem;
+    width: 100%;
+    max-width: 400px;
+    max-height: 100px;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     text-align: left;
     line-height: 1.4;
+    border: 1px solid rgba(255,255,255,0.1);
 }
-
 .transcription-label {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     color: #94a3b8;
     margin-bottom: 8px;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
-    font-weight: 500;
 }
-
 .transcription-text {
     color: #e2e8f0;
-    font-size: 0.95rem;
+    font-size: 0.9rem;
 }
-
 .transcription-interim {
     color: #94a3b8;
-    font-style: italic;
 }
 
-.export-controls {
+/* Controlli nel footer */
+.controls-section {
     display: flex;
-    justify-content: center;
+    justify-content: space-around;
+    align-items: center;
     gap: 10px;
-    margin: 1rem 0;
+    margin-bottom: 15px;
     flex-wrap: wrap;
 }
 
-.export-btn {
-    background: rgba(34, 197, 94, 0.2);
-    border: 1px solid rgba(34, 197, 94, 0.4);
-    color: #22c55e;
+.speech-toggle, .export-btn {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #cbd5e1;
     padding: 8px 16px;
     border-radius: 20px;
     font-size: 0.8rem;
     cursor: pointer;
     transition: all 0.2s ease;
     text-decoration: none;
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
 }
-
-.export-btn:hover {
-    background: rgba(34, 197, 94, 0.3);
-    transform: translateY(-1px);
-}
-
-.export-btn:active {
-    transform: translateY(0);
-}
-
-.auto-save-status {
-    font-size: 0.7rem;
-    color: #94a3b8;
-    text-align: center;
-    margin-top: 5px;
-}
-
-.note-actions {
-    display: flex;
-    gap: 8px;
-    margin-top: 8px;
-    justify-content: flex-end;
-}
-
-.note-btn {
-    background: rgba(255,255,255,0.1);
-    border: none;
-    color: #cbd5e1;
-    padding: 4px 8px;
-    border-radius: 12px;
-    font-size: 0.7rem;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.note-btn:hover {
+.speech-toggle:hover, .export-btn:hover {
     background: rgba(255,255,255,0.2);
     color: white;
 }
-
-.speech-toggle {
-    background: rgba(255,255,255,0.1);
-    border: 1px solid rgba(255,255,255,0.2);
-    color: white;
-    padding: 8px 16px;
-    border-radius: 20px;
-    font-size: 0.8rem;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
 .speech-toggle.active {
     background: rgba(34, 197, 94, 0.2);
     border-color: rgba(34, 197, 94, 0.4);
+    color: #4ade80;
 }
 
-.speech-toggle:hover {
-    background: rgba(255,255,255,0.15);
-}
-
-.notes-list {
-    max-height: 200px;
-    overflow-y: auto;
-    margin-top: 2rem;
-    /* Scroll più fluido su iOS */
-    -webkit-overflow-scrolling: touch;
-}
-
-.note-item {
-    background: rgba(255,255,255,0.1);
-    padding: 15px;
-    margin: 10px 0;
-    border-radius: 8px;
-    text-align: left;
-    backdrop-filter: blur(10px);
-    cursor: pointer;
-    transition: background 0.2s ease;
-    position: relative;
-}
-
-.note-item:hover, .note-item:active {
-    background: rgba(255,255,255,0.15);
-}
-
-.note-header {
-    font-weight: 600;
-    margin-bottom: 5px;
-    color: #f1f5f9;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.note-time {
-    font-size: 0.9rem;
-    color: #cbd5e1;
-}
-
-.note-transcript {
-    margin-top: 8px;
-    padding: 8px;
-    background: rgba(0,0,0,0.2);
-    border-radius: 6px;
-    font-size: 0.85rem;
-    color: #cbd5e1;
-    line-height: 1.3;
-    font-style: italic;
-}
-
-.transcript-toggle {
-    font-size: 0.7rem;
+.auto-save-status {
+    width: 100%;
+    font-size: 0.75rem;
     color: #94a3b8;
-    border: none;
-    background: none;
-    cursor: pointer;
-    text-decoration: underline;
+    text-align: center;
+    margin-top: 10px;
 }
 
 .instructions {
-    position: absolute;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     color: #94a3b8;
     text-align: center;
-    max-width: 90%;
-    /* Sicurezza per notch */
-    bottom: max(20px, env(safe-area-inset-bottom));
+    line-height: 1.5;
 }
-
-.recording-indicator {
-    position: absolute;
-    top: -5px;
-    right: -5px;
-    width: 20px;
-    height: 20px;
-    background: #ef4444;
-    border-radius: 50%;
-    animation: blink 1s infinite;
-}
-
-@keyframes blink {
-    0%, 50% { opacity: 1; }
-    51%, 100% { opacity: 0; }
-}
-
-/* Versione indicator */
-.version-indicator {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    font-size: 0.6rem;
+.instructions small {
     color: #64748b;
-    opacity: 0.7;
+    display: block;
+    margin-top: 4px;
 }
 
-/* iOS specific modal for saving */
-.ios-save-modal {
+/* Modal per copiare testo */
+.copy-modal {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    inset: 0;
     background: rgba(0,0,0,0.8);
-    display: none;
+    backdrop-filter: blur(5px);
+    display: none; /* Changed to none */
     align-items: center;
     justify-content: center;
     z-index: 1000;
 }
-
-.ios-save-content {
-    background: #1e293b;
-    padding: 20px;
-    border-radius: 12px;
-    max-width: 90%;
-    text-align: center;
+.copy-modal.show {
+    display: flex; /* Added show class */
 }
-
-.ios-save-content h3 {
-    margin-bottom: 15px;
+.copy-modal-content {
+    background: #27364a;
+    padding: 25px;
+    border-radius: 16px;
+    width: 90%;
+    max-width: 400px;
+    text-align: center;
+    border: 1px solid rgba(255,255,255,0.1);
+}
+.copy-modal-content h3 {
+    margin-bottom: 10px;
     color: #f1f5f9;
 }
-
-.ios-save-content textarea {
+.copy-modal-content p {
+    font-size: 0.9rem;
+    color: #cbd5e1;
+    margin-bottom: 15px;
+}
+.copy-modal-content textarea {
     width: 100%;
-    min-height: 150px;
-    background: rgba(255,255,255,0.1);
+    min-height: 120px;
+    background: rgba(0,0,0,0.2);
     border: 1px solid rgba(255,255,255,0.2);
     color: white;
     padding: 10px;
     border-radius: 8px;
     font-family: inherit;
     resize: vertical;
+    margin-bottom: 15px;
 }
-
-.ios-save-buttons {
-    margin-top: 15px;
+.copy-modal-buttons {
     display: flex;
     gap: 10px;
     justify-content: center;
 }
-
-.ios-save-btn {
+.modal-btn {
     padding: 10px 20px;
     border: none;
     border-radius: 8px;
     font-weight: 600;
     cursor: pointer;
+    transition: background-color 0.2s;
 }
-
-.ios-save-btn.copy {
+.modal-btn.copy {
     background: #3b82f6;
     color: white;
 }
-
-.ios-save-btn.close {
+.modal-btn.copy:hover {
+    background: #2563eb;
+}
+.modal-btn.close {
     background: rgba(255,255,255,0.1);
     color: white;
 }
-
-/* Ottimizzazioni responsive */
-@media (max-width: 480px) {
-    .record-button {
-        width: 250px;
-        height: 250px;
-        font-size: 1.8rem;
-    }
-    
-    .status-text {
-        font-size: 1.4rem;
-        margin-bottom: 1.5rem;
-    }
-    
-    .container {
-        padding: 15px;
-    }
+.modal-btn.close:hover {
+    background: rgba(255,255,255,0.2);
 }
 
-/* Ultra-small devices */
-@media (max-width: 360px) {
-    .record-button {
-        width: 200px;
-        height: 200px;
-        font-size: 1.6rem;
-    }
+/* Indicatore di versione */
+.version-indicator {
+    position: fixed;
+    bottom: 5px;
+    right: 10px;
+    font-size: 0.6rem;
+    color: #475569;
+    opacity: 0.7;
+    z-index: 1001; /* Sopra il contenuto */
 }

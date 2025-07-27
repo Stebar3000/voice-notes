@@ -1,93 +1,94 @@
-// ui.js - Gestione interfaccia utente e visualizzazione
-// v1.5 - Ottimizzato per mobile
+// ui.js - Manages all UI updates and user feedback
+// v2.0-stable - Improved layout and state handling
 
 class UIManager {
     constructor() {
         this.elements = {};
         this.initializeElements();
-        console.log('🎨 UI Manager inizializzato');
+        this.attachModalListeners();
+        console.log('🎨 UI Manager initialized');
     }
     
-    // Inizializza riferimenti agli elementi DOM
+    // Cache all necessary DOM elements
     initializeElements() {
         this.elements = {
-            // Elementi principali
             recordButton: document.getElementById('recordButton'),
             statusText: document.getElementById('statusText'),
             buttonText: document.getElementById('buttonText'),
             timer: document.getElementById('timer'),
-            notesList: document.getElementById('notesList'),
             recordingIndicator: document.getElementById('recordingIndicator'),
-            
-            // Trascrizione
             speechToggle: document.getElementById('speechToggle'),
             transcriptionArea: document.getElementById('transcriptionArea'),
-            
-            // Export
-            exportAllBtn: document.getElementById('exportAllBtn'),
-            exportAggregatedBtn: document.getElementById('exportAggregatedBtn'),
-            autoSaveStatus: document.getElementById('autoSaveStatus')
+            finalTranscript: document.getElementById('finalTranscript'),
+            interimTranscript: document.getElementById('interimTranscript'),
+            autoSaveStatus: document.getElementById('autoSaveStatus'),
+            // Modal elements
+            copyModal: document.getElementById('copyModal'),
+            copyTextarea: document.getElementById('copyTextarea'),
+            copyModalBtn: document.getElementById('copyModalBtn'),
+            closeModalBtn: document.getElementById('closeModalBtn'),
         };
-        
-        // Verifica elementi critici
-        const critical = ['recordButton', 'statusText', 'buttonText', 'timer'];
-        const missing = critical.filter(key => !this.elements[key]);
-        
-        if (missing.length > 0) {
-            console.error('❌ Elementi DOM mancanti:', missing);
-            return false;
-        }
-        
-        return true;
+    }
+
+    // Attach listeners for the copy modal
+    attachModalListeners() {
+        this.elements.copyModalBtn?.addEventListener('click', () => this.copyModalText());
+        this.elements.closeModalBtn?.addEventListener('click', () => this.hideCopyModal());
     }
     
-    // Aggiorna stato UI in base allo stato dell'app
+    // Update the entire UI based on the app's state
     updateUI(state) {
-        const { isRecording, isPaused, hasError } = state;
-        
-        // Reset classi
-        this.elements.recordButton.className = 'record-button';
+        const { isRecording, isPaused, isSaving, hasError } = state;
+        const button = this.elements.recordButton;
+        if (!button) return;
+
+        button.className = 'record-button'; // Reset classes
         
         if (hasError) {
-            this.elements.recordButton.classList.add('error');
-            this.elements.buttonText.textContent = 'RIPROVA';
+            button.classList.add('error');
+            this.elements.buttonText.textContent = 'Reset';
+            this.elements.recordingIndicator.style.display = 'none';
+        } else if (isSaving) {
+            button.classList.add('paused'); // Use paused/orange style for saving
+            this.showStatus('Finalizzazione in corso...');
+            this.elements.buttonText.textContent = 'Salvo...';
             this.elements.recordingIndicator.style.display = 'none';
         } else if (isRecording) {
-            this.elements.recordButton.classList.add('recording');
+            button.classList.add('recording');
             this.showStatus('🔴 Registrando...');
-            this.elements.buttonText.textContent = 'PAUSA';
+            this.elements.buttonText.textContent = 'Pausa';
             this.elements.recordingIndicator.style.display = 'block';
         } else if (isPaused) {
-            this.elements.recordButton.classList.add('paused');
-            this.showStatus('⏸️ In pausa - Click per continuare');
-            this.elements.buttonText.textContent = 'RIPRENDI';
+            button.classList.add('paused');
+            this.showStatus('⏸️ In pausa');
+            this.elements.buttonText.textContent = 'Riprendi';
             this.elements.recordingIndicator.style.display = 'none';
         } else {
-            this.elements.recordButton.classList.add('idle');
+            button.classList.add('idle');
             this.showStatus('Pronto per registrare');
-            this.elements.buttonText.textContent = 'INIZIA';
+            this.elements.buttonText.textContent = 'Inizia';
             this.elements.recordingIndicator.style.display = 'none';
         }
     }
     
-    // Mostra messaggio di stato
+    // Show a message in the main status area
     showStatus(message) {
         if (this.elements.statusText) {
             this.elements.statusText.textContent = message;
         }
     }
     
-    // Mostra errore con titolo e descrizione
+    // Show a detailed error message
     showError(title, description) {
         if (this.elements.statusText) {
             this.elements.statusText.innerHTML = `
-                <div style="color: #fca5a5; font-size: 1.2rem;">${title}</div>
-                <div style="font-size: 0.9rem; margin-top: 8px; color: #cbd5e1; line-height: 1.3;">${description}</div>
+                <div style="color: #fca5a5; font-weight: bold;">${title}</div>
+                <div style="font-size: 0.9rem; margin-top: 4px;">${description}</div>
             `;
         }
     }
     
-    // Aggiorna timer
+    // Update the timer display
     updateTimer(elapsedTime) {
         const totalSeconds = Math.floor(elapsedTime / 1000);
         const minutes = Math.floor(totalSeconds / 60);
@@ -98,161 +99,98 @@ class UIManager {
                 `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
         }
     }
-    
-    // Visualizza lista note
-    displayNotes(notes) {
-        if (!this.elements.notesList) return;
+
+    // Update the transcription display area
+    updateTranscriptionDisplay(finalTxt, interimTxt) {
+        if (!this.elements.transcriptionArea) return;
+
+        const hasText = finalTxt || interimTxt;
+        this.elements.transcriptionArea.style.display = hasText ? 'block' : 'none';
+
+        if (this.elements.finalTranscript) this.elements.finalTranscript.textContent = finalTxt;
+        if (this.elements.interimTranscript) this.elements.interimTranscript.textContent = interimTxt;
         
-        this.elements.notesList.innerHTML = '';
-        
-        // Mostra solo le prime 5 note
-        notes.slice(0, 5).forEach(note => {
-            const noteElement = this.createNoteElement(note);
-            this.elements.notesList.appendChild(noteElement);
-        });
+        // Auto-scroll
+        this.elements.transcriptionArea.scrollTop = this.elements.transcriptionArea.scrollHeight;
     }
     
-    // Crea elemento HTML per una nota
-    createNoteElement(note) {
-        const div = document.createElement('div');
-        div.className = 'note-item';
-        
-        const sizeKB = (note.size / 1024).toFixed(1);
-        const transcriptIcon = note.hasTranscript ? '📝' : '🎵';
-        const transcriptInfo = note.hasTranscript ? 
-            ` • ${note.transcript.split(' ').length} parole` : '';
-        
-        let html = `
-            <div class="note-header">
-                <span>${transcriptIcon} Nota ${note.duration}s • ${sizeKB}KB${transcriptInfo}</span>
-            </div>
-            <div class="note-time">${note.timestamp}</div>
-        `;
-        
-        // Aggiungi trascrizione se disponibile
-        if (note.hasTranscript && note.transcript) {
-            const scope = window.voiceNotesApp?.extractScope(note.transcript) || 'generale';
-            const cleanedText = window.voiceNotesApp?.cleanNoteContent(note.transcript, scope) || note.transcript;
-            const preview = cleanedText.length > 100 ? 
-                cleanedText.substring(0, 100) + '...' : cleanedText;
-            
-            html += `
-                <div class="note-transcript">
-                    ${scope !== 'generale' ? `<strong>[${scope.toUpperCase()}]</strong> ` : ''}
-                    ${preview}
-                </div>
-            `;
-        }
-        
-        // Pulsanti azione
-        html += `
-            <div class="note-actions">
-                <button class="note-btn" onclick="window.voiceNotesApp.playNote(${note.id})">
-                    ▶️ Play
-                </button>
-                <button class="note-btn" onclick="window.voiceNotesApp.exportNote(${note.id})">
-                    💾 Export
-                </button>
-            </div>
-        `;
-        
-        div.innerHTML = html;
-        return div;
-    }
-    
-    // Aggiorna stato di salvataggio automatico
+    // Update auto-save status message
     updateAutoSaveStatus(message) {
         if (this.elements.autoSaveStatus) {
             this.elements.autoSaveStatus.textContent = message;
         }
     }
-    
-    // Mostra/nascondi area trascrizione
-    toggleTranscriptionArea(show) {
-        if (this.elements.transcriptionArea) {
-            this.elements.transcriptionArea.style.display = show ? 'block' : 'none';
+
+    // Update the state of the speech toggle button
+    setSpeechToggleEnabled(isSupported, isActive = true) {
+        const toggle = this.elements.speechToggle;
+        if (!toggle) return;
+
+        if (!isSupported) {
+            toggle.textContent = '❌ Trascrizione non supportata';
+            toggle.disabled = true;
+            toggle.classList.remove('active');
+        } else {
+            toggle.disabled = false;
+            toggle.textContent = isActive ? '🎤 Trascrizione attiva' : '🔇 Trascrizione disattiva';
+            toggle.classList.toggle('active', isActive);
         }
     }
     
-    // Feedback per dispositivi mobili
+    // Provide haptic feedback on mobile devices
     provideFeedback(type = 'tap') {
-        // Vibrazione tattile se supportata
         if (navigator.vibrate) {
-            switch (type) {
-                case 'tap':
-                    navigator.vibrate(10);
-                    break;
-                case 'save':
-                    navigator.vibrate([50, 50, 50]);
-                    break;
-                case 'error':
-                    navigator.vibrate([100, 50, 100]);
-                    break;
-                case 'success':
-                    navigator.vibrate([50, 50, 50, 50, 50]);
-                    break;
-            }
+            const patterns = {
+                tap: [10],
+                save: [50, 50, 50],
+                error: [100, 50, 100],
+            };
+            navigator.vibrate(patterns[type] || patterns.tap);
         }
     }
     
-    // Gestisce errori del microfono con messaggi user-friendly
+    // Show a user-friendly message for microphone errors
     showMicrophoneError(error) {
-        let title, description;
-        
-        switch (error.name) {
-            case 'NotAllowedError':
-                title = 'Microfono bloccato';
-                description = 'Tocca il lucchetto nell\'URL e seleziona "Consenti" per il microfono';
-                break;
-            case 'NotFoundError':
-                title = 'Microfono non trovato';
-                description = 'Verifica che il microfono sia collegato e funzionante';
-                break;
-            case 'NotSupportedError':
-                title = 'Browser non supportato';
-                description = 'Aggiorna il browser o prova con Chrome/Safari';
-                break;
-            case 'NotReadableError':
-                title = 'Microfono in uso';
-                description = 'Chiudi altre app che usano il microfono e riprova';
-                break;
-            default:
-                title = 'Errore microfono';
-                description = 'Ricarica la pagina e riprova';
-        }
+        const errors = {
+            NotAllowedError: ['Microfono bloccato', 'Consenti l\'accesso al microfono nelle impostazioni del browser.'],
+            NotFoundError: ['Microfono non trovato', 'Verifica che un microfono sia collegato e funzionante.'],
+            NotReadableError: ['Microfono in uso', 'Un\'altra app sta usando il microfono. Chiudila e riprova.'],
+        };
+        const [title, description] = errors[error.name] || ['Errore Microfono', 'Si è verificato un errore sconosciuto. Ricarica la pagina.'];
         
         this.showError(title, description);
         this.provideFeedback('error');
     }
-    
-    // Mostra messaggio temporaneo
-    showTemporaryMessage(message, duration = 3000) {
-        const originalText = this.elements.statusText.textContent;
-        this.showStatus(message);
-        
-        setTimeout(() => {
-            this.showStatus(originalText);
-        }, duration);
-    }
-    
-    // Gestisce visibilità della pagina (per risparmio batteria)
-    handleVisibilityChange(isPaused) {
-        if (document.hidden && !isPaused) {
-            this.showStatus('Pausa automatica (app in background)');
+
+    // Show the modal for copying text
+    showCopyModal(content) {
+        if (this.elements.copyModal && this.elements.copyTextarea) {
+            this.elements.copyTextarea.value = content;
+            this.elements.copyModal.classList.add('show');
         }
     }
-    
-    // Reset completo UI
-    reset() {
-        this.updateUI({
-            isRecording: false,
-            isPaused: false,
-            hasError: false
-        });
-        this.updateTimer(0);
-        this.toggleTranscriptionArea(false);
+
+    // Hide the modal
+    hideCopyModal() {
+        this.elements.copyModal?.classList.remove('show');
+    }
+
+    // Copy text from the modal's textarea to the clipboard
+    copyModalText() {
+        if (this.elements.copyTextarea) {
+            this.elements.copyTextarea.select();
+            this.elements.copyTextarea.setSelectionRange(0, 99999); // For mobile
+            
+            try {
+                document.execCommand('copy');
+                this.showStatus('✅ Testo copiato!');
+                setTimeout(() => this.hideCopyModal(), 1000);
+            } catch (err) {
+                this.showError('Copia Fallita', 'Per favore, copia il testo manualmente.');
+            }
+        }
     }
 }
 
-// Esporta globalmente
+// Export globally
 window.UIManager = UIManager;

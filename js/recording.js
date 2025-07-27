@@ -1,5 +1,5 @@
-// recording.js - Gestione registrazione audio e trascrizione vocale
-// v1.5 - Ottimizzato per mobile e iOS
+// recording.js - Manages audio recording and speech-to-text transcription
+// v2.0-stable - New async-safe saving logic
 
 class RecordingManager {
     constructor() {
@@ -11,346 +11,213 @@ class RecordingManager {
         this.recognition = null;
         this.speechEnabled = true;
         this.finalTranscript = '';
-        this.interimTranscript = '';
         
-        // Inizializza speech recognition
         this.initializeSpeechRecognition();
-        
-        console.log('🎙️ Recording Manager inizializzato');
+        console.log('🎙️ Recording Manager initialized');
     }
     
-    // Inizializza il riconoscimento vocale
+    // Initialize the Web Speech API
     initializeSpeechRecognition() {
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         
         if (!SpeechRecognition) {
-            console.warn('❌ Speech Recognition non supportato');
+            console.warn('❌ Speech Recognition not supported');
             this.speechEnabled = false;
-            // Aggiorna UI se necessario
-            const toggle = document.getElementById('speechToggle');
-            if (toggle) {
-                toggle.textContent = '❌ Trascrizione non disponibile';
-                toggle.classList.remove('active');
-                toggle.disabled = true;
-            }
+            window.voiceNotesApp?.uiManager.setSpeechToggleEnabled(false);
             return;
         }
         
         this.recognition = new SpeechRecognition();
-        
-        // Configurazione ottimale per note vocali
         this.recognition.continuous = true;
         this.recognition.interimResults = true;
         this.recognition.lang = 'it-IT';
-        this.recognition.maxAlternatives = 1;
         
         // Event handlers
-        this.recognition.onstart = () => {
-            console.log('✅ Trascrizione avviata');
-        };
+        this.recognition.onstart = () => console.log('✅ Transcription started');
         
-        this.recognition.onresult = (event) => {
-            this.handleSpeechResult(event);
-        };
+        this.recognition.onresult = (event) => this.handleSpeechResult(event);
         
         this.recognition.onerror = (event) => {
-            console.error('❌ Errore trascrizione:', event.error);
-            if (event.error !== 'no-speech') {
-                this.showTranscriptionError(event.error);
-            }
+            console.error('❌ Transcription error:', event.error);
         };
         
         this.recognition.onend = () => {
-            console.log('⏹️ Trascrizione terminata');
-            // Riavvia se stiamo ancora registrando
-            if (window.voiceNotesApp?.isRecording && this.speechEnabled) {
-                setTimeout(() => {
-                    try {
-                        this.recognition.start();
-                    } catch (e) {
-                        console.warn('⚠️ Impossibile riavviare trascrizione:', e);
-                    }
-                }, 100);
+            console.log('⏹️ Transcription service ended');
+            // This is the final step in the save process
+            // Pass the final transcript to the main app
+            if (window.voiceNotesApp?.isSaving) {
+                window.voiceNotesApp.handleTranscriptionEnd(this.finalTranscript.trim());
             }
         };
         
-        console.log('✅ Speech Recognition configurato');
+        console.log('✅ Speech Recognition configured');
     }
     
-    // Gestisce i risultati della trascrizione
+    // Handle incoming speech results
     handleSpeechResult(event) {
-        let interim = '';
-        let final = '';
-        
-        for (let i = event.resultIndex; i < event.results.length; i++) {
+        let interimTranscript = '';
+        this.finalTranscript = ''; // Recalculate final transcript from all results
+
+        for (let i = 0; i < event.results.length; i++) {
             const transcript = event.results[i][0].transcript;
-            
             if (event.results[i].isFinal) {
-                final += transcript;
+                this.finalTranscript += transcript + ' ';
             } else {
-                interim += transcript;
+                interimTranscript += transcript;
             }
         }
         
-        if (final) {
-            this.finalTranscript += final + ' ';
-            this.updateTranscriptionDisplay();
-        }
-        
-        this.interimTranscript = interim;
-        this.updateTranscriptionDisplay();
+        this.updateTranscriptionDisplay(this.finalTranscript, interimTranscript);
     }
     
-    // Aggiorna la visualizzazione della trascrizione
-    updateTranscriptionDisplay() {
-        const area = document.getElementById('transcriptionArea');
-        const finalEl = document.getElementById('finalTranscript');
-        const interimEl = document.getElementById('interimTranscript');
-        
-        if (!area || !finalEl || !interimEl) return;
-        
-        if (area.style.display === 'none') {
-            area.style.display = 'block';
-        }
-        
-        finalEl.textContent = this.finalTranscript;
-        interimEl.textContent = this.interimTranscript;
-        
-        // Auto-scroll
-        area.scrollTop = area.scrollHeight;
+    // Update the UI with the latest transcript
+    updateTranscriptionDisplay(finalTxt, interimTxt) {
+        window.voiceNotesApp?.uiManager.updateTranscriptionDisplay(finalTxt, interimTxt);
     }
     
-    // Mostra errori di trascrizione
-    showTranscriptionError(error) {
-        let message = '';
-        switch (error) {
-            case 'network':
-                message = 'Errore rete per trascrizione';
-                break;
-            case 'not-allowed':
-                message = 'Microfono bloccato per trascrizione';
-                break;
-            case 'service-not-allowed':
-                message = 'Servizio trascrizione non disponibile';
-                break;
-            default:
-                message = 'Errore trascrizione';
-        }
-        
-        // Mostra brevemente senza interrompere
-        const statusEl = document.getElementById('statusText');
-        if (statusEl) {
-            const originalText = statusEl.textContent;
-            statusEl.textContent = message;
-            setTimeout(() => {
-                if (window.voiceNotesApp && !window.voiceNotesApp.hasError) {
-                    statusEl.textContent = originalText;
-                }
-            }, 3000);
-        }
-    }
-    
-    // Toggle trascrizione on/off
+    // Toggle speech recognition on/off
     toggleSpeechRecognition() {
         if (!this.recognition) return;
         
         this.speechEnabled = !this.speechEnabled;
-        const toggle = document.getElementById('speechToggle');
+        window.voiceNotesApp?.uiManager.setSpeechToggleEnabled(true, this.speechEnabled);
         
-        if (this.speechEnabled) {
-            toggle.textContent = '🎤 Trascrizione attiva';
-            toggle.classList.add('active');
-            
-            // Se stiamo registrando, avvia trascrizione
-            if (window.voiceNotesApp?.isRecording) {
-                this.startTranscription();
-            }
+        if (this.speechEnabled && window.voiceNotesApp?.isRecording) {
+            this.startTranscription();
         } else {
-            toggle.textContent = '🔇 Trascrizione disattiva';
-            toggle.classList.remove('active');
             this.stopTranscription();
-            
-            const area = document.getElementById('transcriptionArea');
-            if (area) area.style.display = 'none';
         }
     }
     
-    // Avvia la registrazione audio
+    // Start audio recording
     async startRecording() {
-        console.log('🎙️ Avvio registrazione...');
+        console.log('🎙️ Attempting to start recording...');
         
         try {
-            // Richiesta microfono con configurazioni ottimali
             const constraints = {
                 audio: {
                     echoCancellation: true,
                     noiseSuppression: true,
-                    autoGainControl: true,
-                    sampleRate: 44100,
-                    channelCount: 1
+                    autoGainControl: true
                 }
             };
-            
             this.stream = await navigator.mediaDevices.getUserMedia(constraints);
-            console.log('✅ Microfono ottenuto');
             
-            // Determina il formato migliore
-            const options = {};
-            if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
-                options.mimeType = 'audio/webm;codecs=opus';
-            } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
-                options.mimeType = 'audio/mp4';
+            const options = { mimeType: 'audio/webm;codecs=opus' };
+            if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                console.warn(`${options.mimeType} not supported, using default.`);
+                delete options.mimeType;
             }
-            console.log('📼 Formato audio:', options.mimeType || 'default');
             
             this.mediaRecorder = new MediaRecorder(this.stream, options);
             this.audioChunks = [];
             
-            // Event handlers
             this.mediaRecorder.ondataavailable = (event) => {
-                if (event.data.size > 0) {
-                    this.audioChunks.push(event.data);
-                }
+                if (event.data.size > 0) this.audioChunks.push(event.data);
             };
             
             this.mediaRecorder.onstop = () => {
-                console.log('⏹️ Registrazione fermata, processo audio...');
-                this.processRecording();
-                // Chiudi stream
-                if (this.stream) {
-                    this.stream.getTracks().forEach(track => track.stop());
-                    this.stream = null;
-                }
+                console.log('⏹️ MediaRecorder stopped. Processing audio.');
+                this.processAudio();
+                // Stop the transcription service now that audio is captured
+                this.stopTranscription();
             };
             
             this.mediaRecorder.onerror = (event) => {
-                console.error('❌ Errore MediaRecorder:', event.error);
-                window.voiceNotesApp?.handleRecordingError(event.error);
+                console.error('❌ MediaRecorder error:', event.error);
+                window.voiceNotesApp?.showError('Recording Error', 'An error occurred during recording.');
             };
             
-            // Avvia registrazione (chunk ogni secondo)
-            this.mediaRecorder.start(1000);
-            
-            // Avvia trascrizione se abilitata
+            this.mediaRecorder.start();
             if (this.speechEnabled) {
                 this.startTranscription();
             }
             
-            console.log('✅ Registrazione avviata');
+            console.log('✅ Recording started successfully');
             return true;
             
         } catch (error) {
-            console.error('❌ Errore avvio registrazione:', error);
+            console.error('❌ Error starting recording:', error);
             window.voiceNotesApp?.handleMicrophoneError(error);
             return false;
         }
     }
     
-    // Metti in pausa la registrazione
+    // Pause recording
     pauseRecording() {
-        if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
+        if (this.mediaRecorder?.state === 'recording') {
             this.mediaRecorder.pause();
-            this.stopTranscription();
-            console.log('⏸️ Registrazione in pausa');
+            this.stopTranscription(); // Stop listening during pause
+            console.log('⏸️ Recording paused');
         }
     }
     
-    // Riprendi la registrazione
+    // Resume recording
     resumeRecording() {
-        if (this.mediaRecorder && this.mediaRecorder.state === 'paused') {
+        if (this.mediaRecorder?.state === 'paused') {
             this.mediaRecorder.resume();
-            if (this.speechEnabled) {
-                this.startTranscription();
-            }
-            console.log('▶️ Registrazione ripresa');
+            if (this.speechEnabled) this.startTranscription();
+            console.log('▶️ Recording resumed');
         }
     }
     
-    // Ferma la registrazione
+    // Stop recording
     stopRecording() {
-        if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+        if (this.mediaRecorder?.state !== 'inactive') {
             this.mediaRecorder.stop();
-            this.stopTranscription();
-            console.log('⏹️ Stop registrazione richiesto');
+            console.log('⏹️ Stop recording requested');
         }
     }
     
-    // Avvia trascrizione
+    // Start the transcription service
     startTranscription() {
         if (!this.recognition || !this.speechEnabled) return;
         
-        // Reset trascrizione per nuova registrazione
         this.finalTranscript = '';
-        this.interimTranscript = '';
-        this.updateTranscriptionDisplay();
+        this.updateTranscriptionDisplay('', '');
         
         try {
             this.recognition.start();
         } catch (e) {
-            console.warn('⚠️ Trascrizione già attiva o errore:', e);
+            // May already be started, which is fine.
+            console.warn('⚠️ Transcription start warning:', e.message);
         }
     }
     
-    // Ferma trascrizione
+    // Stop the transcription service
     stopTranscription() {
         if (this.recognition) {
             try {
                 this.recognition.stop();
             } catch (e) {
-                console.warn('⚠️ Errore stop trascrizione:', e);
+                console.warn('⚠️ Transcription stop warning:', e.message);
             }
         }
     }
     
-    // Processa la registrazione completata
-    processRecording() {
+    // Process the recorded audio into a blob
+    processAudio() {
         if (this.audioChunks.length === 0) {
-            console.error('❌ Nessun chunk audio');
-            window.voiceNotesApp?.showError('Registrazione vuota', 'Riprova a registrare');
+            console.error('❌ No audio chunks recorded');
+            window.voiceNotesApp?.showError('Empty Recording', 'No audio was captured.');
+            window.voiceNotesApp?.resetSavingState();
             return;
         }
         
-        // Crea blob audio
         const audioBlob = new Blob(this.audioChunks, {
-            type: this.mediaRecorder.mimeType || 'audio/wav'
+            type: this.mediaRecorder.mimeType || 'audio/webm'
         });
         
-        console.log('✅ Audio blob creato:', {
-            size: audioBlob.size,
-            type: audioBlob.type,
-            chunks: this.audioChunks.length
-        });
+        console.log('✅ Audio blob created:', { size: audioBlob.size, type: audioBlob.type });
         
-        // Prepara dati nota
-        const noteData = {
-            audioBlob: audioBlob,
-            transcript: this.finalTranscript.trim().replace(/\s+/g, ' '),
-            duration: window.voiceNotesApp?.elapsedTime || 0
-        };
-        
-        // Passa al gestore principale
-        window.voiceNotesApp?.saveNote(noteData.audioBlob);
-        
-        // Reset stato
-        this.audioChunks = [];
-        this.finalTranscript = '';
-        this.interimTranscript = '';
-        
-        // Nascondi area trascrizione
-        const area = document.getElementById('transcriptionArea');
-        if (area) area.style.display = 'none';
+        // Pass the blob to the main app, which will wait for the transcript
+        window.voiceNotesApp?.handleAudioReady(audioBlob);
     }
     
-    // Ottieni trascrizione corrente
-    getCurrentTranscript() {
-        return this.finalTranscript.trim();
-    }
-    
-    // Reset completo
+    // Reset state for a new recording
     reset() {
         this.audioChunks = [];
         this.finalTranscript = '';
-        this.interimTranscript = '';
         
         if (this.stream) {
             this.stream.getTracks().forEach(track => track.stop());
@@ -358,16 +225,12 @@ class RecordingManager {
         }
         
         if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
-            try {
-                this.mediaRecorder.stop();
-            } catch (e) {
-                console.warn('MediaRecorder già fermato');
-            }
+            try { this.mediaRecorder.stop(); } catch (e) {}
         }
         
         this.stopTranscription();
     }
 }
 
-// Esporta globalmente
+// Export globally
 window.RecordingManager = RecordingManager;
