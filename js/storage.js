@@ -1,5 +1,5 @@
 // storage.js - Manages data persistence and export
-// v2.1-beta - Added clear and delete methods
+// v2.2-final - Fixed export issues
 
 class StorageManager {
     constructor() {
@@ -92,7 +92,6 @@ class StorageManager {
     }
 
     async loadNotes() {
-        // Always load from localStorage as the single source of truth for metadata
         return this.getNotesFromLocalStorage().sort((a, b) => b.id - a.id);
     }
 
@@ -137,19 +136,21 @@ class StorageManager {
         const blob = new Blob([content], { type });
         const file = new File([blob], filename, { type });
 
+        // Use Web Share API if available (best for mobile)
         if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
             try {
-                await navigator.share({ files: [file], title: 'Voice Notes Export' });
+                // Removed the 'title' property to prevent creating empty text files on some OS
+                await navigator.share({ files: [file] });
                 return;
             } catch (err) {
                 if (err.name === 'AbortError') {
                     console.log('Share cancelled by user.');
                     return; // Not an error
                 }
-                // Fall through to download if share fails for other reasons
             }
         }
         
+        // Fallback for desktop browsers
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
@@ -165,12 +166,10 @@ class StorageManager {
                 const tx = this.db.transaction([this.notesStoreName, this.audioStoreName], 'readwrite');
                 await this.promisifyRequest(tx.objectStore(this.notesStoreName).clear());
                 await this.promisifyRequest(tx.objectStore(this.audioStoreName).clear());
-                console.log('✅ IndexedDB cleared');
             } catch (error) {
                 console.error("Failed to clear IndexedDB:", error);
             }
         }
-        console.log('✅ All data cleared');
     }
 
     async deleteNote(noteId) {
@@ -183,7 +182,6 @@ class StorageManager {
                 const tx = this.db.transaction([this.notesStoreName, this.audioStoreName], 'readwrite');
                 await this.promisifyRequest(tx.objectStore(this.notesStoreName).delete(noteId));
                 await this.promisifyRequest(tx.objectStore(this.audioStoreName).delete(noteId));
-                console.log(`✅ Note ${noteId} deleted from IndexedDB`);
             } catch (error) {
                 console.error(`Failed to delete note ${noteId} from IndexedDB:`, error);
             }

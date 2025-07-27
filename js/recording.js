@@ -1,5 +1,5 @@
 // recording.js - Manages audio recording and speech-to-text transcription
-// v2.1-beta - Stable async-safe saving logic
+// v2.2-final - Fixed pause/resume transcript loss
 
 class RecordingManager {
     constructor() {
@@ -11,6 +11,7 @@ class RecordingManager {
         this.recognition = null;
         this.speechEnabled = true;
         this.finalTranscript = '';
+        this.accumulatedTranscript = ''; // Stores transcript during pauses
         
         this.initializeSpeechRecognition();
         console.log('🎙️ Recording Manager initialized');
@@ -41,23 +42,24 @@ class RecordingManager {
                 window.voiceNotesApp.handleTranscriptionEnd(this.finalTranscript.trim());
             }
         };
-        
-        console.log('✅ Speech Recognition configured');
     }
     
     handleSpeechResult(event) {
         let interimTranscript = '';
-        this.finalTranscript = '';
+        let currentFinal = '';
 
+        // Rebuild the transcript from the current recognition session
         for (let i = 0; i < event.results.length; i++) {
             const transcript = event.results[i][0].transcript;
             if (event.results[i].isFinal) {
-                this.finalTranscript += transcript + ' ';
+                currentFinal += transcript + ' ';
             } else {
                 interimTranscript += transcript;
             }
         }
         
+        // Combine with transcript from before the pause
+        this.finalTranscript = (this.accumulatedTranscript + ' ' + currentFinal).trim();
         this.updateTranscriptionDisplay(this.finalTranscript, interimTranscript);
     }
     
@@ -71,7 +73,7 @@ class RecordingManager {
         window.voiceNotesApp?.updateUI();
         
         if (this.speechEnabled && window.voiceNotesApp?.isRecording) {
-            this.startTranscription();
+            this.startTranscription(false); // Do not reset when toggling
         } else {
             this.stopTranscription();
         }
@@ -100,7 +102,7 @@ class RecordingManager {
             this.mediaRecorder.onerror = (e) => window.voiceNotesApp?.showError('Errore Registrazione', e.error.message);
             
             this.mediaRecorder.start();
-            if (this.speechEnabled) this.startTranscription();
+            if (this.speechEnabled) this.startTranscription(true); // Is a new recording
             return true;
             
         } catch (error) {
@@ -111,6 +113,8 @@ class RecordingManager {
     
     pauseRecording() {
         if (this.mediaRecorder?.state === 'recording') {
+            // Save the current transcript before pausing
+            this.accumulatedTranscript = this.finalTranscript;
             this.mediaRecorder.pause();
             this.stopTranscription();
         }
@@ -119,7 +123,7 @@ class RecordingManager {
     resumeRecording() {
         if (this.mediaRecorder?.state === 'paused') {
             this.mediaRecorder.resume();
-            if (this.speechEnabled) this.startTranscription();
+            if (this.speechEnabled) this.startTranscription(false); // Not a new recording
         }
     }
     
@@ -129,16 +133,22 @@ class RecordingManager {
         }
     }
     
-    startTranscription() {
+    startTranscription(isNewRecording) {
         if (!this.recognition || !this.speechEnabled) return;
-        this.finalTranscript = '';
-        this.updateTranscriptionDisplay('', '');
-        try { this.recognition.start(); } catch (e) {}
+        
+        // Only reset transcripts for a completely new recording
+        if (isNewRecording) {
+            this.finalTranscript = '';
+            this.accumulatedTranscript = '';
+        }
+
+        this.updateTranscriptionDisplay(this.finalTranscript, '');
+        try { this.recognition.start(); } catch (e) { /* Already started, ignore */ }
     }
     
     stopTranscription() {
         if (this.recognition) {
-            try { this.recognition.stop(); } catch (e) {}
+            try { this.recognition.stop(); } catch (e) { /* Already stopped, ignore */ }
         }
     }
     
@@ -155,6 +165,7 @@ class RecordingManager {
     reset() {
         this.audioChunks = [];
         this.finalTranscript = '';
+        this.accumulatedTranscript = '';
         this.stream?.getTracks().forEach(track => track.stop());
         this.stream = null;
         if (this.mediaRecorder?.state !== 'inactive') {

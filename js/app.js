@@ -1,9 +1,9 @@
 // app.js - Applicazione principale Voice Notes Auto
-// v2.1-beta - Aggiunte gestione sessione e revisione note
+// v2.2-final - Aggiunte gestione sessione e revisione note
 
 class VoiceNotesApp {
     constructor() {
-        console.log('🚀 Voice Notes App v2.1-beta initialization...');
+        console.log('🚀 Voice Notes App v2.2-final initialization...');
         
         // State
         this.isRecording = false;
@@ -55,12 +55,20 @@ class VoiceNotesApp {
     attachEventListeners() {
         const recordButton = this.uiManager.elements.recordButton;
         
-        // Event handling for the main button (robust for iOS)
         recordButton.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
         recordButton.addEventListener('touchend', e => {
             e.preventDefault();
             if (this.isSaving || this.isExporting) return;
             this.handleButtonClick();
+        });
+        // Add click for desktop
+        recordButton.addEventListener('click', e => {
+             if (this.isSaving || this.isExporting) return;
+             // touchend already handles the logic, so on desktop we need a separate path
+             // This check prevents double-firing on touch devices that also emulate click
+             if (e.sourceCapabilities && !e.sourceCapabilities.firesTouchEvents) {
+                this.handleButtonClick();
+             }
         });
 
         // Other controls

@@ -1,5 +1,5 @@
 // ui.js - Manages all UI updates and user feedback
-// v2.1-beta - Added modals for review and confirmation
+// v2.2-final - Added modals for review and confirmation
 
 class UIManager {
     constructor() {
@@ -36,7 +36,6 @@ class UIManager {
 
     attachModalListeners() {
         this.elements.reviewModalCloseBtn?.addEventListener('click', () => this.hideReviewModal());
-        // We will handle confirm/cancel via promises
     }
     
     updateUI(state) {

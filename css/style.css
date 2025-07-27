@@ -1,4 +1,4 @@
-/* Voice Notes Auto - Style Sheet v2.1 */
+/* Voice Notes Auto - Style Sheet v2.2 */
 
 /* Reset e configurazione base */
 :root {
@@ -226,10 +226,13 @@ body {
 /* Indicatore di versione */
 .version-indicator {
     position: fixed;
-    top: 10px;
-    right: 15px;
-    font-size: 0.7rem;
+    bottom: 10px;
+    left: 15px;
+    font-size: 0.8rem;
+    font-weight: 600;
     color: var(--text-very-dark);
-    font-weight: bold;
+    background-color: rgba(255, 255, 255, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
     z-index: 1001;
 }

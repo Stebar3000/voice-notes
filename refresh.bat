@@ -1,3 +1,3 @@
 git add .
-git commit -m "v2.1 - Solve bugs and implementing note management functions"
+git commit -m "v2.2 - Solve bugs in pause and export notes functions"
 git push
