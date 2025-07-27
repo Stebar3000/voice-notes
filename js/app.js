@@ -1,9 +1,9 @@
 // app.js - Main application logic
-// v2.7 - Final robust version.
+// v2.9 - TEXT-ONLY FINAL VERSION.
 
 class VoiceNotesApp {
     constructor() {
-        console.log('🚀 Voice Notes App v2.7 initialization...');
+        console.log('🚀 Voice Notes App v2.9 initialization...');
         this.isRecording = false;
         this.isPaused = false;
         this.isSaving = false;
@@ -16,7 +16,7 @@ class VoiceNotesApp {
         
         this.clickTimeout = null;
         this.clickCount = 0;
-        this.clickDelay = 300; // ms to wait for a double click
+        this.clickDelay = 300;
 
         this.storageManager = new window.StorageManager();
         this.recordingManager = new window.RecordingManager();
@@ -133,20 +133,19 @@ class VoiceNotesApp {
         this.updateUI();
 
         try {
-            const { audioBlob, transcript } = await this.recordingManager.stopRecording();
+            const { transcript } = await this.recordingManager.stopRecording();
             
-            if (!transcript && (!audioBlob || audioBlob.size === 0)) {
+            if (!transcript || transcript.trim().length === 0) {
                 this.showStatus("Nota vuota, non salvata.");
             } else {
                 const note = {
                     id: Date.now(),
                     timestamp: new Date().toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' }),
                     duration: Math.floor(this.elapsedTime / 1000),
-                    size: audioBlob ? audioBlob.size : 0,
                     transcript: transcript,
                 };
                 
-                const saved = await this.storageManager.saveNote(note, audioBlob);
+                const saved = await this.storageManager.saveNote(note);
                 if (saved) {
                     this.showStatus("✅ Nota salvata!");
                     await this.loadNotes();
@@ -213,7 +212,7 @@ class VoiceNotesApp {
                 if (!notesByScope[scope]) {
                     notesByScope[scope] = [];
                 }
-                notesByScope[scope].push({ content: content, timestamp: note.timestamp, duration: note.duration });
+                notesByScope[scope].push({ content: content, timestamp: note.timestamp });
             });
         });
         return notesByScope;
@@ -231,17 +230,18 @@ class VoiceNotesApp {
     }
 
     generateSummary(parsedData) {
-        let totalNotes = 0;
-        let totalDuration = 0;
-        let content = `Riepilogo Esportazione Note\n============================\nData: ${new Date().toLocaleString('it-IT')}\n\nStatistiche per Ambito:\n`;
+        let totalItems = 0;
+        let content = `Riepilogo Esportazione Note\n`;
+        content += `============================\n`;
+        content += `Data: ${new Date().toLocaleString('it-IT')}\n\n`;
+        content += `Statistiche per Ambito:\n`;
         Object.keys(parsedData).sort().forEach(scope => {
             const items = parsedData[scope];
-            const scopeDuration = items.reduce((sum, item) => sum + item.duration, 0);
-            totalDuration += scopeDuration;
-            totalNotes += items.length;
-            content += `- ${scope.toUpperCase()}: ${items.length} nota(e), durata totale ${scopeDuration}s\n`;
+            totalItems += items.length;
+            content += `- ${scope.toUpperCase()}: ${items.length} nota(e)\n`;
         });
-        content += `\n----------------------------\nTotale Note: ${totalNotes}\nDurata Totale Complessiva: ${totalDuration} secondi\n`;
+        content += `\n----------------------------\n`;
+        content += `Totale Voci Registrate: ${totalItems}\n`;
         return content;
     }
 
@@ -250,9 +250,15 @@ class VoiceNotesApp {
     parseChunk(chunk) {
         chunk = chunk.trim();
         const ambitoMatch = chunk.match(/^ambito (.*?) fine/i);
-        const tagMatch = chunk.match(/^tag (.*?)(?:\s|$)/i);
-        if (ambitoMatch) return { scope: ambitoMatch[1].trim(), content: chunk.replace(/^ambito .*? fine/i, '').trim() };
-        if (tagMatch) return { scope: `TAG-${tagMatch[1].trim().toUpperCase()}`, content: chunk.replace(/^tag .*?(?:\s|$)/i, '').trim() };
+        if (ambitoMatch) {
+            return { scope: ambitoMatch[1].trim(), content: chunk.replace(/^ambito .*? fine/i, '').trim() };
+        }
+        
+        const tagMatch = chunk.match(/^tag (.*?)(?:[\s-]+)(.*)/is);
+        if (tagMatch) {
+            return { scope: 'TAGS', content: `**${tagMatch[1].trim().toUpperCase()}:** ${tagMatch[2].trim()}` };
+        }
+        
         return { scope: 'GENERALE', content: chunk };
     }
 

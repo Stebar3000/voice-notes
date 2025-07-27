@@ -1,15 +1,12 @@
 // recording.js - Manages audio recording and speech-to-text transcription
-// v2.6 - Final fix for transcript overwrite and online/offline race condition.
+// v2.9 - TEXT-ONLY FINAL VERSION. Audio blob handling removed.
 
 class RecordingManager {
     constructor() {
         this.mediaRecorder = null;
-        this.audioChunks = [];
         this.stream = null;
         this.recognition = null;
         this.speechEnabled = true;
-        
-        // This is the main transcript variable. It will be continuously appended to.
         this.finalTranscript = '';
         
         this.initializeSpeechRecognition();
@@ -19,7 +16,6 @@ class RecordingManager {
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SpeechRecognition) {
             this.speechEnabled = false;
-            // Use a timeout to ensure the UI manager is initialized
             setTimeout(() => window.voiceNotesApp?.uiManager.setSpeechToggleSupported(false), 100);
             return;
         }
@@ -31,8 +27,7 @@ class RecordingManager {
         
         this.recognition.onresult = (event) => this.handleSpeechResult(event);
         this.recognition.onerror = (event) => {
-            // Ignore 'network' errors which can happen when switching modes.
-            if (event.error !== 'network') {
+            if (event.error !== 'network' && event.error !== 'no-speech') {
                 console.error('❌ Transcription error:', event.error);
             }
         };
@@ -43,9 +38,6 @@ class RecordingManager {
         for (let i = event.resultIndex; i < event.results.length; i++) {
             const transcriptPart = event.results[i][0].transcript;
             if (event.results[i].isFinal) {
-                // *** THE CORE BUG FIX ***
-                // Always append the final part to the main transcript string.
-                // This prevents overwriting after a pause or a long silence.
                 this.finalTranscript += transcriptPart.trim() + ' ';
             } else {
                 interimTranscript += transcriptPart;
@@ -58,28 +50,13 @@ class RecordingManager {
         window.voiceNotesApp?.uiManager.updateTranscriptionDisplay(finalTxt, interimTxt);
     }
     
-    toggleSpeechRecognition() {
-        if (!this.recognition) return;
-        this.speechEnabled = !this.speechEnabled;
-        window.voiceNotesApp?.updateUI();
-        
-        if (this.speechEnabled && window.voiceNotesApp?.isRecording) {
-            this.startTranscription();
-        } else {
-            this.stopTranscription();
-        }
-    }
-    
     async startRecording() {
         try {
-            this.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
-            const options = { mimeType: 'audio/webm;codecs=opus' };
-            if (!MediaRecorder.isTypeSupported(options.mimeType)) delete options.mimeType;
+            // We still need the stream for the MediaRecorder to run and trigger transcription.
+            this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            this.mediaRecorder = new MediaRecorder(this.stream);
             
-            this.mediaRecorder = new MediaRecorder(this.stream, options);
-            this.audioChunks = [];
-            this.mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) this.audioChunks.push(e.data); };
-            
+            // We don't need to listen for data, just start it.
             this.mediaRecorder.start();
             if (this.speechEnabled) this.startTranscription();
             return true;
@@ -106,16 +83,12 @@ class RecordingManager {
     stopRecording() {
         return new Promise((resolve) => {
             if (this.mediaRecorder?.state === 'inactive' || !this.mediaRecorder) {
-                resolve({ audioBlob: null, transcript: this.finalTranscript.trim() });
+                resolve({ transcript: this.finalTranscript.trim() });
                 return;
             }
-
-            // This new sequence prevents the online/offline race condition.
             this.mediaRecorder.onstop = () => {
-                const audioBlob = new Blob(this.audioChunks, { type: this.mediaRecorder.mimeType || 'audio/webm' });
-                resolve({ audioBlob, transcript: this.finalTranscript.trim() });
+                resolve({ transcript: this.finalTranscript.trim() });
             };
-
             this.stopTranscription();
             if (this.mediaRecorder.state === 'recording' || this.mediaRecorder.state === 'paused') {
                 this.mediaRecorder.stop();
@@ -126,18 +99,17 @@ class RecordingManager {
     startTranscription() {
         if (!this.recognition || !this.speechEnabled) return;
         this.updateTranscriptionDisplay(this.finalTranscript, '');
-        try { this.recognition.start(); } catch (e) { /* ignore if already started */ }
+        try { this.recognition.start(); } catch (e) {}
     }
     
     stopTranscription() {
         if (this.recognition) { 
-            try { this.recognition.stop(); } catch (e) { /* ignore if already stopped */ } 
+            try { this.recognition.stop(); } catch (e) {} 
         }
     }
     
     reset() {
-        this.audioChunks = [];
-        this.finalTranscript = ''; // Reset transcript only for a new recording
+        this.finalTranscript = '';
         this.stream?.getTracks().forEach(track => track.stop());
         this.stream = null;
         if (this.mediaRecorder?.state !== 'inactive') try { this.mediaRecorder.stop(); } catch (e) {}
