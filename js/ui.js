@@ -1,13 +1,13 @@
 // ui.js - Manages all UI updates and user feedback
-// v3.2 - Added audio feedback using Tone.js
+// v3.2.2 - Implemented robust audio context handling for iOS reliability.
 
 class UIManager {
     constructor() {
         this.elements = {};
         this.synth = null;
+        this.isAudioReady = false;
         this.initializeElements();
         this.attachModalListeners();
-        this.initializeAudio();
     }
     
     initializeElements() {
@@ -32,22 +32,6 @@ class UIManager {
             confirmOkBtn: document.getElementById('confirmOkBtn'),
             confirmCancelBtn: document.getElementById('confirmCancelBtn'),
         };
-    }
-
-    initializeAudio() {
-        // Initialize the synthesizer only after a user interaction
-        const initialize = () => {
-            if (window.Tone && !this.synth) {
-                this.synth = new Tone.Synth().toDestination();
-                console.log('Audio context started.');
-            }
-            // Remove the event listener after it has run once
-            document.body.removeEventListener('click', initialize);
-            document.body.removeEventListener('touchend', initialize);
-        };
-        // The audio context can only be started by a user gesture.
-        document.body.addEventListener('click', initialize, { once: true });
-        document.body.addEventListener('touchend', initialize, { once: true });
     }
 
     attachModalListeners() {
@@ -113,30 +97,46 @@ class UIManager {
         this.elements.transcriptionArea.scrollTop = this.elements.transcriptionArea.scrollHeight;
     }
     
-    playAudioFeedback(type) {
-        if (!this.synth) return;
+    async playAudioFeedback(type) {
+        // Check if Tone.js is loaded
+        if (typeof Tone === 'undefined') return;
 
-        const now = Tone.now();
-        switch (type) {
-            case 'start':
-                this.synth.triggerAttackRelease("C5", "8n", now); // High C for start/resume
-                break;
-            case 'pause':
-                this.synth.triggerAttackRelease("G4", "8n", now); // Lower G for pause
-                break;
-            case 'save':
-                // A quick, positive two-note sequence for save
-                this.synth.triggerAttackRelease("C5", "8n", now);
-                this.synth.triggerAttackRelease("G5", "8n", now + 0.1);
-                break;
-            case 'error':
-                this.synth.triggerAttackRelease("A2", "4n", now); // Low, dissonant sound for error
-                break;
+        try {
+            // This robust check ensures the audio context is always ready.
+            // Tone.start() is safe to call multiple times.
+            if (Tone.context.state !== 'running') {
+                await Tone.start();
+            }
+
+            // Initialize the synth only once.
+            if (!this.synth) {
+                this.synth = new Tone.Synth().toDestination();
+            }
+
+            const now = Tone.now();
+            switch (type) {
+                case 'start':
+                    this.synth.triggerAttackRelease("C5", "8n", now); // High C for start/resume
+                    break;
+                case 'pause':
+                    this.synth.triggerAttackRelease("G4", "8n", now); // Lower G for pause
+                    break;
+                case 'save':
+                    // A quick, positive two-note sequence for save
+                    this.synth.triggerAttackRelease("C5", "8n", now);
+                    this.synth.triggerAttackRelease("G5", "8n", now + 0.1);
+                    break;
+                case 'error':
+                    this.synth.triggerAttackRelease("A2", "4n", now); // Low, dissonant sound for error
+                    break;
+            }
+        } catch (e) {
+            console.error("Audio feedback failed:", e);
         }
     }
 
     provideFeedback(type = 'tap') {
-        // Play audio feedback
+        // Play audio feedback (now async, but we don't need to wait for it)
         this.playAudioFeedback(type);
 
         // Also provide haptic feedback if available
