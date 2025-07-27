@@ -1,5 +1,5 @@
-// storage.js - Manages data persistence (IndexedDB/localStorage) and export
-// v2.0-stable - Simplified and more robust logic
+// storage.js - Manages data persistence and export
+// v2.1-beta - Added clear and delete methods
 
 class StorageManager {
     constructor() {
@@ -9,53 +9,37 @@ class StorageManager {
         this.dbVersion = 1;
         this.notesStoreName = 'notes';
         this.audioStoreName = 'audioBlobs';
-
         console.log('📱 Storage Manager initialized', { isIOS: this.isIOS });
     }
 
-    // Initialize the appropriate storage mechanism
     async initialize() {
-        // On non-iOS devices, use IndexedDB for full offline support
         if (!this.isIOS && window.indexedDB) {
             try {
                 this.db = await this.openIndexedDB();
                 console.log('✅ IndexedDB initialized');
                 return true;
             } catch (error) {
-                console.error('❌ IndexedDB initialization failed, falling back to localStorage:', error);
-                // Fallback to localStorage if IndexedDB fails
+                console.error('❌ IndexedDB failed, falling back to localStorage:', error);
                 this.isIOS = true; 
                 return this.initializeLocalStorage();
             }
         } else {
-            // On iOS or if IndexedDB is not supported, use localStorage
-            console.log('📱 Using localStorage for metadata');
             return this.initializeLocalStorage();
         }
     }
 
-    // Initialize localStorage (simple check)
     initializeLocalStorage() {
-        try {
-            const notes = this.getNotesFromLocalStorage();
-            console.log(`📱 localStorage initialized with ${notes.length} notes`);
-            return true;
-        } catch (error) {
-            console.error('❌ localStorage initialization error:', error);
-            return false;
-        }
+        console.log(`📱 Using localStorage for metadata`);
+        return true;
     }
 
-    // Open and configure IndexedDB
     openIndexedDB() {
         return new Promise((resolve, reject) => {
             const request = indexedDB.open(this.dbName, this.dbVersion);
-            
-            request.onerror = (event) => reject(event.target.error);
-            request.onsuccess = (event) => resolve(event.target.result);
-            
-            request.onupgradeneeded = (event) => {
-                const db = event.target.result;
+            request.onerror = e => reject(e.target.error);
+            request.onsuccess = e => resolve(e.target.result);
+            request.onupgradeneeded = e => {
+                const db = e.target.result;
                 if (!db.objectStoreNames.contains(this.notesStoreName)) {
                     db.createObjectStore(this.notesStoreName, { keyPath: 'id' });
                 }
@@ -66,39 +50,24 @@ class StorageManager {
         });
     }
 
-    // Save a note, routing to the correct storage method
     async saveNote(note, audioBlob) {
-        // Always save metadata to localStorage as a reliable backup
         this.saveNoteToLocalStorage(note);
-
         if (this.db) {
-            // If IndexedDB is available, save audio blob there for full offline playback
             return this.saveNoteToIndexedDB(note, audioBlob);
         }
-        
-        // If only localStorage is used, the save is already complete
         return true;
     }
 
-    // Save note metadata to localStorage
     saveNoteToLocalStorage(note) {
         try {
             const notes = this.getNotesFromLocalStorage();
-            // Avoid duplicates
             const existingIndex = notes.findIndex(n => n.id === note.id);
-            if (existingIndex > -1) {
-                notes[existingIndex] = note;
-            } else {
-                notes.unshift(note);
-            }
+            if (existingIndex > -1) notes[existingIndex] = note;
+            else notes.unshift(note);
             
-            // Limit to 100 notes to avoid excessive storage usage
-            if (notes.length > 100) {
-                notes.splice(100);
-            }
+            if (notes.length > 100) notes.splice(100);
             
             localStorage.setItem(this.dbName, JSON.stringify(notes));
-            console.log('📝 Note metadata saved to localStorage');
             return true;
         } catch (error) {
             console.error('❌ Error saving to localStorage:', error);
@@ -106,166 +75,127 @@ class StorageManager {
         }
     }
 
-    // Save full note (metadata + audio) to IndexedDB
     async saveNoteToIndexedDB(note, audioBlob) {
         if (!this.db) return false;
-        
         try {
-            const transaction = this.db.transaction([this.notesStoreName, this.audioStoreName], 'readwrite');
-            const notesStore = transaction.objectStore(this.notesStoreName);
-            const audioStore = transaction.objectStore(this.audioStoreName);
-
-            // Add scope and cleaned transcript to the note object for storage
-            const scope = window.voiceNotesApp.extractScope(note.transcript);
-            const cleanedTranscript = window.voiceNotesApp.cleanNoteContent(note.transcript);
-
-            const noteToStore = { ...note, scope, cleanedTranscript };
-            
-            await this.promisifyRequest(notesStore.put(noteToStore));
+            const tx = this.db.transaction([this.notesStoreName, this.audioStoreName], 'readwrite');
+            const noteToStore = { ...note };
+            await this.promisifyRequest(tx.objectStore(this.notesStoreName).put(noteToStore));
             if (audioBlob) {
-                await this.promisifyRequest(audioStore.put({ noteId: note.id, blob: audioBlob }));
+                await this.promisifyRequest(tx.objectStore(this.audioStoreName).put({ noteId: note.id, blob: audioBlob }));
             }
-            
-            console.log('✅ Note and audio saved to IndexedDB');
             return true;
-            
         } catch (error) {
             console.error('❌ Error saving to IndexedDB:', error);
             return false;
         }
     }
 
-    // Load all notes from the primary storage
     async loadNotes() {
-        if (this.db) {
-            return this.loadNotesFromDB();
-        } else {
-            return this.getNotesFromLocalStorage();
-        }
+        // Always load from localStorage as the single source of truth for metadata
+        return this.getNotesFromLocalStorage().sort((a, b) => b.id - a.id);
     }
 
-    // Load notes from IndexedDB
-    async loadNotesFromDB() {
-        if (!this.db) return [];
-        try {
-            const transaction = this.db.transaction([this.notesStoreName], 'readonly');
-            const store = transaction.objectStore(this.notesStoreName);
-            const notes = await this.promisifyRequest(store.getAll());
-            return notes.sort((a, b) => b.id - a.id);
-        } catch (error) {
-            console.error('Error loading from IndexedDB:', error);
-            return [];
-        }
-    }
-
-    // Get notes from localStorage
     getNotesFromLocalStorage() {
         try {
             const stored = localStorage.getItem(this.dbName);
             return stored ? JSON.parse(stored) : [];
         } catch (error) {
-            console.error('Error reading from localStorage:', error);
             return [];
         }
     }
 
-    // Export all notes aggregated by scope
-    async exportAggregatedNotes() {
-        const notes = await this.loadNotes();
-        
-        if (notes.length === 0) {
-            window.voiceNotesApp?.showStatus('Nessuna nota da esportare');
-            return;
+    async exportAggregatedNotes(notes) {
+        if (!notes || notes.length === 0) {
+            throw new Error("No notes to export.");
         }
         
         const notesByScope = {};
         notes.forEach(note => {
-            // Re-calculate scope on export to ensure consistency
             const scope = window.voiceNotesApp.extractScope(note.transcript);
-            if (!notesByScope[scope]) {
-                notesByScope[scope] = [];
-            }
+            if (!notesByScope[scope]) notesByScope[scope] = [];
             notesByScope[scope].push(note);
         });
         
         let content = `# Note Vocali Aggregate\n`;
-        content += `Data export: ${new Date().toLocaleString('it-IT')}\n`;
-        content += `Totale note: ${notes.length}\n\n`;
+        content += `Data export: ${new Date().toLocaleString('it-IT')}\n\n`;
         
         Object.keys(notesByScope).sort().forEach(scope => {
             content += `## 📁 AMBITO: ${scope.toUpperCase()}\n\n`;
-            notesByScope[scope].forEach((note, idx) => {
+            notesByScope[scope].forEach(note => {
                 const cleanedContent = window.voiceNotesApp.cleanNoteContent(note.transcript);
-                content += `**Nota ${idx + 1}** (${note.timestamp} - ${note.duration}s)\n`;
-                content += `> ${cleanedContent || '[Solo audio]'}\n\n`;
-                content += `---\n\n`;
+                content += `**${note.timestamp}** (${note.duration}s)\n`;
+                content += `> ${cleanedContent || '[Solo audio]'}\n\n---\n\n`;
             });
         });
         
-        const dateStr = new Date().toISOString().slice(0, 10);
-        const filename = `note_aggregate_${dateStr}.md`;
-        
+        const filename = `note_aggregate_${new Date().toISOString().slice(0, 10)}.md`;
         await this.downloadFile(content, filename, 'text/markdown');
-        window.voiceNotesApp?.showStatus('✅ Export completato!');
     }
 
-    // Unified download utility
-    async downloadFile(content, filename, type = 'text/plain') {
+    async downloadFile(content, filename, type) {
         const blob = new Blob([content], { type });
         const file = new File([blob], filename, { type });
 
-        // Use Web Share API if available (best for mobile)
         if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
             try {
-                await navigator.share({
-                    files: [file],
-                    title: 'Voice Notes Export'
-                });
-                return true;
+                await navigator.share({ files: [file], title: 'Voice Notes Export' });
+                return;
             } catch (err) {
-                // User might have cancelled the share, which is not an error
-                if (err.name !== 'AbortError') {
-                    console.error('Web Share API failed:', err);
-                } else {
-                    console.log('Web Share was cancelled by the user.');
-                    return false;
+                if (err.name === 'AbortError') {
+                    console.log('Share cancelled by user.');
+                    return; // Not an error
                 }
+                // Fall through to download if share fails for other reasons
             }
         }
         
-        // Fallback for desktop browsers or if Web Share fails
-        try {
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = filename;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-            return true;
-        } catch (desktopErr) {
-            console.error('Fallback download failed:', desktopErr);
-            // Final fallback: show a modal to copy the text
-            window.voiceNotesApp?.uiManager.showCopyModal(content);
-            return false;
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        link.click();
+        URL.revokeObjectURL(url);
+    }
+
+    async clearAllData() {
+        localStorage.removeItem(this.dbName);
+        if (this.db) {
+            try {
+                const tx = this.db.transaction([this.notesStoreName, this.audioStoreName], 'readwrite');
+                await this.promisifyRequest(tx.objectStore(this.notesStoreName).clear());
+                await this.promisifyRequest(tx.objectStore(this.audioStoreName).clear());
+                console.log('✅ IndexedDB cleared');
+            } catch (error) {
+                console.error("Failed to clear IndexedDB:", error);
+            }
+        }
+        console.log('✅ All data cleared');
+    }
+
+    async deleteNote(noteId) {
+        const notes = this.getNotesFromLocalStorage();
+        const filteredNotes = notes.filter(n => n.id !== noteId);
+        localStorage.setItem(this.dbName, JSON.stringify(filteredNotes));
+
+        if (this.db) {
+            try {
+                const tx = this.db.transaction([this.notesStoreName, this.audioStoreName], 'readwrite');
+                await this.promisifyRequest(tx.objectStore(this.notesStoreName).delete(noteId));
+                await this.promisifyRequest(tx.objectStore(this.audioStoreName).delete(noteId));
+                console.log(`✅ Note ${noteId} deleted from IndexedDB`);
+            } catch (error) {
+                console.error(`Failed to delete note ${noteId} from IndexedDB:`, error);
+            }
         }
     }
 
-    // Utility to promisify IndexedDB requests
     promisifyRequest(request) {
         return new Promise((resolve, reject) => {
             request.onsuccess = () => resolve(request.result);
             request.onerror = () => reject(request.error);
         });
     }
-
-    // Get the count of saved notes
-    async getNotesCount() {
-        const notes = await this.loadNotes();
-        return notes.length;
-    }
 }
 
-// Export globally
 window.StorageManager = StorageManager;

@@ -1,5 +1,5 @@
 // ui.js - Manages all UI updates and user feedback
-// v2.0-stable - Improved layout and state handling
+// v2.1-beta - Added modals for review and confirmation
 
 class UIManager {
     constructor() {
@@ -9,7 +9,6 @@ class UIManager {
         console.log('🎨 UI Manager initialized');
     }
     
-    // Cache all necessary DOM elements
     initializeElements() {
         this.elements = {
             recordButton: document.getElementById('recordButton'),
@@ -18,177 +17,171 @@ class UIManager {
             timer: document.getElementById('timer'),
             recordingIndicator: document.getElementById('recordingIndicator'),
             speechToggle: document.getElementById('speechToggle'),
+            exportAggregatedBtn: document.getElementById('exportAggregatedBtn'),
             transcriptionArea: document.getElementById('transcriptionArea'),
-            finalTranscript: document.getElementById('finalTranscript'),
-            interimTranscript: document.getElementById('interimTranscript'),
-            autoSaveStatus: document.getElementById('autoSaveStatus'),
-            // Modal elements
-            copyModal: document.getElementById('copyModal'),
-            copyTextarea: document.getElementById('copyTextarea'),
-            copyModalBtn: document.getElementById('copyModalBtn'),
-            closeModalBtn: document.getElementById('closeModalBtn'),
+            finalTranscript: document.querySelector('#transcriptionArea #finalTranscript'),
+            interimTranscript: document.querySelector('#transcriptionArea #interimTranscript'),
+            // New elements
+            newSessionBtn: document.getElementById('newSessionBtn'),
+            reviewNotesBtn: document.getElementById('reviewNotesBtn'),
+            reviewModal: document.getElementById('reviewModal'),
+            reviewModalCloseBtn: document.getElementById('reviewModalCloseBtn'),
+            notesListContainer: document.getElementById('notesListContainer'),
+            confirmModal: document.getElementById('confirmModal'),
+            confirmModalText: document.getElementById('confirmModalText'),
+            confirmOkBtn: document.getElementById('confirmOkBtn'),
+            confirmCancelBtn: document.getElementById('confirmCancelBtn'),
         };
     }
 
-    // Attach listeners for the copy modal
     attachModalListeners() {
-        this.elements.copyModalBtn?.addEventListener('click', () => this.copyModalText());
-        this.elements.closeModalBtn?.addEventListener('click', () => this.hideCopyModal());
+        this.elements.reviewModalCloseBtn?.addEventListener('click', () => this.hideReviewModal());
+        // We will handle confirm/cancel via promises
     }
     
-    // Update the entire UI based on the app's state
     updateUI(state) {
-        const { isRecording, isPaused, isSaving, hasError } = state;
+        const { isRecording, isPaused, isSaving, isExporting, hasError, speechActive } = state;
         const button = this.elements.recordButton;
         if (!button) return;
 
-        button.className = 'record-button'; // Reset classes
+        button.className = 'record-button';
         
         if (hasError) {
-            button.classList.add('error');
+            button.classList.add('paused'); // Use a neutral color for error
             this.elements.buttonText.textContent = 'Reset';
-            this.elements.recordingIndicator.style.display = 'none';
         } else if (isSaving) {
-            button.classList.add('paused'); // Use paused/orange style for saving
-            this.showStatus('Finalizzazione in corso...');
+            button.classList.add('paused');
             this.elements.buttonText.textContent = 'Salvo...';
-            this.elements.recordingIndicator.style.display = 'none';
+        } else if (isExporting) {
+            button.classList.add('paused');
+            this.elements.buttonText.textContent = 'Export...';
         } else if (isRecording) {
             button.classList.add('recording');
             this.showStatus('🔴 Registrando...');
             this.elements.buttonText.textContent = 'Pausa';
-            this.elements.recordingIndicator.style.display = 'block';
         } else if (isPaused) {
             button.classList.add('paused');
             this.showStatus('⏸️ In pausa');
             this.elements.buttonText.textContent = 'Riprendi';
-            this.elements.recordingIndicator.style.display = 'none';
         } else {
             button.classList.add('idle');
             this.showStatus('Pronto per registrare');
             this.elements.buttonText.textContent = 'Inizia';
-            this.elements.recordingIndicator.style.display = 'none';
         }
+
+        this.elements.recordingIndicator.style.display = isRecording ? 'block' : 'none';
+        this.elements.speechToggle?.classList.toggle('active', speechActive);
     }
     
-    // Show a message in the main status area
-    showStatus(message) {
-        if (this.elements.statusText) {
-            this.elements.statusText.textContent = message;
-        }
-    }
+    showStatus(message) { this.elements.statusText.textContent = message; }
     
-    // Show a detailed error message
     showError(title, description) {
-        if (this.elements.statusText) {
-            this.elements.statusText.innerHTML = `
-                <div style="color: #fca5a5; font-weight: bold;">${title}</div>
-                <div style="font-size: 0.9rem; margin-top: 4px;">${description}</div>
-            `;
-        }
+        this.elements.statusText.innerHTML = `
+            <div style="color: #fca5a5; font-weight: bold;">${title}</div>
+            <div style="font-size: 0.9rem; margin-top: 4px;">${description}</div>
+        `;
     }
     
-    // Update the timer display
     updateTimer(elapsedTime) {
         const totalSeconds = Math.floor(elapsedTime / 1000);
         const minutes = Math.floor(totalSeconds / 60);
         const seconds = totalSeconds % 60;
-        
-        if (this.elements.timer) {
-            this.elements.timer.textContent = 
-                `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        }
+        this.elements.timer.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
     }
 
-    // Update the transcription display area
     updateTranscriptionDisplay(finalTxt, interimTxt) {
         if (!this.elements.transcriptionArea) return;
-
         const hasText = finalTxt || interimTxt;
         this.elements.transcriptionArea.style.display = hasText ? 'block' : 'none';
-
         if (this.elements.finalTranscript) this.elements.finalTranscript.textContent = finalTxt;
         if (this.elements.interimTranscript) this.elements.interimTranscript.textContent = interimTxt;
-        
-        // Auto-scroll
         this.elements.transcriptionArea.scrollTop = this.elements.transcriptionArea.scrollHeight;
     }
-    
-    // Update auto-save status message
-    updateAutoSaveStatus(message) {
-        if (this.elements.autoSaveStatus) {
-            this.elements.autoSaveStatus.textContent = message;
-        }
-    }
 
-    // Update the state of the speech toggle button
-    setSpeechToggleEnabled(isSupported, isActive = true) {
-        const toggle = this.elements.speechToggle;
-        if (!toggle) return;
-
-        if (!isSupported) {
-            toggle.textContent = '❌ Trascrizione non supportata';
-            toggle.disabled = true;
-            toggle.classList.remove('active');
-        } else {
-            toggle.disabled = false;
-            toggle.textContent = isActive ? '🎤 Trascrizione attiva' : '🔇 Trascrizione disattiva';
-            toggle.classList.toggle('active', isActive);
+    setSpeechToggleSupported(isSupported) {
+        if (!isSupported && this.elements.speechToggle) {
+            this.elements.speechToggle.textContent = 'N/D';
+            this.elements.speechToggle.disabled = true;
         }
     }
     
-    // Provide haptic feedback on mobile devices
     provideFeedback(type = 'tap') {
         if (navigator.vibrate) {
-            const patterns = {
-                tap: [10],
-                save: [50, 50, 50],
-                error: [100, 50, 100],
-            };
+            const patterns = { tap: [10], save: [50], error: [100, 50, 100] };
             navigator.vibrate(patterns[type] || patterns.tap);
         }
     }
     
-    // Show a user-friendly message for microphone errors
     showMicrophoneError(error) {
         const errors = {
-            NotAllowedError: ['Microfono bloccato', 'Consenti l\'accesso al microfono nelle impostazioni del browser.'],
-            NotFoundError: ['Microfono non trovato', 'Verifica che un microfono sia collegato e funzionante.'],
-            NotReadableError: ['Microfono in uso', 'Un\'altra app sta usando il microfono. Chiudila e riprova.'],
+            NotAllowedError: ['Microfono bloccato', 'Consenti l\'accesso nelle impostazioni.'],
+            NotFoundError: ['Microfono non trovato', 'Verifica che sia collegato.'],
+            NotReadableError: ['Microfono in uso', 'Un\'altra app lo sta usando.'],
         };
-        const [title, description] = errors[error.name] || ['Errore Microfono', 'Si è verificato un errore sconosciuto. Ricarica la pagina.'];
-        
+        const [title, description] = errors[error.name] || ['Errore Microfono', 'Ricarica la pagina.'];
         this.showError(title, description);
-        this.provideFeedback('error');
     }
 
-    // Show the modal for copying text
-    showCopyModal(content) {
-        if (this.elements.copyModal && this.elements.copyTextarea) {
-            this.elements.copyTextarea.value = content;
-            this.elements.copyModal.classList.add('show');
+    // Modal Management
+    showReviewModal(notes) {
+        this.renderNotesList(notes);
+        this.elements.reviewModal?.classList.add('show');
+    }
+
+    hideReviewModal() {
+        this.elements.reviewModal?.classList.remove('show');
+    }
+
+    renderNotesList(notes) {
+        const container = this.elements.notesListContainer;
+        if (!container) return;
+
+        if (notes.length === 0) {
+            container.innerHTML = '<p style="text-align: center; color: var(--text-dark);">Nessuna nota salvata.</p>';
+            return;
         }
+
+        container.innerHTML = notes.map(note => {
+            const scope = window.voiceNotesApp.extractScope(note.transcript);
+            const isTag = scope.startsWith('tag-');
+            const cleanedContent = window.voiceNotesApp.cleanNoteContent(note.transcript);
+            return `
+                <div class="note-item ${isTag ? 'is-tag' : ''}">
+                    <div class="note-header">
+                        <span class="note-timestamp">${note.timestamp} (${note.duration}s)</span>
+                        <button class="note-delete-btn" data-id="${note.id}">&times;</button>
+                    </div>
+                    <p class="note-transcript">${cleanedContent || 'Solo audio'}</p>
+                </div>
+            `;
+        }).join('');
     }
 
-    // Hide the modal
-    hideCopyModal() {
-        this.elements.copyModal?.classList.remove('show');
-    }
+    showConfirmModal(text) {
+        return new Promise(resolve => {
+            this.elements.confirmModalText.textContent = text;
+            this.elements.confirmModal.classList.add('show');
 
-    // Copy text from the modal's textarea to the clipboard
-    copyModalText() {
-        if (this.elements.copyTextarea) {
-            this.elements.copyTextarea.select();
-            this.elements.copyTextarea.setSelectionRange(0, 99999); // For mobile
-            
-            try {
-                document.execCommand('copy');
-                this.showStatus('✅ Testo copiato!');
-                setTimeout(() => this.hideCopyModal(), 1000);
-            } catch (err) {
-                this.showError('Copia Fallita', 'Per favore, copia il testo manualmente.');
-            }
-        }
+            const okListener = () => {
+                this.elements.confirmModal.classList.remove('show');
+                cleanup();
+                resolve(true);
+            };
+
+            const cancelListener = () => {
+                this.elements.confirmModal.classList.remove('show');
+                cleanup();
+                resolve(false);
+            };
+
+            const cleanup = () => {
+                this.elements.confirmOkBtn.removeEventListener('click', okListener);
+                this.elements.confirmCancelBtn.removeEventListener('click', cancelListener);
+            };
+
+            this.elements.confirmOkBtn.addEventListener('click', okListener, { once: true });
+            this.elements.confirmCancelBtn.addEventListener('click', cancelListener, { once: true });
+        });
     }
 }
 

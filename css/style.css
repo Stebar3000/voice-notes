@@ -1,42 +1,51 @@
-/* Voice Notes Auto - Style Sheet v2.0 */
+/* Voice Notes Auto - Style Sheet v2.1 */
 
 /* Reset e configurazione base */
+:root {
+    --bg-color: #1e293b;
+    --primary-color: #3b82f6;
+    --primary-dark: #2563eb;
+    --record-color: #ef4444;
+    --record-dark: #dc2626;
+    --pause-color: #f59e0b;
+    --pause-dark: #d97706;
+    --text-light: #e2e8f0;
+    --text-dark: #94a3b8;
+    --text-very-dark: #475569;
+    --surface-color: rgba(0,0,0,0.2);
+    --border-color: rgba(255,255,255,0.1);
+    --tag-highlight: rgba(22, 163, 74, 0.15);
+}
+
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    -webkit-tap-highlight-color: transparent; /* Rimuove highlight su tap iOS */
+    -webkit-tap-highlight-color: transparent;
 }
 
 html, body {
     height: 100%;
     width: 100%;
-    overflow: hidden; /* Previene scroll a livello di body */
+    overflow: hidden;
 }
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-    background: #1e293b;
-    color: #e2e8f0;
+    background: var(--bg-color);
+    color: var(--text-light);
     user-select: none;
     -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
 }
 
-/* Contenitore principale dell'app con layout flex */
+/* Layout Principale */
 .app-container {
     display: flex;
     flex-direction: column;
     height: 100%;
-    width: 100%;
-    /* Padding per le aree sicure (notch e barra home iPhone) */
-    padding-top: env(safe-area-inset-top);
-    padding-bottom: env(safe-area-inset-bottom);
-    padding-left: env(safe-area-inset-left);
-    padding-right: env(safe-area-inset-right);
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 
-/* Area principale con pulsante e timer */
 .main-content {
     flex-grow: 1;
     display: flex;
@@ -44,19 +53,19 @@ body {
     align-items: center;
     justify-content: center;
     padding: 20px;
-    min-height: 0; /* Necessario per flexbox in contenitori scrollabili */
+    min-height: 0;
 }
 
-/* Area inferiore con controlli e istruzioni */
 .footer-content {
-    flex-shrink: 0; /* Impedisce che il footer si rimpicciolisca */
+    flex-shrink: 0;
     padding: 15px;
     background-color: rgba(0,0,0,0.1);
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-top: 1px solid var(--border-color);
 }
 
+/* Elementi UI Principali */
 .status-text {
-    font-size: clamp(1.2rem, 5vw, 1.6rem); /* Dimensione fluida */
+    font-size: clamp(1.2rem, 5vw, 1.6rem);
     font-weight: 600;
     margin-bottom: 1rem;
     min-height: 50px;
@@ -71,13 +80,12 @@ body {
 .timer {
     font-size: clamp(1.5rem, 6vw, 2rem);
     font-weight: 500;
-    color: #e2e8f0;
     margin-bottom: 1.5rem;
-    font-variant-numeric: tabular-nums; /* Numeri allineati */
+    font-variant-numeric: tabular-nums;
 }
 
 .record-button {
-    width: clamp(200px, 60vw, 280px); /* Dimensione fluida */
+    width: clamp(200px, 60vw, 280px);
     height: clamp(200px, 60vw, 280px);
     border-radius: 50%;
     border: none;
@@ -91,29 +99,13 @@ body {
     align-items: center;
     justify-content: center;
     position: relative;
-    overflow: hidden;
     text-transform: uppercase;
-    letter-spacing: 1px;
     touch-action: manipulation;
 }
-
-.record-button.idle {
-    background: linear-gradient(145deg, #3b82f6, #2563eb);
-}
-.record-button.recording {
-    background: linear-gradient(145deg, #ef4444, #dc2626);
-    animation: pulse 1.5s infinite;
-}
-.record-button.paused {
-    background: linear-gradient(145deg, #f59e0b, #d97706);
-}
-.record-button.error {
-    background: linear-gradient(145deg, #94a3b8, #64748b);
-}
-.record-button:active {
-    transform: scale(0.95);
-    box-shadow: 0 5px 15px rgba(0,0,0,0.4);
-}
+.record-button.idle { background: linear-gradient(145deg, var(--primary-color), var(--primary-dark)); }
+.record-button.recording { background: linear-gradient(145deg, var(--record-color), var(--record-dark)); animation: pulse 1.5s infinite; }
+.record-button.paused { background: linear-gradient(145deg, var(--pause-color), var(--pause-dark)); }
+.record-button:active { transform: scale(0.95); }
 
 @keyframes pulse {
     0%, 100% { transform: scale(1); }
@@ -130,15 +122,10 @@ body {
     border-radius: 50%;
     animation: blink 1s infinite alternate;
 }
+@keyframes blink { from { opacity: 1; } to { opacity: 0.3; } }
 
-@keyframes blink {
-    from { opacity: 1; }
-    to { opacity: 0.3; }
-}
-
-/* Area Trascrizione */
 .transcription-area {
-    background: rgba(0,0,0,0.2);
+    background: var(--surface-color);
     border-radius: 12px;
     padding: 15px;
     margin-top: 1.5rem;
@@ -146,155 +133,103 @@ body {
     max-width: 400px;
     max-height: 100px;
     overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
     text-align: left;
-    line-height: 1.4;
-    border: 1px solid rgba(255,255,255,0.1);
+    border: 1px solid var(--border-color);
 }
-.transcription-label {
-    font-size: 0.75rem;
-    color: #94a3b8;
-    margin-bottom: 8px;
-    text-transform: uppercase;
-}
-.transcription-text {
-    color: #e2e8f0;
-    font-size: 0.9rem;
-}
-.transcription-interim {
-    color: #94a3b8;
-}
+.transcription-label { font-size: 0.75rem; color: var(--text-dark); margin-bottom: 8px; text-transform: uppercase; }
+.transcription-text { font-size: 0.9rem; }
+.transcription-interim { color: var(--text-dark); }
 
-/* Controlli nel footer */
-.controls-section {
-    display: flex;
-    justify-content: space-around;
-    align-items: center;
+/* Controlli nel Footer */
+.controls-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
     gap: 10px;
-    margin-bottom: 15px;
-    flex-wrap: wrap;
+    margin-bottom: 10px;
 }
-
-.speech-toggle, .export-btn {
-    background: rgba(255,255,255,0.1);
-    border: 1px solid rgba(255,255,255,0.2);
-    color: #cbd5e1;
-    padding: 8px 16px;
-    border-radius: 20px;
-    font-size: 0.8rem;
+.control-btn {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border-color);
+    color: var(--text-dark);
+    padding: 10px 5px;
+    border-radius: 8px;
+    font-size: 0.75rem;
     cursor: pointer;
     transition: all 0.2s ease;
-    text-decoration: none;
-}
-.speech-toggle:hover, .export-btn:hover {
-    background: rgba(255,255,255,0.2);
-    color: white;
-}
-.speech-toggle.active {
-    background: rgba(34, 197, 94, 0.2);
-    border-color: rgba(34, 197, 94, 0.4);
-    color: #4ade80;
-}
-
-.auto-save-status {
-    width: 100%;
-    font-size: 0.75rem;
-    color: #94a3b8;
     text-align: center;
-    margin-top: 10px;
 }
+.control-btn:hover { background: rgba(255,255,255,0.1); color: var(--text-light); }
+.control-btn.active { background: var(--tag-highlight); border-color: #16a34a; color: #22c55e; }
 
-.instructions {
-    font-size: 0.8rem;
-    color: #94a3b8;
-    text-align: center;
-    line-height: 1.5;
-}
-.instructions small {
-    color: #64748b;
-    display: block;
-    margin-top: 4px;
-}
+.instructions { font-size: 0.8rem; color: var(--text-dark); text-align: center; }
 
-/* Modal per copiare testo */
-.copy-modal {
+/* Modals */
+.modal-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,0.8);
-    backdrop-filter: blur(5px);
-    display: none; /* Changed to none */
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(8px);
+    display: none;
     align-items: center;
     justify-content: center;
     z-index: 1000;
 }
-.copy-modal.show {
-    display: flex; /* Added show class */
-}
-.copy-modal-content {
+.modal-overlay.show { display: flex; }
+
+.modal-content {
     background: #27364a;
-    padding: 25px;
     border-radius: 16px;
-    width: 90%;
-    max-width: 400px;
-    text-align: center;
-    border: 1px solid rgba(255,255,255,0.1);
-}
-.copy-modal-content h3 {
-    margin-bottom: 10px;
-    color: #f1f5f9;
-}
-.copy-modal-content p {
-    font-size: 0.9rem;
-    color: #cbd5e1;
-    margin-bottom: 15px;
-}
-.copy-modal-content textarea {
-    width: 100%;
-    min-height: 120px;
-    background: rgba(0,0,0,0.2);
-    border: 1px solid rgba(255,255,255,0.2);
-    color: white;
-    padding: 10px;
-    border-radius: 8px;
-    font-family: inherit;
-    resize: vertical;
-    margin-bottom: 15px;
-}
-.copy-modal-buttons {
+    width: 95%;
+    max-width: 500px;
+    border: 1px solid var(--border-color);
     display: flex;
-    gap: 10px;
-    justify-content: center;
+    flex-direction: column;
+    max-height: 85vh;
 }
-.modal-btn {
-    padding: 10px 20px;
-    border: none;
+.modal-content.small { max-width: 320px; max-height: auto; }
+
+.modal-header {
+    padding: 15px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.modal-header h2, .modal-header h3 { margin: 0; }
+.modal-close-btn { background: none; border: none; color: var(--text-dark); font-size: 1.5rem; cursor: pointer; }
+
+.modal-body { padding: 15px; overflow-y: auto; }
+.modal-body p { margin-bottom: 15px; }
+
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+.modal-btn { padding: 10px 20px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; }
+.modal-btn.cancel { background: rgba(255,255,255,0.1); color: white; }
+.modal-btn.confirm { background: var(--primary-color); color: white; }
+
+/* Stili per la lista note nel modal */
+#notesListContainer .note-item {
+    background: var(--surface-color);
+    padding: 12px;
     border-radius: 8px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background-color 0.2s;
+    margin-bottom: 10px;
+    border-left: 4px solid transparent;
 }
-.modal-btn.copy {
-    background: #3b82f6;
-    color: white;
+#notesListContainer .note-item.is-tag {
+    border-left-color: #22c55e;
+    background: var(--tag-highlight);
 }
-.modal-btn.copy:hover {
-    background: #2563eb;
-}
-.modal-btn.close {
-    background: rgba(255,255,255,0.1);
-    color: white;
-}
-.modal-btn.close:hover {
-    background: rgba(255,255,255,0.2);
-}
+.note-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+.note-timestamp { font-size: 0.8rem; color: var(--text-dark); }
+.note-delete-btn { background: none; border: none; color: #ef4444; cursor: pointer; font-size: 1.2rem; }
+.note-transcript { font-size: 0.9rem; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word; }
 
 /* Indicatore di versione */
 .version-indicator {
     position: fixed;
-    bottom: 5px;
-    right: 10px;
-    font-size: 0.6rem;
-    color: #475569;
-    opacity: 0.7;
-    z-index: 1001; /* Sopra il contenuto */
+    top: 10px;
+    right: 15px;
+    font-size: 0.7rem;
+    color: var(--text-very-dark);
+    font-weight: bold;
+    z-index: 1001;
 }
