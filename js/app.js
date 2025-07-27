@@ -1,9 +1,9 @@
 // app.js - Applicazione principale Voice Notes Auto
-// v2.4 - Logica di parsing multi-ambito e file di riepilogo
+// v2.5 - Logica di parsing multi-ambito e file di riepilogo
 
 class VoiceNotesApp {
     constructor() {
-        console.log('🚀 Voice Notes App v2.4 initialization...');
+        console.log('🚀 Voice Notes App v2.5 initialization...');
         this.isRecording = false;
         this.isPaused = false;
         this.isSaving = false;
@@ -175,10 +175,9 @@ class VoiceNotesApp {
     }
 
     async exportNotes() {
-        if (this.isExporting) return;
-        if (this.notes.length === 0) {
-            this.showStatus("Nessuna nota da esportare.");
-            setTimeout(() => this.showStatus('Pronto per registrare'), 2000);
+        if (this.isExporting || this.notes.length === 0) {
+            this.showStatus(this.notes.length === 0 ? "Nessuna nota da esportare." : "Export in corso...");
+            if(this.notes.length === 0) setTimeout(() => this.showStatus('Pronto per registrare'), 2000);
             return;
         }
         this.isExporting = true;
@@ -191,20 +190,10 @@ class VoiceNotesApp {
             
             const dateStr = new Date().toISOString().slice(0, 10);
             
-            const filesToExport = [
-                {
-                    content: markdownContent,
-                    filename: `note_aggregate_${dateStr}.md`,
-                    type: 'text/markdown'
-                },
-                {
-                    content: summaryContent,
-                    filename: `export_summary_${dateStr}.txt`,
-                    type: 'text/plain'
-                }
-            ];
-
-            await this.storageManager.downloadFiles(filesToExport);
+            await this.storageManager.downloadFiles([
+                { content: markdownContent, filename: `note_aggregate_${dateStr}.md`, type: 'text/markdown' },
+                { content: summaryContent, filename: `export_summary_${dateStr}.txt`, type: 'text/plain' }
+            ]);
             this.showStatus('✅ Export completato!');
         } catch (error) {
             this.showError("Export Fallito", "Riprova.");
@@ -228,7 +217,7 @@ class VoiceNotesApp {
                 notesByScope[scope].push({
                     content: content,
                     timestamp: note.timestamp,
-                    duration: note.duration
+                    duration: note.duration // Using the full note duration for simplicity
                 });
             });
         });
@@ -250,24 +239,27 @@ class VoiceNotesApp {
     }
 
     generateSummary(parsedData) {
-        let totalNotes = 0;
-        let totalDuration = 0;
+        let totalItems = 0;
+        const scopeCounts = {};
+        
+        Object.keys(parsedData).forEach(scope => {
+            const count = parsedData[scope].length;
+            scopeCounts[scope] = count;
+            totalItems += count;
+        });
+
         let content = `Riepilogo Esportazione Note\n`;
         content += `============================\n`;
         content += `Data: ${new Date().toLocaleString('it-IT')}\n\n`;
         
         content += `Statistiche per Ambito:\n`;
-        Object.keys(parsedData).sort().forEach(scope => {
-            const items = parsedData[scope];
-            const scopeDuration = items.reduce((sum, item) => sum + item.duration, 0);
-            totalDuration += scopeDuration;
-            totalNotes += items.length;
-            content += `- ${scope.toUpperCase()}: ${items.length} nota(e), durata totale ${scopeDuration}s\n`;
+        Object.keys(scopeCounts).sort().forEach(scope => {
+            content += `- ${scope.toUpperCase()}: ${scopeCounts[scope]} voce/i\n`;
         });
 
         content += `\n----------------------------\n`;
-        content += `Totale Note: ${totalNotes}\n`;
-        content += `Durata Totale Complessiva: ${totalDuration} secondi\n`;
+        content += `Totale Voci Estratte: ${totalItems}\n`;
+        content += `Note Originali: ${this.notes.length}\n`;
 
         return content;
     }
@@ -276,13 +268,15 @@ class VoiceNotesApp {
         chunk = chunk.trim();
         const lowerChunk = chunk.toLowerCase();
 
+        // Regex per AMBITO, non-greedy
         if (lowerChunk.startsWith('ambito ')) {
-            const match = chunk.match(/ambito\s+([^\s]+)\s+fine\s*(.*)/is);
+            const match = chunk.match(/ambito\s+([^\s]+)\s+(.*?)fine/is);
             if (match) {
                 return { scope: match[1].toLowerCase(), content: match[2].trim() };
             }
         }
         
+        // Regex per TAG
         if (lowerChunk.startsWith('tag ')) {
             const match = chunk.match(/tag\s+([^\s-]+)[\s-–—]+(.*)/is);
             if (match) {

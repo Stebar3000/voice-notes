@@ -1,5 +1,5 @@
 // storage.js - Manages data persistence and export
-// v2.4 - Handles multiple file downloads
+// v2.5 - Handles multiple file downloads
 
 class StorageManager {
     constructor() {
@@ -92,7 +92,6 @@ class StorageManager {
             }
         }
         
-        // Fallback for desktop browsers: download files one by one
         shareableFiles.forEach((file, index) => {
             setTimeout(() => {
                 const url = URL.createObjectURL(file);
@@ -101,7 +100,7 @@ class StorageManager {
                 link.download = file.name;
                 link.click();
                 URL.revokeObjectURL(url);
-            }, index * 500); // Stagger downloads
+            }, index * 500);
         });
     }
 
