@@ -1,18 +1,18 @@
 // storage.js - Manages data persistence and export
-// v3.0 - TEXT-ONLY FINAL VERSION. Ultra-reliable, uses localStorage only.
+// v3.1 - TEXT-ONLY FINAL VERSION. Ultra-reliable, uses localStorage only.
 
 class StorageManager {
     constructor() {
-        this.dbName = 'VoiceNotesDB_TextOnly'; // New name to avoid conflicts
+        this.dbName = 'VoiceNotesDB_TextOnly'; // New name to avoid conflicts with older versions
         console.log("✅ StorageManager initialized (Text-Only Mode).");
     }
 
-    // No initialization needed for localStorage, but we keep the async structure.
+    // No initialization needed for localStorage, but we keep the async structure for consistency.
     async initialize() {
         return Promise.resolve(true);
     }
 
-    // The saveNote function now only cares about the note object.
+    // The saveNote function now only cares about the note object (text).
     async saveNote(note) {
         try {
             const notes = this.getNotesFromLocalStorage();
@@ -54,10 +54,11 @@ class StorageManager {
                 await navigator.share({ files: shareableFiles });
                 return;
             } catch (err) {
-                if (err.name === 'AbortError') return;
+                if (err.name === 'AbortError') return; // User cancelled the share action
             }
         }
         
+        // Fallback for browsers that don't support navigator.share with files
         shareableFiles.forEach((file, index) => {
             setTimeout(() => {
                 const url = URL.createObjectURL(file);

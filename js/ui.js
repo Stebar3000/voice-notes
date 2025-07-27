@@ -1,11 +1,13 @@
 // ui.js - Manages all UI updates and user feedback
-// v3.0 - UI is stable
+// v3.2 - Added audio feedback using Tone.js
 
 class UIManager {
     constructor() {
         this.elements = {};
+        this.synth = null;
         this.initializeElements();
         this.attachModalListeners();
+        this.initializeAudio();
     }
     
     initializeElements() {
@@ -32,6 +34,22 @@ class UIManager {
         };
     }
 
+    initializeAudio() {
+        // Initialize the synthesizer only after a user interaction
+        const initialize = () => {
+            if (window.Tone && !this.synth) {
+                this.synth = new Tone.Synth().toDestination();
+                console.log('Audio context started.');
+            }
+            // Remove the event listener after it has run once
+            document.body.removeEventListener('click', initialize);
+            document.body.removeEventListener('touchend', initialize);
+        };
+        // The audio context can only be started by a user gesture.
+        document.body.addEventListener('click', initialize, { once: true });
+        document.body.addEventListener('touchend', initialize, { once: true });
+    }
+
     attachModalListeners() {
         this.elements.reviewModalCloseBtn?.addEventListener('click', () => this.hideReviewModal());
     }
@@ -48,7 +66,7 @@ class UIManager {
             this.elements.buttonText.textContent = 'Reset';
         } else if (isSaving) {
             button.classList.add('paused');
-            this.elements.buttonText.textContent = 'Salvo...';
+            this.elements.buttonText.textContent = 'Salvataggio...';
         } else if (isExporting) {
             button.classList.add('paused');
             this.elements.buttonText.textContent = 'Export...';
@@ -94,18 +112,42 @@ class UIManager {
         if (this.elements.interimTranscript) this.elements.interimTranscript.textContent = interimTxt;
         this.elements.transcriptionArea.scrollTop = this.elements.transcriptionArea.scrollHeight;
     }
+    
+    playAudioFeedback(type) {
+        if (!this.synth) return;
 
-    setSpeechToggleSupported(isSupported) {
-        if (!isSupported && this.elements.speechToggle) {
-            this.elements.speechToggle.textContent = 'N/D';
-            this.elements.speechToggle.disabled = true;
+        const now = Tone.now();
+        switch (type) {
+            case 'start':
+                this.synth.triggerAttackRelease("C5", "8n", now); // High C for start/resume
+                break;
+            case 'pause':
+                this.synth.triggerAttackRelease("G4", "8n", now); // Lower G for pause
+                break;
+            case 'save':
+                // A quick, positive two-note sequence for save
+                this.synth.triggerAttackRelease("C5", "8n", now);
+                this.synth.triggerAttackRelease("G5", "8n", now + 0.1);
+                break;
+            case 'error':
+                this.synth.triggerAttackRelease("A2", "4n", now); // Low, dissonant sound for error
+                break;
         }
     }
-    
+
     provideFeedback(type = 'tap') {
+        // Play audio feedback
+        this.playAudioFeedback(type);
+
+        // Also provide haptic feedback if available
         if (navigator.vibrate) {
-            const patterns = { tap: [10], save: [50], error: [100, 50, 100] };
-            navigator.vibrate(patterns[type] || patterns.tap);
+            const patterns = { 
+                start: [50], 
+                pause: [20],
+                save: [80], 
+                error: [100, 50, 100] 
+            };
+            navigator.vibrate(patterns[type] || [10]);
         }
     }
     
@@ -142,7 +184,7 @@ class UIManager {
             const contentHTML = chunks.map(chunk => {
                 if (chunk.trim() === '') return '';
                 const { scope, content } = window.voiceNotesApp.parseChunk(chunk);
-                const isTag = scope.startsWith('tag-');
+                const isTag = scope === 'TAGS';
                 return `<div class="note-item ${isTag ? 'is-tag' : ''}"><p class="note-transcript">${content || 'Contenuto vuoto'}</p></div>`;
             }).join('');
 

@@ -1,5 +1,5 @@
 // recording.js - Manages audio recording and speech-to-text transcription
-// v3.0 - TEXT-ONLY FINAL VERSION. Audio blob handling removed.
+// v3.1 - TEXT-ONLY FINAL VERSION. Audio blob handling removed for max reliability.
 
 class RecordingManager {
     constructor() {
@@ -52,11 +52,10 @@ class RecordingManager {
     
     async startRecording() {
         try {
-            // We still need the stream for the MediaRecorder to run and trigger transcription.
             this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             this.mediaRecorder = new MediaRecorder(this.stream);
             
-            // We don't need to listen for data, just start it.
+            // We don't need to listen for data, just start the recorder to enable the mic.
             this.mediaRecorder.start();
             if (this.speechEnabled) this.startTranscription();
             return true;

@@ -1,9 +1,9 @@
 // app.js - Main application logic
-// v3.0 - FINAL VERSION. Implemented robust TAG parsing.
+// v3.2 - Added specific audio feedback triggers.
 
 class VoiceNotesApp {
     constructor() {
-        console.log('🚀 Voice Notes App v3.0 initialization...');
+        console.log('🚀 Voice Notes App v3.2 initialization...');
         this.isRecording = false;
         this.isPaused = false;
         this.isSaving = false;
@@ -87,14 +87,11 @@ class VoiceNotesApp {
         if (!this.isRecording && !this.isPaused) this.startRecording();
         else if (this.isRecording) this.pauseRecording();
         else if (this.isPaused) this.resumeRecording();
-        
-        this.uiManager.provideFeedback('tap');
     }
     
     handleDoubleClick() {
         if (this.isRecording || this.isPaused) {
             this.stopAndSaveRecording();
-            this.uiManager.provideFeedback('save');
         }
     }
     
@@ -106,6 +103,7 @@ class VoiceNotesApp {
         this.startTime = Date.now() - this.elapsedTime;
         this.startTimer();
         this.updateUI();
+        this.uiManager.provideFeedback('start');
     }
     
     pauseRecording() {
@@ -114,6 +112,7 @@ class VoiceNotesApp {
         this.isPaused = true;
         this.stopTimer();
         this.updateUI();
+        this.uiManager.provideFeedback('pause');
     }
     
     resumeRecording() {
@@ -123,6 +122,7 @@ class VoiceNotesApp {
         this.startTime = Date.now() - this.elapsedTime;
         this.startTimer();
         this.updateUI();
+        this.uiManager.provideFeedback('start'); // Same sound as start
     }
     
     async stopAndSaveRecording() {
@@ -131,6 +131,7 @@ class VoiceNotesApp {
         this.isSaving = true;
         this.stopTimer();
         this.updateUI();
+        this.uiManager.provideFeedback('save');
 
         try {
             const { transcript } = await this.recordingManager.stopRecording();
@@ -188,7 +189,6 @@ class VoiceNotesApp {
             const summaryContent = this.generateSummary(parsedData);
             const dateStr = new Date().toISOString().slice(0, 10);
             
-            // For WhatsApp sharing, we combine everything into one message.
             const combinedContent = `${markdownContent}\n\n\n${summaryContent}`;
 
             await this.storageManager.downloadFiles([
@@ -206,7 +206,6 @@ class VoiceNotesApp {
 
     parseNotesForExport(notes) {
         const notesByScope = {};
-        // We process in reverse to have the oldest notes first in the final output.
         notes.slice().reverse().forEach(note => {
             const chunks = this.splitByKeywords(note.transcript);
             chunks.forEach(chunk => {
@@ -257,14 +256,11 @@ class VoiceNotesApp {
             return { scope: ambitoMatch[1].trim(), content: chunk.replace(/^ambito .*? fine/i, '').trim() };
         }
         
-        // *** THE FINAL FIX ***
-        // This regex now requires a hyphen as a separator for tags, making it robust.
         const tagMatch = chunk.match(/^tag\s+(.+?)\s*-\s*(.*)/is);
         if (tagMatch) {
             return { scope: 'TAGS', content: `**${tagMatch[1].trim().toUpperCase()}:** ${tagMatch[2].trim()}` };
         }
         
-        // If no specific keyword matches, it's a general note.
         return { scope: 'GENERALE', content: chunk };
     }
 
@@ -311,7 +307,7 @@ class VoiceNotesApp {
     showError(title, description) {
         this.hasError = true; this.isSaving = false; this.isExporting = false;
         this.uiManager.showError(title, description);
-        this.updateUI();
+        this.uiManager.provideFeedback('error');
     }
     
     handleMicrophoneError(error) {
