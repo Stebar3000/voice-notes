@@ -86,3 +86,10 @@ Decisioni sul secondo stadio (01/11/2026):
 - Cartella delle note dall'app: `/Applicazioni/VoceAgente/` (sottocartelle a scelta di Claude, es. `inbox/`, `elaborate/`, `scarti/`).
 - L'app scrive su Dropbox via servizio online (una web app su iPhone non può accedere ai file dell'app Dropbox);
   offline le note restano in coda sul telefono e partono al ritorno della rete.
+
+## Idea per una versione futura (non ora)
+L'utente ha un telefono Android economico senza SIM (solo Wi-Fi o hotspot dell'iPhone), oggi inutilizzato.
+Potrebbe diventare un registratore dedicato in auto: stessa web app in Chrome senza modifiche; permesso microfono
+ricordato; nessun conflitto con l'uso del telefono principale; blocco su una sola app integrato in Android.
+Passo successivo possibile: piccola app Android installata direttamente (senza store) con un tasto fisico
+(es. volume) per avvio/stop, cioè un vero tasto da sentire al tatto.
