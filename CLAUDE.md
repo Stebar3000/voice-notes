@@ -104,3 +104,12 @@ services.gradle.org, Maven Central) sono bloccati dalla rete. Strada scelta per 
 l'utente lo scarica sul Motorola. Per leggere l'esito della compilazione, il workflow deve riportare log/risultato
 in un ramo git (le API Actions non sono raggiungibili dal proxy di Claude). Alternativa di riserva: scheda Code
 dell'app desktop sul PC dell'utente. In ogni caso si usa solo l'abbonamento Pro, mai crediti API.
+
+Decisione sul secondo stadio, dove stanno le regole (01/11/2026, informazione verificata dall'utente: non ricercarla):
+- Il secondo stadio vive in un **progetto Claude**. Il protocollo e le regole stanno nella **knowledge del progetto**:
+  una specie di file system di soli file di testo (si usano file `.md`), che **solo le chat create dentro il progetto**
+  possono leggere e scrivere (l'utente li vede ma non li modifica; una chat esterna spostata nel progetto non può farlo).
+- Perché una chat possa scrivere nella knowledge va creata con **Sonnet** e con il selettore su **"auto"**
+  (con un modello inferiore il selettore resta forzato su "manuale"); dopo si può passare a Haiku.
+- Dropbox serve solo per le note in arrivo (`/Applicazioni/VoceAgente/`) e per le note di Joplin (`/Notes`).
+- Non fare ricerche web su come funzionano i prodotti dell'utente quando l'utente ha già dato l'informazione.
