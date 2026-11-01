@@ -76,5 +76,7 @@ Regole Joplin (specifica dell'utente, vincolante):
   (stesso titolo, stesso nome file), poi cancellare il file vecchio e creare quello nuovo nello stesso percorso.
   Lo script allinea Joplin al giro successivo. Accorgimenti: il testo nuovo è pronto prima di cancellare;
   se la creazione fallisce, ricreare subito la nota con il testo letto all'inizio.
-- Limite del connettore Dropbox: crea file nuovi ma NON sovrascrive file esistenti; chiede conferma prima di
-  ogni scrittura. Quindi la modifica avviene come cancellazione più creazione.
+- Connettore Dropbox: crea file nuovi ma NON sovrascrive file esistenti, quindi la modifica avviene come
+  cancellazione più creazione. Verificato il 01/11/2026 su una nota di prova: funziona in autonomia,
+  senza richieste di conferma all'utente.
+- Lo script di allineamento è responsabilità dell'utente: Claude non se ne occupa e non lo menziona.
