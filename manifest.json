@@ -1,22 +1,14 @@
 {
-  "name": "Voice Notes Auto",
-  "short_name": "Voice Notes",
-  "start_url": ".",
+  "name": "Note Auto",
+  "short_name": "Note Auto",
+  "description": "Registratore vocale per la guida: tocca lo schermo per registrare, la nota viene trascritta e ripulita.",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
-  "background_color": "#1e293b",
-  "theme_color": "#1e293b",
-  "description": "App per prendere note vocali strutturate durante la guida.",
+  "background_color": "#111827",
+  "theme_color": "#111827",
   "icons": [
-    {
-      "src": "icons/icon-256x256.png",
-      "sizes": "256x256",
-      "type": "image/png"
-    },
-    {
-      "src": "icons/icon-256x256.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
   ]
 }

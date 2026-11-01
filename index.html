@@ -1,91 +1,144 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="it">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Voice Notes Auto</title>
-    
-    <!-- PWA Meta Tags -->
-    <meta name="theme-color" content="#1e293b">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Voice Notes">
-    
-    <!-- Links with version query to prevent caching issues -->
-    <link rel="manifest" href="manifest.json?v=3.3">
-    <link rel="apple-touch-icon" href="icons/icon-256x256.png?v=3.3">
-    
-    <!-- CSS -->
-    <link rel="stylesheet" href="css/style.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#111827">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Note Auto">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<title>Note Auto</title>
+<style>
+:root{--bg:#111827;--panel:#1f2937;--line:#374151;--text:#f9fafb;--muted:#9ca3af;--rec:#b91c1c;--ok:#15803d;--warn:#b45309;--accent:#2563eb}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-text-size-adjust:100%}
+body{overscroll-behavior:none}
+[hidden]{display:none!important}
+
+/* ===== Registratore: tutto lo schermo è il pulsante ===== */
+#rec{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
+  padding:calc(env(safe-area-inset-top) + 16px) 20px calc(env(safe-area-inset-bottom) + 16px);
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation;cursor:pointer;transition:background .15s}
+#rec.recording{background:var(--rec)}
+#rec.saved{background:var(--ok)}
+#rec.problem{background:var(--warn)}
+#big{font-size:13vw;font-weight:800;line-height:1.1;letter-spacing:.02em}
+#timer{font-size:9vw;font-variant-numeric:tabular-nums;margin-top:3vh;min-height:1.2em;opacity:.95}
+#foot{position:absolute;left:16px;right:16px;bottom:calc(env(safe-area-inset-bottom) + 18px);font-size:15px;color:var(--muted);line-height:1.4}
+#rec.recording #foot,#rec.saved #foot{color:#fff;opacity:.85}
+#menu{position:absolute;top:calc(env(safe-area-inset-top) + 12px);right:14px;padding:10px 14px;border:1px solid rgba(255,255,255,.25);
+  border-radius:12px;font-size:15px;color:#fff;opacity:.75;pointer-events:none}
+#rec.recording #menu{display:none}
+
+/* ===== Note e impostazioni ===== */
+#panel{position:fixed;inset:0;overflow-y:auto;-webkit-overflow-scrolling:touch;background:var(--bg);
+  padding:calc(env(safe-area-inset-top) + 8px) 16px calc(env(safe-area-inset-bottom) + 40px)}
+.bar{display:flex;align-items:center;gap:8px;position:sticky;top:0;background:var(--bg);padding:8px 0 10px;z-index:2}
+.bar h1{font-size:20px;margin:0;flex:1}
+.tabs{display:flex;gap:8px;margin:4px 0 14px}
+.tabs button{flex:1}
+.tabs button.on{background:var(--accent);border-color:var(--accent)}
+button{font:inherit;font-size:16px;color:var(--text);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px;cursor:pointer}
+button.primary{background:var(--accent);border-color:var(--accent)}
+button.danger{color:#fca5a5}
+button.small{font-size:14px;padding:7px 10px}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.summary{color:var(--muted);font-size:14px;margin:4px 0 12px}
+.note{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:0 0 12px}
+.meta{display:flex;justify-content:space-between;gap:8px;font-size:13px;color:var(--muted)}
+.badge{font-size:12px;padding:2px 8px;border-radius:999px;background:#374151;color:#e5e7eb;white-space:nowrap}
+.badge.done{background:#14532d;color:#bbf7d0}.badge.pending{background:#78350f;color:#fde68a}.badge.error{background:#7f1d1d;color:#fecaca}
+.title{font-weight:700;margin:8px 0 2px}
+.scope{font-size:13px;color:#93c5fd;margin-bottom:6px}
+.text{white-space:pre-wrap;line-height:1.5;font-size:16px}
+.err{color:#fca5a5;font-size:14px;margin-top:6px}
+details{margin-top:8px;font-size:14px;color:var(--muted)}
+details .text{font-size:14px;color:#d1d5db;margin-top:6px}
+.note .row{margin:10px 0 0}
+audio{width:100%;margin-top:8px}
+label{display:block;font-weight:600;margin:16px 0 6px}
+.hint{font-size:13px;color:var(--muted);margin:4px 0 0;line-height:1.4}
+input[type=password],input[type=text],textarea,select{width:100%;font:inherit;font-size:16px;color:var(--text);background:#0b1220;border:1px solid var(--line);border-radius:10px;padding:10px}
+textarea{min-height:150px;resize:vertical;line-height:1.45}
+.check{display:flex;align-items:center;gap:10px;font-weight:600;margin:16px 0 6px}
+.check input{width:22px;height:22px}
+#toast{position:fixed;left:16px;right:16px;bottom:calc(env(safe-area-inset-bottom) + 20px);background:#111827ee;border:1px solid var(--line);
+  border-radius:12px;padding:12px 14px;font-size:15px;text-align:center;z-index:10}
+#confirm{position:fixed;inset:0;background:#000a;display:flex;align-items:center;justify-content:center;padding:24px;z-index:20}
+#confirm .box{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;max-width:420px;width:100%}
+#confirm p{margin:0 0 14px;font-size:17px;line-height:1.4}
+.empty{color:var(--muted);text-align:center;margin:40px 0}
+.ver{color:var(--muted);font-size:12px;text-align:center;margin-top:28px}
+</style>
 </head>
 <body>
-    <div class="app-container">
-        <main class="main-content">
-            <header class="app-header">
-                <span class="app-title">Voice Notes Auto</span>
-                <span class="app-version">v3.3</span>
-            </header>
 
-            <div class="status-text" id="statusText">Pronto per registrare</div>
-            <div class="timer" id="timer">00:00</div>
+<!-- Registratore -->
+<div id="rec" role="button" aria-label="Tocca per registrare">
+  <div id="menu">☰ Note</div>
+  <div id="big">TOCCA<br>PER REGISTRARE</div>
+  <div id="timer"></div>
+  <div id="foot"></div>
+</div>
 
-            <button class="record-button idle" id="recordButton">
-                <span id="buttonText">INIZIA</span>
-                <div class="recording-indicator" id="recordingIndicator" style="display: none;"></div>
-            </button>
+<!-- Note e impostazioni -->
+<div id="panel" hidden>
+  <div class="bar">
+    <button id="back" class="small">← Registratore</button>
+    <h1></h1>
+  </div>
+  <div class="tabs">
+    <button id="tabNotes" class="on">Note</button>
+    <button id="tabSettings">Impostazioni</button>
+  </div>
 
-            <div class="transcription-area" id="transcriptionArea" style="display: none;">
-                <div class="transcription-label">Trascrizione in tempo reale:</div>
-                <div class="transcription-text-wrapper">
-                    <div class="transcription-text" id="transcriptionText">
-                        <span id="finalTranscript"></span><span class="transcription-interim" id="interimTranscript"></span>
-                    </div>
-                </div>
-            </div>
-        </main>
-
-        <footer class="footer-content">
-            <div class="controls-grid">
-                <button class="control-btn" id="reviewNotesBtn">Rivedi Note</button>
-                <button class="control-btn" id="speechToggle">Trascrizione</button>
-                <button class="control-btn" id="exportAggregatedBtn">Export</button>
-                <button class="control-btn" id="newSessionBtn">Nuova Sessione</button>
-            </div>
-            <div class="instructions">
-                Click: Inizia/Pausa &bull; Doppio Click: Salva
-            </div>
-        </footer>
+  <section id="notesView">
+    <div class="summary" id="summary"></div>
+    <div class="row">
+      <button id="share" class="primary">Condividi tutte</button>
+      <button id="copy">Copia testo</button>
+      <button id="retryAll">Trascrivi ora</button>
     </div>
-    
-    <!-- Modals and Scripts remain the same -->
-    <div class="modal-overlay" id="reviewModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Note Salvate</h2>
-                <button class="modal-close-btn" id="reviewModalCloseBtn">&times;</button>
-            </div>
-            <div class="modal-body" id="notesListContainer"></div>
-        </div>
-    </div>
-    <div class="modal-overlay" id="confirmModal">
-        <div class="modal-content small">
-            <div class="modal-header">
-                <h3>Conferma Azione</h3>
-            </div>
-            <div class="modal-body">
-                <p id="confirmModalText"></p>
-                <div class="modal-actions">
-                    <button class="modal-btn cancel" id="confirmCancelBtn">Annulla</button>
-                    <button class="modal-btn confirm" id="confirmOkBtn">Conferma</button>
-                </div>
-            </div>
-        </div>
-    </div>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.min.js"></script>
-    <script src="js/storage.js"></script>
-    <script src="js/ui.js"></script>
-    <script src="js/recording.js"></script>
-    <script src="js/app.js"></script>
+    <div id="list"></div>
+    <div class="row"><button id="deleteAll" class="danger">Elimina tutte le note</button></div>
+  </section>
+
+  <section id="settingsView" hidden>
+    <label for="key">Chiave Groq</label>
+    <input id="key" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="gsk_...">
+    <p class="hint">Serve per trascrivere e ripulire le note. Resta solo su questo telefono, non viene mai pubblicata.</p>
+    <div class="row"><button id="saveKey" class="primary">Salva chiave</button><button id="testKey">Prova chiave</button></div>
+
+    <div class="check"><input id="cleanup" type="checkbox"><label for="cleanup" style="margin:0">Ripulisci il testo con l'AI</label></div>
+    <p class="hint">Corregge gli errori di trascrizione, mette la punteggiatura, toglie esitazioni e ripetizioni, assegna titolo e ambito.</p>
+
+    <label for="rules">Regole personali</label>
+    <textarea id="rules"></textarea>
+    <p class="hint">Istruzioni in italiano per la pulizia e lo smistamento delle note. Puoi cambiarle quando vuoi: valgono dalle note successive (o con "Riprova" su una nota).</p>
+
+    <label for="vocab">Parole e nomi ricorrenti</label>
+    <textarea id="vocab" style="min-height:80px" placeholder="Es.: Bargnani, Lisbona, Todoist, Dropbox"></textarea>
+    <p class="hint">Aiuta la trascrizione a scrivere giusti nomi propri e termini particolari.</p>
+
+    <details>
+      <summary>Avanzate</summary>
+      <label for="sttModel">Modello trascrizione</label>
+      <input id="sttModel" type="text" autocapitalize="off" spellcheck="false">
+      <label for="llmModel">Modello pulizia</label>
+      <input id="llmModel" type="text" autocapitalize="off" spellcheck="false">
+      <div class="row"><button id="resetRules" class="small">Ripristina regole e modelli predefiniti</button></div>
+    </details>
+    <div class="row"><button id="saveSettings" class="primary">Salva impostazioni</button></div>
+  </section>
+  <div class="ver" id="ver"></div>
+</div>
+
+<div id="toast" hidden></div>
+<div id="confirm" hidden><div class="box"><p id="confirmText"></p><div class="row"><button id="confirmYes" class="danger">Sì</button><button id="confirmNo">Annulla</button></div></div></div>
+
+<script src="app.js"></script>
 </body>
 </html>

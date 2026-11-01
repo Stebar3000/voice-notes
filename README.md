@@ -1,66 +1,36 @@
-# 🎤 Voice Notes Auto
+# Note Auto
 
-Un'applicazione web minimalista, sicura e offline-first per prendere note vocali strutturate mentre si guida. Progettata per essere usata senza distogliere lo sguardo dalla strada.
+Registratore vocale per la guida, pensato per non dover guardare il telefono.
 
-## 🚗 Il Problema
-Prendere appunti in auto è spesso necessario, ma le app tradizionali sono complesse e pericolose da usare al volante. Questa app nasce dall'esigenza reale di catturare idee e task in modo rapido, sicuro e organizzato, anche in assenza di connessione internet.
+**App:** https://stebar3000.github.io/voice-notes/
 
-## ✨ La Soluzione
-**Voice Notes Auto** è una Progressive Web App (PWA) che trasforma il tuo telefono in un dittafono intelligente con:
+## Come si usa
 
-- **Interfaccia a Pulsante Unico:** Un grande pulsante centrale per tutte le azioni principali (Inizia, Pausa, Riprendi).
-- **Controllo Hands-Free:** Un click singolo per mettere in pausa/riprendere, un doppio click per salvare la nota.
-- **Trascrizione Offline:** Sfrutta il motore di riconoscimento vocale del tuo dispositivo per funzionare perfettamente anche in modalità aereo.
-- **Organizzazione Automatica:** Usa una sintassi semplice (`AMBITO` e `TAG`) per categorizzare automaticamente le tue note.
-- **100% Privacy:** Nessun dato viene mai inviato a server esterni. Tutto rimane sul tuo dispositivo.
+- **Tocco ovunque sullo schermo** → bip acuto → registra. Puoi fare tutte le pause che vuoi.
+- **Nuovo tocco ovunque** → due note che salgono → nota salvata.
+- **Due note che scendono:** registrazione troppo breve (meno di 1 secondo), non salvata.
+- **Due bip gravi:** problema col microfono.
+- **Tieni premuto "☰ Note"** (in alto a destra, solo da fermo) per vedere le note e le impostazioni.
 
----
+## Cosa fa con le note
 
-## 📖 Guida all'Uso
+1. L'audio viene **sempre salvato sul telefono**, anche senza rete, e scritto a pezzi ogni 2 secondi: una chiusura improvvisa non fa perdere la registrazione.
+2. Quando c'è connessione, l'audio viene **trascritto** con Whisper (Groq, gratuito).
+3. Il testo viene **ripulito** da un modello AI (Groq, gratuito): errori di trascrizione, punteggiatura, esitazioni, titolo e ambito.
+4. Le note si **condividono** in un unico file di testo raggruppato per ambito (Dropbox, File, Note, Mail…).
 
-### Comandi di Base
-- **Click Singolo:**
-  - Se l'app è inattiva -> **Avvia** la registrazione.
-  - Se sta registrando -> Mette in **Pausa**.
-  - Se è in pausa -> **Riprende** la registrazione.
-- **Doppio Click Rapido:** **Salva** la nota corrente e si prepara per la successiva.
+Le **regole personali** di pulizia e smistamento si modificano nelle Impostazioni, senza toccare il codice.
 
-### La Sintassi dei Comandi Vocali
-Per organizzare le tue note, usa queste semplici parole chiave all'inizio del tuo discorso.
+## Configurazione
 
-#### `AMBITO nome_ambito FINE ...`
-Usa `AMBITO` per note più lunghe e strutturate, come il riassunto di una riunione o un'idea complessa.
+Serve una chiave API gratuita di Groq (console.groq.com), da inserire in Impostazioni.
+La chiave resta solo nel telefono: non è nel codice né nel repository.
 
-*Esempio:*
-> `AMBITO progetto-alpha FINE la riunione di oggi ha confermato la necessità di accelerare...`
+## Struttura
 
-Tutto ciò che viene detto dopo `FINE` verrà salvato sotto l'ambito "progetto-alpha".
+- `index.html`: interfaccia
+- `app.js`: registrazione, archivio (IndexedDB), coda di trascrizione e pulizia, esportazione
+- `sw.js`: funzionamento senza rete
+- `mic-test/`: pagina di prova del permesso microfono
 
-#### `TAG nome_tag - ...`
-Usa `TAG` per task veloci e promemoria, come una telefonata da fare o un'email da inviare. **È fondamentale usare un trattino `-`** dopo il nome del tag.
-
-*Esempio:*
-> `TAG telefonata - Chiamare subito Marco per allinearlo sulle novità...`
-> `TAG email - Inviare un riassunto a tutto il team...`
-
-Tutti i `TAG` verranno raggruppati in un unico documento di testo per una rapida revisione.
-
-### Funzioni Aggiuntive
-I pulsanti in basso ti permettono di:
-- **Rivedi Note:** Visualizza, leggi ed elimina le note salvate nella sessione corrente.
-- **Export:** Salva tutte le tue note in un unico file di testo, formattato e suddiviso per ambiti, pronto per essere condiviso su WhatsApp, email o salvato su file.
-- **Nuova Sessione:** **Cancella permanentemente tutte le note** salvate sul dispositivo. Utile per ripartire da zero dopo aver esportato e archiviato il lavoro di una giornata.
-
----
-
-## 📱 Installazione (PWA)
-Per un accesso più rapido, puoi installare l'app sulla schermata Home del tuo telefono:
-1. Apri l'indirizzo dell'app nel tuo browser (Safari su iPhone, Chrome su Android).
-2. Tocca il pulsante "Condividi".
-3. Seleziona "**Aggiungi alla schermata Home**".
-
-## 🤝 Contribuire
-Questo progetto è open source. Contributi, suggerimenti e segnalazioni di bug sono i benvenuti. Sentiti libero di aprire una "Issue" sul repository GitHub.
-
-## 📝 Licenza
-MIT License.
+Le versioni precedenti (v1–v3) sono nella cronologia git.
