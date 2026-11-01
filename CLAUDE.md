@@ -56,3 +56,20 @@ poi raccolte per un post-processing successivo (smistamento, raggruppamenti, cod
 2. Ingrandire il pulsante "☰ Note" (si apre con pressione lunga, quindi non c'è rischio di tocchi accidentali).
 3. Togliere dalle regole predefinite le parole chiave "ambito"/"tag": l'AI deduce l'argomento dal contenuto;
    l'utente può indicarlo in modo naturale, senza sintassi fissa.
+
+## Secondo stadio (in progettazione, 01/11/2026)
+Idea: l'app deposita le note in un luogo raggiungibile lato server; un agente Claude (a mano o con attività
+pianificata) le interpreta come comandi in linguaggio naturale: task in Todoist, note nuove o modifiche in Joplin,
+altro. Le note non interpretabili vanno in una coda di scarti per l'utente.
+
+Regole Joplin (specifica dell'utente, vincolante):
+- Joplin è sincronizzato con `/Notes` su Dropbox da uno script Google Apps Script (ogni 5 minuti).
+  Mai toccare `/Applicazioni/Joplin` né generare metadati Joplin.
+- NUOVA nota: solo in `/Notes/!VOCE-INBOX/<Titolo>.md` (niente `/ \ : * ? " < > |` nel nome).
+  Riga 1 = titolo puro (uguale al nome file, senza `# `), riga 2 vuota, poi corpo Markdown.
+  `!VOCE-INBOX` serve ESCLUSIVAMENTE a questo: mai usarla come coda delle note vocali grezze.
+- MODIFICA di una nota esistente: trovare il `.md` in `/Notes/**` (indici per tag in `/Notes/_Tags/<tag>.txt`),
+  scaricarlo, modificarlo e sovrascriverlo nello stesso percorso; riga 1 e nome file invariati.
+- VIETATO in `/Notes`: spostare, rinominare, cancellare file o cartelle (si fa solo da Joplin).
+- Limite verificato: il connettore Dropbox di Claude crea file nuovi ma NON sovrascrive file esistenti,
+  e chiede conferma prima di ogni scrittura.
