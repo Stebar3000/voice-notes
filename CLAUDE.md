@@ -98,4 +98,9 @@ Flusso desiderato dall'utente con l'app Android: in viaggio il Motorola resta se
 l'utente attiva l'hotspot dell'iPhone per circa un minuto, l'app trascrive, ripulisce e consegna tutto a Dropbox
 da sola, e **segnala chiaramente quando la sincronizzazione è completa** (suono distinto + schermata).
 Poi il secondo stadio si lancia dall'iPhone. Su Claude non serve nulla sul Motorola.
-Prima verifica tecnica da fare: che Claude riesca a compilare un'app Android (APK) nel proprio ambiente.
+Verificato 01/11/2026: nell'ambiente cloud di Claude gli strumenti Android (dl.google.com, maven.google.com,
+services.gradle.org, Maven Central) sono bloccati dalla rete. Strada scelta per compilare: **GitHub Actions**
+(gratuito su repo pubblico): Claude scrive il codice e lo pubblica, GitHub compila l'APK e lo mette nelle Release,
+l'utente lo scarica sul Motorola. Per leggere l'esito della compilazione, il workflow deve riportare log/risultato
+in un ramo git (le API Actions non sono raggiungibili dal proxy di Claude). Alternativa di riserva: scheda Code
+dell'app desktop sul PC dell'utente. In ogni caso si usa solo l'abbonamento Pro, mai crediti API.
