@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Prova mic">
+<link rel="manifest" href="manifest.json">
+<title>Prova microfono</title>
+<style>
+html,body{margin:0;height:100%;background:#111;color:#fff;font-family:-apple-system,sans-serif;-webkit-user-select:none;user-select:none;touch-action:manipulation}
+#b{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;cursor:pointer}
+#b.rec{background:#b91c1c}
+#s{font-size:56px;font-weight:700}
+#i{font-size:18px;opacity:.85;margin-top:28px;line-height:1.6;white-space:pre-line}
+</style>
+</head>
+<body>
+<div id="b"><div id="s">TOCCA</div><div id="i"></div></div>
+<script>
+// Prova minima: permesso microfono + registrazione + suoni. Non salva nulla.
+const b=document.getElementById('b'),s=document.getElementById('s'),i=document.getElementById('i');
+let stream=null,rec=null,chunks=[],t0=0,ctx=null,busy=false,info={};
+let opens=0;try{opens=(+localStorage.getItem('opens')||0)+1;localStorage.setItem('opens',opens)}catch(e){}
+info.mode=navigator.standalone?'app dalla Home':'Safari';
+async function perm(){try{return (await navigator.permissions.query({name:'microphone'})).state}catch(e){return 'n/d'}}
+function audio(){try{ctx=ctx||new (window.AudioContext||window.webkitAudioContext)();ctx.resume()}catch(e){}}
+function tone(f,at,d){try{const o=ctx.createOscillator(),g=ctx.createGain();o.frequency.value=f;g.gain.value=0.4;o.connect(g);g.connect(ctx.destination);o.start(ctx.currentTime+at);o.stop(ctx.currentTime+at+d)}catch(e){}}
+function show(extra){i.textContent=`Aperture: ${opens}\nModalità: ${info.mode}\nPermesso all'apertura: ${info.p0||'…'}`+(extra?`\n\n${extra}`:'')}
+perm().then(p=>{info.p0=p;show()});
+b.addEventListener('click',async()=>{
+  if(busy)return;busy=true;audio();
+  try{
+    if(!rec||rec.state==='inactive'){
+      if(!stream)stream=await navigator.mediaDevices.getUserMedia({audio:true});
+      chunks=[];rec=new MediaRecorder(stream);rec.ondataavailable=e=>chunks.push(e.data);
+      rec.start();t0=Date.now();tone(880,0,.2);
+      b.className='rec';s.textContent='REGISTRO';show('Tocca per fermare');
+    }else{
+      const sec=Math.round((Date.now()-t0)/1000);
+      await new Promise(r=>{rec.onstop=r;rec.stop()});
+      const kb=Math.round(chunks.reduce((a,c)=>a+c.size,0)/1024);
+      tone(523,0,.15);tone(784,.2,.25);
+      b.className='';s.textContent='TOCCA';show(`Registrati ${sec} s (${kb} KB)`);
+    }
+  }catch(e){tone(200,0,.5);b.className='';s.textContent='ERRORE';show(e.name+': '+e.message)}
+  busy=false;
+});
+</script>
+</body>
+</html>
