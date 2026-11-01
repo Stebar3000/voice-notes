@@ -47,5 +47,12 @@ poi raccolte per un post-processing successivo (smistamento, raggruppamenti, cod
   "Grazie." inventato da Whisper su una nota quasi vuota; registrazioni partite per pressioni troppo brevi su ☰.
 - v4.1.0: corretti i quattro problemi (modelli di riserva e dettaglio dell'errore visibile; suoni non accodati;
   filtro delle frasi inventate; tocco breve su ☰ non registra). **Da verificare su iPhone.**
+- v4.1.0 verificata su iPhone (01/11): pulizia AI funzionante, nessun errore.
 - **Da fare in auto** (auto disponibile dal 2/11/2026): suoni udibili con CarPlay; qualità della trascrizione
   con il rumore di marcia.
+
+## Modifiche in attesa (NON applicare finché l'utente non dà il via: vanno fatte tutte insieme)
+1. Mostrare il numero di versione anche nella schermata principale (in fondo alle note non si vede senza scorrere).
+2. Ingrandire il pulsante "☰ Note" (si apre con pressione lunga, quindi non c'è rischio di tocchi accidentali).
+3. Togliere dalle regole predefinite le parole chiave "ambito"/"tag": l'AI deduce l'argomento dal contenuto;
+   l'utente può indicarlo in modo naturale, senza sintassi fissa.
