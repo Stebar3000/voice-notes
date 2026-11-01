@@ -70,6 +70,11 @@ Regole Joplin (specifica dell'utente, vincolante):
   `!VOCE-INBOX` serve ESCLUSIVAMENTE a questo: mai usarla come coda delle note vocali grezze.
 - MODIFICA di una nota esistente: trovare il `.md` in `/Notes/**` (indici per tag in `/Notes/_Tags/<tag>.txt`),
   scaricarlo, modificarlo e sovrascriverlo nello stesso percorso; riga 1 e nome file invariati.
-- VIETATO in `/Notes`: spostare, rinominare, cancellare file o cartelle (si fa solo da Joplin).
-- Limite verificato: il connettore Dropbox di Claude crea file nuovi ma NON sovrascrive file esistenti,
-  e chiede conferma prima di ogni scrittura.
+- VIETATO in `/Notes`: spostare o rinominare file o cartelle (si fa solo da Joplin). Cancellare e ricreare
+  una nota è ammesso solo per modificarne il contenuto, secondo la procedura sotto.
+- Procedura modifica (verificata come sicura dall'utente): leggere tutta la nota, preparare il testo nuovo
+  (stesso titolo, stesso nome file), poi cancellare il file vecchio e creare quello nuovo nello stesso percorso.
+  Lo script allinea Joplin al giro successivo. Accorgimenti: il testo nuovo è pronto prima di cancellare;
+  se la creazione fallisce, ricreare subito la nota con il testo letto all'inizio.
+- Limite del connettore Dropbox: crea file nuovi ma NON sovrascrive file esistenti; chiede conferma prima di
+  ogni scrittura. Quindi la modifica avviene come cancellazione più creazione.
