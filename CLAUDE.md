@@ -80,3 +80,9 @@ Regole Joplin (specifica dell'utente, vincolante):
   cancellazione più creazione. Verificato il 01/11/2026 su una nota di prova: funziona in autonomia,
   senza richieste di conferma all'utente.
 - Lo script di allineamento è responsabilità dell'utente: Claude non se ne occupa e non lo menziona.
+
+Decisioni sul secondo stadio (01/11/2026):
+- **Niente pianificazione**: l'elaborazione si lancia a mano (eventuali domande vanno fatte subito, a mente fresca).
+- Cartella delle note dall'app: `/Applicazioni/VoceAgente/` (sottocartelle a scelta di Claude, es. `inbox/`, `elaborate/`, `scarti/`).
+- L'app scrive su Dropbox via servizio online (una web app su iPhone non può accedere ai file dell'app Dropbox);
+  offline le note restano in coda sul telefono e partono al ritorno della rete.
