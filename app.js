@@ -3,7 +3,7 @@
 // trascrizione (Whisper) e pulizia (LLM) via Groq avvengono dopo, quando c'è rete.
 'use strict';
 
-const VERSION = '4.0.0';
+const VERSION = '4.1.0';
 const GROQ = 'https://api.groq.com/openai/v1';
 const LONG_PRESS_MS = 700;      // pressione lunga su "☰ Note" per aprire le note
 const MIN_GAP_MS = 700;         // ignora tocchi troppo ravvicinati (rimbalzi)
@@ -16,7 +16,11 @@ const DEFAULT_RULES = [
   '- Se non indico l\'ambito, deducilo dal contenuto con una o due parole.',
 ].join('\n');
 const DEFAULTS = { key: '', cleanup: true, rules: DEFAULT_RULES, vocab: '',
-  sttModel: 'whisper-large-v3', llmModel: 'llama-3.3-70b-versatile' };
+  sttModel: 'whisper-large-v3', llmModel: 'openai/gpt-oss-120b' };
+// Modelli di riserva per la pulizia, provati in ordine se quello scelto non risponde.
+const LLM_FALLBACKS = ['openai/gpt-oss-120b', 'llama-3.3-70b-versatile', 'openai/gpt-oss-20b', 'llama-3.1-8b-instant'];
+// Frasi che Whisper "inventa" su silenzio o rumore: se la nota contiene solo una di queste, non c'è parlato.
+const HALLUCINATIONS = /^(grazie( a tutti| mille| per l'attenzione| per la visione)?|ciao( a tutti)?|buonasera|sottotitoli( creati dalla comunità amara\.org| a cura di .*)?|amara\.org|\.+)[.!?\s]*$/i;
 
 const SYSTEM_PROMPT = `Ripulisci una nota dettata a voce mentre l'autore guida, trascritta automaticamente: può contenere errori di riconoscimento.
 Regole:
@@ -93,7 +97,7 @@ function unlockAudio() { // va chiamata dentro un tocco: iOS permette i suoni so
   } catch (e) {}
 }
 function tone(freq, at, dur) {
-  if (!actx) return;
+  if (!actx || actx.state !== 'running' || document.visibilityState !== 'visible') return;
   try {
     const o = actx.createOscillator(), g = actx.createGain(), t = actx.currentTime + at;
     o.frequency.value = freq;
@@ -104,11 +108,17 @@ function tone(freq, at, dur) {
     o.start(t); o.stop(t + dur + 0.05);
   } catch (e) {}
 }
+function play(fn) {
+  if (!actx) return;
+  if (actx.state === 'running') { fn(); return; }
+  const asked = performance.now();
+  try { actx.resume().then(() => { if (performance.now() - asked < 800) fn(); }).catch(() => {}); } catch (e) {}
+}
 const sound = {
-  start: () => tone(880, 0, 0.25),                                  // un bip acuto
-  saved: () => { tone(523, 0, 0.18); tone(784, 0.2, 0.3); },        // due note che salgono
-  discard: () => { tone(440, 0, 0.18); tone(330, 0.2, 0.3); },      // due note che scendono
-  error: () => { tone(220, 0, 0.35); tone(220, 0.45, 0.35); },      // due bip gravi
+  start: () => play(() => tone(880, 0, 0.25)),                                   // un bip acuto
+  saved: () => play(() => { tone(523, 0, 0.18); tone(784, 0.2, 0.3); }),         // due note che salgono
+  discard: () => play(() => { tone(440, 0, 0.18); tone(330, 0.2, 0.3); }),       // due note che scendono
+  error: () => play(() => { tone(220, 0, 0.35); tone(220, 0.45, 0.35); }),       // due bip gravi
 };
 
 // ---------- schermo acceso ----------
@@ -218,7 +228,11 @@ async function finalizeNote(id, dur) {
 }
 
 async function recoverOrphans() { // registrazioni interrotte da una chiusura dell'app
-  for (const n of await allNotes()) if (n.status === 'recording' && (!current || n.id !== current.id)) await finalizeNote(n.id, null);
+  for (const n of await allNotes()) {
+    if (n.status === 'recording' && (!current || n.id !== current.id)) await finalizeNote(n.id, null);
+    // dopo un aggiornamento dell'app, ritenta una volta la pulizia delle note dove era fallita
+    else if (n.status === 'done' && /^Pulizia non riuscita/.test(n.error || '') && n.ver !== VERSION) await updateNote(n.id, { status: 'pending', nextTry: 0, tries: 0, error: '' });
+  }
 }
 
 // ---------- schermata del registratore ----------
@@ -261,6 +275,7 @@ function onDown(e) {
 function onUp() {
   clearTimeout(pressTimer);
   if (longDone) return;
+  if (pressOnMenu) { toast('Tieni premuto più a lungo per aprire le note'); return; }
   unlockAudio();
   const now = Date.now();
   if (now - lastTap < MIN_GAP_MS) return;
@@ -303,33 +318,68 @@ async function transcribe(n, s) {
   return (j.text || '').trim();
 }
 
-async function cleanup(raw, s) {
+function parseJsonLoose(txt) {
+  const t = String(txt || '').replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '');
+  try { return JSON.parse(t); } catch (e) {}
+  const a = t.indexOf('{'), b = t.lastIndexOf('}');
+  if (a >= 0 && b > a) return JSON.parse(t.slice(a, b + 1));
+  throw new Error('risposta non in formato JSON');
+}
+
+async function cleanupWith(model, raw, s, jsonMode) {
   const body = {
-    model: s.llmModel, temperature: 0.2, response_format: { type: 'json_object' },
+    model, temperature: 0.2,
     messages: [
       { role: 'system', content: SYSTEM_PROMPT + (s.rules.trim() ? '\n\nRegole personali dell\'autore (hanno la precedenza):\n' + s.rules.trim() : '') },
       { role: 'user', content: raw },
     ],
   };
+  if (jsonMode) body.response_format = { type: 'json_object' };
+  if (/gpt-oss/.test(model)) body.reasoning_effort = 'low';
   const j = await groqFetch('/chat/completions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }, s.key, 90000);
-  const out = JSON.parse(j.choices[0].message.content);
-  return { text: String(out.testo || '').trim() || raw, title: String(out.titolo || '').trim(), scope: String(out.ambito || '').trim() };
+  const out = parseJsonLoose(j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content);
+  const text = String(out.testo || '').trim();
+  if (!text) throw new Error('risposta senza testo');
+  return { text, title: String(out.titolo || '').trim(), scope: String(out.ambito || '').trim() };
+}
+
+// Prova il modello scelto e poi quelli di riserva. Ricorda quello che funziona.
+async function cleanup(raw, s) {
+  const models = [...new Set([s.llmModel, ...LLM_FALLBACKS].filter(Boolean))];
+  const errors = [];
+  for (const m of models) {
+    for (const jsonMode of [true, false]) {
+      try {
+        const r = await cleanupWith(m, raw, s, jsonMode);
+        if (m !== s.llmModel) { const cur = getSettings(); cur.llmModel = m; saveSettings(cur); s.llmModel = m; }
+        return r;
+      } catch (e) {
+        if (e instanceof ApiError && (e.status === 0 || e.status === 401 || e.status === 429 || e.status >= 500)) throw e;
+        errors.push(`${m}${jsonMode ? '' : ' (senza JSON)'}: ${e.message || e}`);
+      }
+    }
+  }
+  const err = new Error(errors.join(' | '));
+  err.details = errors;
+  throw err;
 }
 
 async function processNote(n, s) {
   try {
     if (!n.raw) {
-      const raw = await transcribe(n, s);
+      let raw = await transcribe(n, s);
+      if (HALLUCINATIONS.test(raw)) raw = '';
       n = await updateNote(n.id, { raw: raw || ' ' });
       if (!raw) { await updateNote(n.id, { status: 'done', text: '(nessun parlato riconosciuto)', error: '' }); return; }
     }
+    if (HALLUCINATIONS.test(n.raw.trim())) { await updateNote(n.id, { status: 'done', text: '(nessun parlato riconosciuto)', title: '', scope: '', error: '', ver: VERSION }); return; }
     let result = { text: n.raw.trim(), title: '', scope: '' };
     if (s.cleanup) {
       try { result = await cleanup(n.raw.trim(), s); }
       catch (e) { if (e instanceof ApiError && (e.status === 0 || e.status === 429 || e.status >= 500)) throw e; // ritenta più tardi
-        result.error = 'Pulizia non riuscita: tenuta la trascrizione originale.'; }
+        result.error = 'Pulizia non riuscita, tenuta la trascrizione originale. Dettagli: ' + String(e.message || e).slice(0, 400); }
     }
-    await updateNote(n.id, { status: 'done', text: result.text, title: result.title, scope: result.scope, error: result.error || '', tries: 0 });
+    await updateNote(n.id, { status: 'done', text: result.text, title: result.title, scope: result.scope, error: result.error || '', tries: 0, ver: VERSION });
   } catch (e) {
     const st = e instanceof ApiError ? e.status : -1;
     const tries = (n.tries || 0) + 1;
