@@ -94,3 +94,8 @@ ricordato; nessun conflitto con l'uso del telefono principale; blocco su una sol
 Passo successivo possibile: piccola app Android installata direttamente (senza store) con un tasto fisico
 (es. volume) per avvio/stop, cioè un vero tasto da sentire al tatto.
 Nota: in chiamata il microfono del Moto G35 risulta ottimo (giudizio dell'utente).
+Flusso desiderato dall'utente con l'app Android: in viaggio il Motorola resta senza rete e registra; alla sosta
+l'utente attiva l'hotspot dell'iPhone per circa un minuto, l'app trascrive, ripulisce e consegna tutto a Dropbox
+da sola, e **segnala chiaramente quando la sincronizzazione è completa** (suono distinto + schermata).
+Poi il secondo stadio si lancia dall'iPhone. Su Claude non serve nulla sul Motorola.
+Prima verifica tecnica da fare: che Claude riesca a compilare un'app Android (APK) nel proprio ambiente.
