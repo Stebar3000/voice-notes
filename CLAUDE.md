@@ -113,3 +113,16 @@ Decisione sul secondo stadio, dove stanno le regole (01/11/2026, informazione ve
   (con un modello inferiore il selettore resta forzato su "manuale"); dopo si può passare a Haiku.
 - Dropbox serve solo per le note in arrivo (`/Applicazioni/VoceAgente/`) e per le note di Joplin (`/Notes`).
 - Non fare ricerche web su come funzionano i prodotti dell'utente quando l'utente ha già dato l'informazione.
+
+Contesto di progetto (manuale dell'utente del 02/11/2026, fatti verificati: non ricercarli):
+- Due aree: file caricati (solo l'utente, elenco piatto) e documenti di testo in cartelle (scritti dalle chat).
+- Solo la **chat tecnica** crea, copia, sposta, rinomina, cancella documenti, su ordine dell'utente.
+  Le **altre chat** possono solo **salvare documenti nuovi**: non modificano né cancellano.
+- Scrivere su un percorso esistente sostituisce senza avviso. Un documento max 1 MB; tetto 2.000.000 token.
+  Lettura ≈ 1 token ogni 3 byte di italiano: tenere i documenti di regole brevi.
+- Una chat non riparte da sola; nessuna attività programmata senza ordine.
+- Istruzioni di progetto a ruoli: prima riga del primo messaggio "Ruolo: tecnico" o "Ruolo: business".
+  Il ruolo tecnico legge `claude/tecnico-avvio.md`.
+- Conseguenza per le regole del secondo stadio: protocollo base in un documento; ogni modifica di regola
+  decisa in una chat business diventa un **documento nuovo e datato** in una cartella di regole aggiuntive;
+  la chat tecnica, su ordine, le consolida nel protocollo.
