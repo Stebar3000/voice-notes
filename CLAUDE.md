@@ -175,3 +175,15 @@ Indice delle note di lavoro (deciso 02/11/2026):
 - Uscite della chat business (Todoist, note Joplin su Dropbox): per ora **dirette via connettore**. Valutato il
   passaggio tramite la chat tecnica: il contenuto va scritto comunque dalla business (nella knowledge o su Dropbox,
   stesso costo), il connettore Dropbox non sa caricare file dal disco, e si aggiungerebbe fino a un'ora di ritardo.
+
+## Nomi e documenti finali (02/11/2026, prevalgono su quanto sopra)
+- Indice: `/Notes/_Indice.md` (lo crea lo script) → copia in `business/indice-note.md` (riga in `claude/sync-stato.md`).
+- Dropbox: `/Applicazioni/VoceAgente/inbox/AAAA-MM-GG-HHMM.md` (scrive l'app) → `acquisite/` (dopo la copia).
+- Knowledge: `business/protocollo.md`, `business/regole/AAAA-MM-GG-argomento.md`, `business/note/AAAA-MM-GG-HHMM.md`,
+  `business/registro/AAAA-MM-GG-HHMM.md`. Una sessione è da elaborare se manca il registro con lo stesso nome.
+- Ogni nota Joplin: riga 1 titolo, riga 2 vuota, riga 3 abstract (~200 caratteri), poi corpo.
+- Risvegli business con `send_later` al minuto 20 (tecnica al minuto 0), solo se l'utente li attiva.
+- Testi consegnati all'utente: `protocollo.md` e `avvio-progetto-audio-notes.md` (istruzioni di progetto,
+  primo messaggio business, prompt orario tecnico, riga sync-stato, tabella nomi).
+- Prossima fase dell'utente: riordino note (abstract) e task; poi prove reali.
+- Lato app ancora da fare: consegna su Dropbox in `inbox/` a fine sessione di dettatura (+ modifiche in attesa).
