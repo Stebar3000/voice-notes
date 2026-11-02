@@ -187,3 +187,8 @@ Indice delle note di lavoro (deciso 02/11/2026):
   primo messaggio business, prompt orario tecnico, riga sync-stato, tabella nomi).
 - Prossima fase dell'utente: riordino note (abstract) e task; poi prove reali.
 - Lato app ancora da fare: consegna su Dropbox in `inbox/` a fine sessione di dettatura (+ modifiche in attesa).
+
+## Passaggio di consegne
+- `docs/prompt-clone.md`: prompt per la sessione che sostituirà quella corrente. **Non va mai modificato.**
+- `docs/protocollo-business.md`, `docs/avvio-progetto-audio-notes.md`: copie dei testi consegnati all'utente.
+  Se un testo cambia, aggiornare anche la copia in `docs/`.
