@@ -205,4 +205,4 @@ Indice delle note di lavoro (deciso 02/11/2026):
   Con l'app chiusa dalle app recenti: il tasto volume arriva al servizio tramite la sessione multimediale (bip OK)
   ma l'interfaccia non si apre e le registrazioni risultano **vuote** (probabile silenziamento del microfono da parte
   di Android quando l'app non è visibile). Un "stop failed" su una registrazione di 0 s (innocuo: scartare < 1 s).
-  Prova a schermo spento con app NON chiusa: ancora da fare.
+  **Schermo spento con app NON chiusa: FUNZIONA** (02/11 23:34): tasto volume, bip, voce registrata e riascoltata.
