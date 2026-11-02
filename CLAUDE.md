@@ -170,3 +170,8 @@ Indice delle note di lavoro (deciso 02/11/2026):
 - Orari possibili (da definire): tecnica oraria in fasce definite, business poco dopo, sfalsate (mai insieme).
 - Da definire: procedura tecnica per una cartella di file variabili (l'inbox), diversa dall'elenco fisso di
   `sync-stato.md`; come la chat business riconosce le note già elaborate (es. confronto con il registro).
+- Chat tecnica oraria: **Haiku, ragionamento basso**; tutte le istruzioni nel prompt dell'attività (riscritto a ogni
+  esecuzione, quindi sempre aggiornato).
+- Uscite della chat business (Todoist, note Joplin su Dropbox): per ora **dirette via connettore**. Valutato il
+  passaggio tramite la chat tecnica: il contenuto va scritto comunque dalla business (nella knowledge o su Dropbox,
+  stesso costo), il connettore Dropbox non sa caricare file dal disco, e si aggiungerebbe fino a un'ora di ritardo.
