@@ -144,9 +144,12 @@ Indice delle note di lavoro (deciso 02/11/2026):
 - Il nome del file indice contiene il timestamp dell'ultimo aggiornamento.
 - Una **chat tecnica dedicata (Haiku)** porta l'indice nella knowledge: guarda il nome del file su Dropbox, se il
   timestamp è più recente dell'ultima copia lo copia, poi toglie la copia precedente. Mai a mano dall'utente.
-  Da verificare: se può girare con una pianificazione; altrimenti la si lancia con un messaggio.
+  **Verificato 02/11/2026**: una chat tecnica pianificata funziona e può girare ogni ora. Copia a costo quasi zero,
+  indipendente dalla dimensione: `download_link` (URL temporaneo, monouso, max 15 min, fino a 25 per chiamata)
+  → `curl` sul disco della chat → `project_write` con `local_path`. Il contenuto non entra mai nel contesto.
+  Verifica senza rilettura: dimensione su disco (`wc -c`) e aumento della dimensione del contesto, come da manuale.
+  Richiede che `*.dropboxusercontent.com` resti consentito.
 - La **chat business NON legge mai l'indice da Dropbox**: per trovare una nota fa una **ricerca semantica nella
   knowledge**. Principio: la chat business va protetta e tenuta in vita il più a lungo possibile; la sua area di
   lavoro è il progetto, mai Dropbox.
-- Stima: 300 note × ~300 caratteri ≈ 90 kB ≈ 30.000 token; copia (lettura+scrittura) ≈ 60.000 token nella chat
-  tecnica. Le patch risparmiano solo la lettura (nella knowledge un documento si riscrive per intero).
+- Con la copia da disco il costo non dipende dalla dimensione: niente patch, copia integrale a ogni cambiamento.
