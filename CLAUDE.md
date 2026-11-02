@@ -192,3 +192,11 @@ Indice delle note di lavoro (deciso 02/11/2026):
 - `docs/prompt-clone.md`: prompt per la sessione che sostituirà quella corrente. **Non va mai modificato.**
 - `docs/protocollo-business.md`, `docs/avvio-progetto-audio-notes.md`: copie dei testi consegnati all'utente.
   Se un testo cambia, aggiornare anche la copia in `docs/`.
+
+## App Android (iniziata 02/11/2026)
+- Codice in `android/` (Java, nessuna dipendenza esterna, firma fissa `android/app/debug.keystore`).
+- Compilazione: `.github/workflows/android.yml` su ogni push in `android/**`. APK pubblicato nella Release
+  `android-prova`: https://github.com/Stebar3000/voice-notes/releases/download/android-prova/note-auto-prova.apk
+  Esito e log nel ramo `build-status` (`git fetch origin build-status; git show FETCH_HEAD:status.txt`).
+- v0.1-prova compilata al primo colpo (02/11/2026, 43 s). Verifica da fare sul Motorola: installazione,
+  tasto volume con app aperta, tasto volume a schermo spento (sessione multimediale), registrazione a schermo spento.
