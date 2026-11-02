@@ -116,8 +116,10 @@ Decisione sul secondo stadio, dove stanno le regole (01/11/2026, informazione ve
 
 Contesto di progetto (manuale dell'utente del 02/11/2026, fatti verificati: non ricercarli):
 - Due aree: file caricati (solo l'utente, elenco piatto) e documenti di testo in cartelle (scritti dalle chat).
-- Solo la **chat tecnica** crea, copia, sposta, rinomina, cancella documenti, su ordine dell'utente.
-  Le **altre chat** possono solo **salvare documenti nuovi**: non modificano né cancellano.
+- Tecnicamente **ogni chat nata nel progetto** può creare, copiare, spostare, rinominare e cancellare documenti.
+  Per **scelta operativa** dell'utente solo la chat tecnica lo fa; le chat business salvano solo documenti nuovi.
+- La chat tecnica **non rilegge** i file scritti (rilettura = spreco): verifica che la scrittura sia andata a buon fine
+  (dimensione del contesto, posizione nell'elenco), come da manuale.
 - Scrivere su un percorso esistente sostituisce senza avviso. Un documento max 1 MB; tetto 2.000.000 token.
   Lettura ≈ 1 token ogni 3 byte di italiano: tenere i documenti di regole brevi.
 - Una chat non riparte da sola; nessuna attività programmata senza ordine.
