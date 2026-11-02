@@ -137,3 +137,10 @@ Flusso di ingresso delle note (deciso 02/11/2026):
 - `elaborate/` è solo archivio/backup: **nessuna chat ci torna mai**. Il testo delle note NON si copia nella knowledge.
 - Nella knowledge va solo un **registro sintetico** (una riga per nota: data, titolo, azione, destinazione).
 - Dropbox costa moltissimo (tempo e token): usarlo solo per l'ingresso delle note e per scrivere in Joplin.
+
+Indice delle note di lavoro (deciso 02/11/2026):
+- Solo le note "di lavoro" (identificate dall'utente), ognuna con un abstract iniziale.
+- Lo **script** crea e aggiorna `/Notes/<indice>.md` (titolo, abstract ~200 caratteri, percorso completo). Gratis.
+- Una **chat tecnica (Haiku)** copia l'indice da Dropbox nella knowledge, su ordine. Mai a mano dall'utente.
+- Stima: 300 note × ~300 caratteri ≈ 90 kB ≈ 30.000 token; copia (lettura+scrittura) ≈ 60.000 token. Accettabile:
+  copia integrale; le patch con timestamp solo se in futuro gli aggiornamenti diventano molto frequenti.
