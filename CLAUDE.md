@@ -213,3 +213,23 @@ Indice delle note di lavoro (deciso 02/11/2026):
   rilevare il microfono silenziato da Android (errore sonoro, niente nota vuota); eventuale riapertura automatica.
 - Prossimo passo: app Android completa (trascrizione Groq, pulizia, consegna su Dropbox `inbox/` a fine sessione,
   segnale di "tutto consegnato").
+
+## App Android v1.0 (scritta e compilata 02/11/2026 notte; DA PROVARE sul Motorola)
+- Registrazione offline confermata dall'utente (02/11 23:39). Registratore considerato riuscito.
+- Codice completo in `android/` (Java, nessuna dipendenza): `RecService` (registra, tasto volume, rete, consegna dopo pausa),
+  `Sync` (trascrive, ripulisce, consegna), `Groq`, `Dropbox` (OAuth PKCE, solo scrittura), `Note` (scheda .json accanto a ogni .m4a),
+  `Tones` (suoni composti), `MainActivity`, `SettingsActivity`. APK nella Release `android-prova` (stesso indirizzo di prima, si installa sopra).
+- Flusso: nota registrata -> scheda `new`; con rete valida (hotspot/Wi-Fi) parte la sincronizzazione da sola (e dopo `sessionMin` minuti,
+  default 10, dall'ultima nota; "Consegna ora" è immediato). Stati: new -> ready -> delivered; empty (nessun parlato); error; old (prove vecchie, ignorate).
+- Consegna: un file per sessione (note con pause < `sessionMin`) in `<cartella base>/inbox/AAAA-MM-GG-HHMM.md`, cartella base predefinita
+  `/Applicazioni/VoceAgente`. Formato: riga "Sessione di dettatura del GG/MM/AAAA HH:MM — N note", poi per ogni nota `## Nota k — HH:MM — titolo` e testo.
+  Niente ambito/tag: solo titolo breve. Se la pulizia fallisce c'è l'avviso "trascrizione grezza".
+- Segnale "tutto consegnato": quattro note che salgono (lunghe) + schermata verde. Errore: due bip gravi + schermata arancione.
+  Giri automatici senza rete o con errori passeggeri sono silenziosi (nessun allarme), si riprova alla rete / ogni 5 min (max 6).
+- Dropbox: app di tipo "Full Dropbox", solo permesso `files.content.write`; autorizzazione una volta (App key + codice incollato).
+  Il refresh token e la chiave Groq stanno solo nel telefono (SharedPreferences privato).
+- Correzioni incluse: scartate registrazioni < 1 s (tono "troppo breve"); microfono muto rilevato (avviso dopo 3 s, registrazione scartata);
+  bip di avvio/stop al 70% (volume del telefono resta il controllo principale). Riapertura automatica NON fatta (chiudere l'app è impossibile).
+- Da verificare sul Motorola: installazione sopra la prova, Impostazioni (chiave Groq, collegamento Dropbox, "Prova Dropbox"),
+  giro completo con Wi-Fi, giro offline poi hotspot, il percorso reale `/Applicazioni/VoceAgente/inbox/` creato da Dropbox.
+- Non fatta la versione web con consegna su Dropbox né le "modifiche in attesa" della web app (aspettano il via dell'utente).
