@@ -10,8 +10,8 @@ android {
         applicationId "it.stebar.noteauto"
         minSdk 26
         targetSdk 34
-        versionCode 1
-        versionName "0.1-prova"
+        versionCode 2
+        versionName "1.0"
     }
 
     // Chiave di firma fissa nel repository: ogni nuova versione si installa sopra la precedente.
