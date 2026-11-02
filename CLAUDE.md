@@ -141,6 +141,12 @@ Flusso di ingresso delle note (deciso 02/11/2026):
 Indice delle note di lavoro (deciso 02/11/2026):
 - Solo le note "di lavoro" (identificate dall'utente), ognuna con un abstract iniziale.
 - Lo **script** crea e aggiorna `/Notes/<indice>.md` (titolo, abstract ~200 caratteri, percorso completo). Gratis.
-- Una **chat tecnica (Haiku)** copia l'indice da Dropbox nella knowledge, su ordine. Mai a mano dall'utente.
-- Stima: 300 note × ~300 caratteri ≈ 90 kB ≈ 30.000 token; copia (lettura+scrittura) ≈ 60.000 token. Accettabile:
-  copia integrale; le patch con timestamp solo se in futuro gli aggiornamenti diventano molto frequenti.
+- Il nome del file indice contiene il timestamp dell'ultimo aggiornamento.
+- Una **chat tecnica dedicata (Haiku)** porta l'indice nella knowledge: guarda il nome del file su Dropbox, se il
+  timestamp è più recente dell'ultima copia lo copia, poi toglie la copia precedente. Mai a mano dall'utente.
+  Da verificare: se può girare con una pianificazione; altrimenti la si lancia con un messaggio.
+- La **chat business NON legge mai l'indice da Dropbox**: per trovare una nota fa una **ricerca semantica nella
+  knowledge**. Principio: la chat business va protetta e tenuta in vita il più a lungo possibile; la sua area di
+  lavoro è il progetto, mai Dropbox.
+- Stima: 300 note × ~300 caratteri ≈ 90 kB ≈ 30.000 token; copia (lettura+scrittura) ≈ 60.000 token nella chat
+  tecnica. Le patch risparmiano solo la lettura (nella knowledge un documento si riscrive per intero).
