@@ -128,3 +128,12 @@ Contesto di progetto (manuale dell'utente del 02/11/2026, fatti verificati: non 
 - Conseguenza per le regole del secondo stadio: protocollo base in un documento; ogni modifica di regola
   decisa in una chat business diventa un **documento nuovo e datato** in una cartella di regole aggiuntive;
   la chat tecnica, su ordine, le consolida nel protocollo.
+
+Flusso di ingresso delle note (deciso 02/11/2026):
+- L'app consegna un **solo file per sessione di dettatura**: aspetta alcuni minuti (es. 10) senza nuove registrazioni,
+  poi carica in `/Applicazioni/VoceAgente/inbox/AAAA-MM-GG-HHMM.md` tutte le note di quella sessione.
+- La chat business, su "elabora": elenca `inbox`, **legge ogni file una sola volta**, lo elabora con quanto ha in memoria,
+  poi lo **sposta** in `elaborate/` (operazione interna di Dropbox, il contenuto non passa dalla chat).
+- `elaborate/` è solo archivio/backup: **nessuna chat ci torna mai**. Il testo delle note NON si copia nella knowledge.
+- Nella knowledge va solo un **registro sintetico** (una riga per nota: data, titolo, azione, destinazione).
+- Dropbox costa moltissimo (tempo e token): usarlo solo per l'ingresso delle note e per scrivere in Joplin.
