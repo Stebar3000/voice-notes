@@ -1,0 +1,61 @@
+name: App Android
+
+on:
+  push:
+    branches: [main]
+    paths: ['android/**', '.github/workflows/android.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Compila
+        id: build
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          gradle -p android assembleDebug --stacktrace --no-daemon 2>&1 | tee build.log
+
+      - name: Pubblica l'APK
+        id: release
+        if: steps.build.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk note-auto-prova.apk
+          gh release delete android-prova -y --cleanup-tag || true
+          gh release create android-prova note-auto-prova.apk \
+            --title "Note Auto – app Android" \
+            --notes "Compilata da ${{ github.sha }}" \
+            --prerelease --target ${{ github.sha }}
+
+      # Claude non può leggere le API di Actions: l'esito va in un ramo git che può scaricare.
+      - name: Scrivi l'esito nel ramo build-status
+        if: always()
+        run: |
+          mkdir -p /tmp/st && cp build.log /tmp/st/ 2>/dev/null || echo "nessun log" > /tmp/st/build.log
+          cd /tmp/st
+          echo "build=${{ steps.build.outcome }} release=${{ steps.release.outcome }} commit=${{ github.sha }} data=$(date -u +%FT%TZ)" > status.txt
+          git init -q && git checkout -q -b build-status
+          git -c user.name=ci -c user.email=ci@localhost add -A
+          git -c user.name=ci -c user.email=ci@localhost commit -qm "esito ${{ github.sha }}"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" build-status
+
+      - name: Esito finale
+        if: steps.build.outcome != 'success'
+        run: exit 1
