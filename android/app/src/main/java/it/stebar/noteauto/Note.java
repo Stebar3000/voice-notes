@@ -115,7 +115,7 @@ final class Note {
     }
 
     /** Segna come "old" le registrazioni che esistono già, la prima volta con l'app completa. */
-    static void migrateOnce(Context c, Prefs p) {
+    static synchronized void migrateOnce(Context c, Prefs p) {
         if (p.getBool("migrated1", false)) return;
         File[] files = dir(c).listFiles((d, n) -> n.startsWith("rec-") && n.endsWith(".m4a"));
         if (files != null) {

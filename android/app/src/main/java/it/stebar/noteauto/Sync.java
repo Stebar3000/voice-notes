@@ -1,6 +1,9 @@
 package it.stebar.noteauto;
 
 import android.content.Context;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
 import android.os.PowerManager;
 
 import java.nio.charset.StandardCharsets;
@@ -83,6 +86,7 @@ final class Sync {
             }
             return;
         }
+        if (!manual && !hasInternet(ctx)) return; // in viaggio senza rete è normale: nessun avviso, riprova quando la rete torna
         int toTranscribe = 0;
         for (Note n : work) if (Note.NEW.equals(n.state)) toTranscribe++;
 
@@ -242,6 +246,14 @@ final class Sync {
     }
 
     private static void fail(String msg, boolean sound, boolean retry) {
+        if (retry && !sound) { // problema passeggero in un giro automatico: niente allarmi, si riprova da soli
+            phase = IDLE;
+            message = "";
+            RecService.log("Riprovo più tardi: " + msg);
+            RecService.status("Pronto");
+            RecService.scheduleRetry();
+            return;
+        }
         phase = ERROR;
         message = msg;
         RecService.status("Errore: " + msg);
@@ -253,6 +265,18 @@ final class Sync {
             lastErrMsg = msg;
         }
         if (retry) RecService.scheduleRetry();
+    }
+
+    private static boolean hasInternet(Context ctx) {
+        try {
+            ConnectivityManager cm = ctx.getSystemService(ConnectivityManager.class);
+            Network n = cm.getActiveNetwork();
+            NetworkCapabilities c = n == null ? null : cm.getNetworkCapabilities(n);
+            return c != null && c.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                    && c.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED);
+        } catch (RuntimeException e) {
+            return true; // nel dubbio si prova
+        }
     }
 
     private static boolean recording() {
