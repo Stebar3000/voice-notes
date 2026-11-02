@@ -148,7 +148,7 @@ Indice delle note di lavoro (deciso 02/11/2026):
   indipendente dalla dimensione: `download_link` (URL temporaneo, monouso, max 15 min, fino a 25 per chiamata)
   → `curl` sul disco della chat → `project_write` con `local_path`. Il contenuto non entra mai nel contesto.
   Verifica senza rilettura: dimensione su disco (`wc -c`) e aumento della dimensione del contesto, come da manuale.
-  Richiede che `*.dropboxusercontent.com` resti consentito.
+  `*.dropboxusercontent.com` è consentito in modo permanente nelle impostazioni dell'account (fatto dall'utente il 02/11/2026).
 - La **chat business NON legge mai l'indice da Dropbox**: per trovare una nota fa una **ricerca semantica nella
   knowledge**. Principio: la chat business va protetta e tenuta in vita il più a lungo possibile; la sua area di
   lavoro è il progetto, mai Dropbox.
