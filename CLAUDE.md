@@ -206,3 +206,10 @@ Indice delle note di lavoro (deciso 02/11/2026):
   ma l'interfaccia non si apre e le registrazioni risultano **vuote** (probabile silenziamento del microfono da parte
   di Android quando l'app non è visibile). Un "stop failed" su una registrazione di 0 s (innocuo: scartare < 1 s).
   **Schermo spento con app NON chiusa: FUNZIONA** (02/11 23:34): tasto volume, bip, voce registrata e riascoltata.
+- **Offline (rete disattivata): registrazione OK** (02/11 23:39). Bip ben udibili (anche troppo: volume ridotto).
+  Qualità voce ottima. L'utente considera il registratore Android **riuscito**: niente altri giri di prova sul solo
+  registratore. Chiudere l'app per errore è di fatto impossibile; se succede la si riapre dalla Home.
+- Correzioni minori da includere nell'app completa (senza un giro di prove a parte): scartare registrazioni < 1 s;
+  rilevare il microfono silenziato da Android (errore sonoro, niente nota vuota); eventuale riapertura automatica.
+- Prossimo passo: app Android completa (trascrizione Groq, pulizia, consegna su Dropbox `inbox/` a fine sessione,
+  segnale di "tutto consegnato").
