@@ -153,3 +153,20 @@ Indice delle note di lavoro (deciso 02/11/2026):
   knowledge**. Principio: la chat business va protetta e tenuta in vita il più a lungo possibile; la sua area di
   lavoro è il progetto, mai Dropbox.
 - Con la copia da disco il costo non dipende dalla dimensione: niente patch, copia integrale a ogni cambiamento.
+
+## Aggiornamento 02/11/2026 sera (prevale sulle sezioni precedenti in caso di contrasto)
+- Progetto Claude da usare: quello ex "Evernote", rinominato **"Audio Notes"**. Ha già chat tecniche, attività
+  orarie di copia e file di servizio (`claude/tecnico-avvio.md`, `claude/sync-dropbox.md`, `claude/sync-stato.md`).
+  Istruzioni di progetto: parte tecnica valida; **parte business da riscrivere una sola volta, più avanti**.
+- Sincronizzazione Dropbox → progetto (`claude/sync-dropbox.md`): niente timestamp nei nomi dei file; si confrontano
+  `rev` e `content_hash` di Dropbox; il contenuto non passa mai nel contesto; verifica con dimensione e impronta.
+  Le chat lavorano sempre una alla volta, mai due insieme.
+- **Nuovo flusso di ingresso**: la chat tecnica oraria prende i file della sessione di dettatura da
+  `/Applicazioni/VoceAgente/inbox/`, li copia nella knowledge e li sposta su Dropbox in `acquisite/`.
+  La chat business lavora solo sulla knowledge: se trova note nuove le elabora, altrimenti non fa nulla.
+  (Superato: "la chat business legge l'inbox su Dropbox".)
+- **Una chat può risvegliarsi da sola con `send_later`** (verificato 02/11/2026): equivale a un messaggio scritto a mano.
+  La chat business resta così la stessa finché non si esaurisce. Una chat non può avviarne un'altra esistente.
+- Orari possibili (da definire): tecnica oraria in fasce definite, business poco dopo, sfalsate (mai insieme).
+- Da definire: procedura tecnica per una cartella di file variabili (l'inbox), diversa dall'elenco fisso di
+  `sync-stato.md`; come la chat business riconosce le note già elaborate (es. confronto con il registro).
