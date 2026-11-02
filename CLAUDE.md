@@ -200,3 +200,9 @@ Indice delle note di lavoro (deciso 02/11/2026):
   Esito e log nel ramo `build-status` (`git fetch origin build-status; git show FETCH_HEAD:status.txt`).
 - v0.1-prova compilata al primo colpo (02/11/2026, 43 s). Verifica da fare sul Motorola: installazione,
   tasto volume con app aperta, tasto volume a schermo spento (sessione multimediale), registrazione a schermo spento.
+- Prova 02/11/2026 sera sul Motorola (v0.1-prova): installata (difficoltà: va toccato il nome del file nei
+  download di Chrome e abilitate le installazioni da fonte esterna). Tasto volume con app aperta: OK.
+  Con l'app chiusa dalle app recenti: il tasto volume arriva al servizio tramite la sessione multimediale (bip OK)
+  ma l'interfaccia non si apre e le registrazioni risultano **vuote** (probabile silenziamento del microfono da parte
+  di Android quando l'app non è visibile). Un "stop failed" su una registrazione di 0 s (innocuo: scartare < 1 s).
+  Prova a schermo spento con app NON chiusa: ancora da fare.
