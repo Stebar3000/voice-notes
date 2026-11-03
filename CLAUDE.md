@@ -258,7 +258,11 @@ Indice delle note di lavoro (deciso 02/11/2026):
 - Proposta 2 (scrittura sicura) SCARTATA 03/11: valore nullo. Nuove note: lo script fa già tutto. Modifiche: cancella+ricrea è già sicuro
   perché lo script ignora le cancellazioni in /Notes (Joplin non perde la nota) e la notte rigenera le note mancanti.
 - L'utente gestisce lo script altrove; con Claude si definiscono solo le specifiche, UNA funzione alla volta.
-  In discussione: 1) sentinella (email solo in caso di anomalie). Poi eventualmente: indice arricchito in modo meccanico.
+  Sentinella a controlli multipli SCARTATA (troppo complessa, rischio di mail a raffica). Regola dell'utente: o è semplice o non si fa.
+  Analisi dei rischi (03/11): perdite vere solo se (a) la chat tecnica sposta in `acquisite/` senza aver copiato, (b) la business
+  segna una sessione come fatta saltando qualcosa, (c) l'app viene uccisa durante una registrazione. Il resto sono ritardi.
+  Proposta in discussione: un solo controllo di fine catena: la chat tecnica sposta in `elaborate/` le sessioni di `acquisite/`
+  che hanno il registro; lo script una volta al giorno manda UNA mail se in `inbox/` o `acquisite/` c'è un file più vecchio di 12 ore.
 - L'indice `_Indice.md` è sospeso in attesa di decidere il modo migliore.
 - Rischio trovato: `nightlyConsolidation` cancella ogni file in /Notes che non conosce (salvo stato, _Tags, !VOCE-INBOX, tree.txt):
   verificare che `_Indice.md` sia escluso se aggiunto dopo il 01/11; i file delle nuove funzioni vanno fuori da /Notes.
