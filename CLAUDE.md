@@ -266,3 +266,14 @@ Indice delle note di lavoro (deciso 02/11/2026):
 - L'indice `_Indice.md` è sospeso in attesa di decidere il modo migliore.
 - Rischio trovato: `nightlyConsolidation` cancella ogni file in /Notes che non conosce (salvo stato, _Tags, !VOCE-INBOX, tree.txt):
   verificare che `_Indice.md` sia escluso se aggiunto dopo il 01/11; i file delle nuove funzioni vanno fuori da /Notes.
+
+## Registro e stati delle sessioni (03/11/2026 sera)
+- Precisazione dell'utente sul principio Dropbox: vietato usare Dropbox come AREA DI LAVORO (ricerche, sfogliare, indice consultato lì);
+  letture e scritture secche, una tantum, sono ammesse anche alla chat business.
+- Il registro solo nella knowledge è un limite: nessun agente esterno (script o altro) può leggere la knowledge. Le informazioni
+  di workflow devono stare anche su Dropbox.
+- Registro "nota per nota": ogni riga inizia con `Nota k · tipo · titolo · azione · dove`; ogni "## Nota k" della sessione deve comparire.
+- Schema proposto (DA CONFERMARE): la business scrive il registro in due posti (knowledge `business/registro/` e Dropbox
+  `/Applicazioni/VoceAgente/registro/AAAA-MM-GG-HHMM.md`); lo script sposta da `acquisite/` a `elaborate/` le sessioni che hanno il registro
+  e una volta al giorno manda UNA mail se ci sono file in `inbox/`/`acquisite/` da oltre 12 ore o registri incompleti.
+  Dopo la conferma: aggiornare protocollo-business (punto 6) e prompt della chat tecnica.
