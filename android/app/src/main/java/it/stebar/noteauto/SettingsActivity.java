@@ -252,8 +252,8 @@ public class SettingsActivity extends Activity {
         new Thread(() -> {
             try {
                 String when = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.ITALY).format(new Date());
-                Dropbox.upload(prefs, "/prova-connessione.txt", Http.utf8("Prova di Note Auto del " + when + "\n"), true);
-                say("Dropbox: scritto " + prefs.dbxBase() + "/prova-connessione.txt ✓");
+                String resp = Dropbox.upload(prefs, "/prova-connessione.txt", Http.utf8("Prova di Note Auto del " + when + "\n"), true);
+                say("Dropbox ha risposto ✓\n" + resp);
             } catch (Http.ApiError e) {
                 say("Dropbox: " + e.getMessage());
             }

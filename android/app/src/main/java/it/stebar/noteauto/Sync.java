@@ -153,7 +153,8 @@ final class Sync {
                 RecService.status(message);
                 String name = new SimpleDateFormat("yyyy-MM-dd-HHmm", Locale.ITALY).format(group.get(0).startMs);
                 try {
-                    Dropbox.upload(p, "/inbox/" + name + ".md", format(group).getBytes(StandardCharsets.UTF_8), false);
+                    String resp = Dropbox.upload(p, "/inbox/" + name + ".md", format(group).getBytes(StandardCharsets.UTF_8), false);
+                    RecService.log("Dropbox ha risposto: " + resp);
                 } catch (Http.ApiError e) {
                     if (e.status == 0) throw new Abort("Nessuna rete verso Dropbox", manual, true);
                     throw new Abort("Dropbox: " + cut(e.getMessage()), true, e.retryable());

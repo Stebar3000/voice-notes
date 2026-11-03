@@ -72,17 +72,17 @@ final class Dropbox {
     }
 
     /** Scrive un file di testo. path è relativo alla cartella di base delle impostazioni, es. "/inbox/2026-11-03-0815.md". */
-    static void upload(Prefs p, String relPath, byte[] data, boolean overwrite) throws Http.ApiError {
+    static String upload(Prefs p, String relPath, byte[] data, boolean overwrite) throws Http.ApiError {
         String full = p.dbxBase() + relPath;
         try {
-            send(p, full, data, overwrite, false);
+            return send(p, full, data, overwrite, false);
         } catch (Http.ApiError e) {
-            if (e.status == 401) send(p, full, data, overwrite, true); // token scaduto: rinnova e riprova una volta
+            if (e.status == 401) return send(p, full, data, overwrite, true); // token scaduto: rinnova e riprova una volta
             else throw e;
         }
     }
 
-    private static void send(Prefs p, String fullPath, byte[] data, boolean overwrite, boolean forceRefresh) throws Http.ApiError {
+    private static String send(Prefs p, String fullPath, byte[] data, boolean overwrite, boolean forceRefresh) throws Http.ApiError {
         try {
             JSONObject arg = new JSONObject();
             arg.put("path", fullPath);
@@ -93,7 +93,7 @@ final class Dropbox {
             h.put("Authorization", "Bearer " + token(p, forceRefresh));
             h.put("Dropbox-API-Arg", asciiJson(arg.toString()));
             h.put("Content-Type", "application/octet-stream");
-            Http.call("POST", "https://content.dropboxapi.com/2/files/upload", h, data, 60000);
+            return Http.call("POST", "https://content.dropboxapi.com/2/files/upload", h, data, 60000);
         } catch (Http.ApiError e) {
             throw e;
         } catch (Exception e) {
