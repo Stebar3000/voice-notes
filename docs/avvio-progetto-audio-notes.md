@@ -47,9 +47,11 @@ Rispondi in italiano, una riga per file. Se non c'è nulla da fare, rispondi sol
 |---|---|
 | Indice delle note di lavoro (lo crea lo script) | `/Notes/_Indice.md` |
 | Sessioni di dettatura in arrivo (le scrive l'app) | `/Applicazioni/VoceAgente/inbox/AAAA-MM-GG-HHMM.md` |
-| Sessioni già copiate nel progetto (archivio) | `/Applicazioni/VoceAgente/acquisite/` |
+| Sessioni già copiate nel progetto, in attesa di elaborazione | `/Applicazioni/VoceAgente/acquisite/` |
+| Registro su Dropbox (lo scrive la chat business) | `/Applicazioni/VoceAgente/registro/AAAA-MM-GG-HHMM.md` |
+| Sessioni elaborate, archivio definitivo (le sposta lo script) | `/Applicazioni/VoceAgente/elaborate/` |
 | Protocollo business | `business/protocollo.md` |
 | Regole aggiunte | `business/regole/AAAA-MM-GG-argomento.md` |
 | Copia dell'indice | `business/indice-note.md` |
 | Sessioni da elaborare | `business/note/AAAA-MM-GG-HHMM.md` |
-| Registro | `business/registro/AAAA-MM-GG-HHMM.md` |
+| Registro nel progetto (stesso testo di quello su Dropbox) | `business/registro/AAAA-MM-GG-HHMM.md` |

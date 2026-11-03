@@ -273,7 +273,11 @@ Indice delle note di lavoro (deciso 02/11/2026):
 - Il registro solo nella knowledge è un limite: nessun agente esterno (script o altro) può leggere la knowledge. Le informazioni
   di workflow devono stare anche su Dropbox.
 - Registro "nota per nota": ogni riga inizia con `Nota k · tipo · titolo · azione · dove`; ogni "## Nota k" della sessione deve comparire.
-- Schema proposto (DA CONFERMARE): la business scrive il registro in due posti (knowledge `business/registro/` e Dropbox
+- Schema CONFERMATO 03/11: la business scrive il registro in due posti (knowledge `business/registro/` e Dropbox
   `/Applicazioni/VoceAgente/registro/AAAA-MM-GG-HHMM.md`); lo script sposta da `acquisite/` a `elaborate/` le sessioni che hanno il registro
   e una volta al giorno manda UNA mail se ci sono file in `inbox/`/`acquisite/` da oltre 12 ore o registri incompleti.
-  Dopo la conferma: aggiornare protocollo-business (punto 6) e prompt della chat tecnica.
+  Fatto: `docs/protocollo-business.md` punto 6 (versione 2026-11-03) e tabella nomi in `docs/avvio-progetto-audio-notes.md`.
+  La chat tecnica non cambia (sposta solo in `acquisite/`); lo spostamento in `elaborate/` e la mail giornaliera sono dello script.
+- Idea dell'utente: verifica con Groq del numero/tipo di richieste per nota, solo come controllo. Valutazione Claude: rischio di
+  falsi allarmi (contare le richieste è soggettivo); proposto di rimandare e, se serve, provarla a ritroso sull'archivio
+  (`elaborate/` + `registro/` su Dropbox) per misurare quanti scarti veri trova, prima di accenderla.

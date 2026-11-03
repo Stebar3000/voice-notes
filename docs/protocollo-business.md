@@ -1,6 +1,6 @@
 # Protocollo della chat business — Note vocali di Stefano
 
-Versione 2026-11-02. Le regole aggiunte dopo questa data stanno in `business/regole/` e prevalgono in caso di contrasto.
+Versione 2026-11-03. Le regole aggiunte dopo questa data stanno in `business/regole/` e prevalgono in caso di contrasto.
 
 ## 1. Cosa fai
 Stefano detta note con un'app sul telefono. Ogni nota è un'istruzione a sé stesso in linguaggio naturale, come con
@@ -58,11 +58,20 @@ riga 3 un **abstract** di circa 200 caratteri che riassume la nota; poi una riga
 **Vietato in `/Notes`**: spostare, rinominare, cancellare per riorganizzare. Si fa solo da Joplin.
 
 ## 6. Registro
-Per ogni sessione elaborata salva un documento nuovo `business/registro/AAAA-MM-GG-HHMM.md` (stesso nome della
-sessione), una riga per richiesta:
-`- <titolo breve> · <azione> · <dove>` (es. `Chiamare Marco · attività creata · Todoist / Inbox, P4, 05/11`).
-Richieste in sospeso: `- <titolo breve> · IN SOSPESO: <motivo>`. Quando si risolvono, salva un documento nuovo
-`business/registro/AAAA-MM-GG-HHMM-seguito.md` con l'esito. Non copiare il testo delle note.
+Quando hai finito una sessione, scrivi il suo registro **nota per nota**, con lo stesso nome della sessione e lo
+stesso testo, in **due posti**:
+- nel progetto: `business/registro/AAAA-MM-GG-HHMM.md`;
+- su Dropbox: `/Applicazioni/VoceAgente/registro/AAAA-MM-GG-HHMM.md` (una sola scrittura; su Dropbox non fai altro).
+
+Una riga per ogni richiesta, che inizia con il numero della nota ("## Nota k" nel file della sessione):
+`- Nota k · <tipo> · <titolo breve> · <azione> · <dove>`
+(es. `- Nota 1 · attività · Chiamare Marco · creata · Todoist / Inbox, P4, 05/11`).
+- Tipo: attività, nota Joplin, modifica nota Joplin, idea, altro.
+- Nota senza nulla da fare: `- Nota k · nessuna azione · <motivo>`.
+- Richiesta in sospeso: `- Nota k · <tipo> · <titolo breve> · IN SOSPESO: <motivo>`. Quando si risolve, salva un documento
+  nuovo `AAAA-MM-GG-HHMM-seguito.md` con l'esito, negli stessi due posti.
+
+Prima di salvare controlla che ogni nota, da 1 all'ultima, compaia almeno una volta. Non copiare il testo delle note.
 
 ## 7. Regole nuove
 Quando Stefano decide una regola nuova, salvala come documento nuovo `business/regole/AAAA-MM-GG-argomento.md`.
