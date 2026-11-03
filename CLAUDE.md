@@ -255,8 +255,10 @@ Indice delle note di lavoro (deciso 02/11/2026):
 - **Principio dell'utente (vincolante)**: nessun lavoro di qualità a un modello più debole (Groq): riassunti/abstract,
   rielaborazione o strutturazione delle note e interpretazione delle note le fa solo Claude, con modello capace e impegno alto.
   Allo script solo lavoro meccanico. Scartate quindi: abstract con Groq, corsia veloce con Groq.
-- Proposte rimaste (accettate, sequenza da confermare): 1) sentinella: email solo in caso di anomalie; 2) scrittura sicura delle note:
-  Claude scrive il testo completo (con abstract) in un "ordine" in `/Applicazioni/VoceAgente/ordini/`, lo script sovrascrive la nota
-  nello stesso percorso con copia di sicurezza (niente cancella+ricrea); 3) indice arricchito in modo meccanico (tag, taccuino, data).
+- Proposta 2 (scrittura sicura) SCARTATA 03/11: valore nullo. Nuove note: lo script fa già tutto. Modifiche: cancella+ricrea è già sicuro
+  perché lo script ignora le cancellazioni in /Notes (Joplin non perde la nota) e la notte rigenera le note mancanti.
+- L'utente gestisce lo script altrove; con Claude si definiscono solo le specifiche, UNA funzione alla volta.
+  In discussione: 1) sentinella (email solo in caso di anomalie). Poi eventualmente: indice arricchito in modo meccanico.
+- L'indice `_Indice.md` è sospeso in attesa di decidere il modo migliore.
 - Rischio trovato: `nightlyConsolidation` cancella ogni file in /Notes che non conosce (salvo stato, _Tags, !VOCE-INBOX, tree.txt):
   verificare che `_Indice.md` sia escluso se aggiunto dopo il 01/11; i file delle nuove funzioni vanno fuori da /Notes.
