@@ -246,3 +246,15 @@ Indice delle note di lavoro (deciso 02/11/2026):
   quasi vuota e la pulizia non è riuscita su quella sola parola: aggiunti "sigla", "iscriviti al canale", "alla prossima", "a presto" al filtro (v1.0.2,
   NON ancora installata: aggiornare solo quando servono altre modifiche). L'elenco note ora mostra l'errore di pulizia (⚠).
 - Ancora da provare: giro offline poi hotspot; pausa di sessione (10 min) con più note; suoni in auto.
+
+## Script Google Apps (Joplin.js) — proposte di nuove funzioni (03/11/2026, IN ATTESA di decisione dell'utente)
+- L'utente ha chiesto una riflessione su funzioni da aggiungere allo script (gratuito, ogni 5 min di giorno). Il divieto
+  "non occuparsi dello script" è superato per questa analisi su sua richiesta. Copia letta: `/Google Apps/OCR/Joplin.js` (Dropbox, 01/11).
+- Limiti Apps Script (account gmail): 6 min per esecuzione, 90 min/giorno di trigger, 20.000 chiamate URL/giorno, 100 email/giorno.
+  Stima uso attuale ~10 min/giorno: margine ampio.
+- Proposte (ordine di valore): 1) abstract automatici con Groq nell'indice, senza toccare le note (evita il riordino manuale);
+  2) modifiche alle note Joplin eseguite dallo script su "ordini" brevi scritti dalla business in `/Applicazioni/VoceAgente/ordini/`
+  (Claude non legge più la nota intera, niente cancella+ricrea); 3) sentinella: email solo in caso di anomalie;
+  4) più avanti: corsia veloce per note semplici eseguite dallo script (prima in modalità "proposta").
+- Rischio trovato: `nightlyConsolidation` cancella ogni file in /Notes che non conosce (salvo stato, _Tags, !VOCE-INBOX, tree.txt):
+  verificare che `_Indice.md` sia escluso se aggiunto dopo il 01/11; i file delle nuove funzioni vanno fuori da /Notes.
