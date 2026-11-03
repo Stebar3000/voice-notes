@@ -27,7 +27,8 @@ final class Groq {
     /** Frasi che Whisper "inventa" su silenzio o rumore. */
     private static final Pattern HALLUCINATIONS = Pattern.compile(
             "^(grazie( a tutti| mille| per l'attenzione| per la visione)?|ciao( a tutti)?|buonasera"
-                    + "|sottotitoli( creati dalla comunità amara\\.org| a cura di .*)?|amara\\.org|\\.+)[.!?\\s]*$",
+                    + "|sottotitoli( creati dalla comunità amara\\.org| a cura di .*| e revisione a cura di .*)?|amara\\.org"
+                    + "|sigla|iscriviti al canale.*|alla prossima|a presto|\\.+)[.!?\\s]*$",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
 
     private static final String SYSTEM_PROMPT =

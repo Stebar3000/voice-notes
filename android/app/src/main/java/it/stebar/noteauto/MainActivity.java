@@ -179,6 +179,7 @@ public class MainActivity extends Activity {
             sb.append(fmt.format(n.startMs)).append(" · ").append(n.durSec / 60).append(':')
                     .append(String.format(Locale.ITALY, "%02d", n.durSec % 60)).append(" · ").append(label(n)).append('\n');
             String t = !n.title.isEmpty() ? n.title : n.text;
+            if (!n.error.isEmpty() && !Note.ERROR.equals(n.state)) sb.append("   ⚠ ").append(n.error.length() > 160 ? n.error.substring(0, 160) + "…" : n.error).append('\n');
             if (!t.isEmpty()) sb.append("   ").append(t.length() > 90 ? t.substring(0, 90) + "…" : t.replace('\n', ' ')).append('\n');
         }
         pending = p;

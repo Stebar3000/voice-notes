@@ -233,3 +233,16 @@ Indice delle note di lavoro (deciso 02/11/2026):
 - Da verificare sul Motorola: installazione sopra la prova, Impostazioni (chiave Groq, collegamento Dropbox, "Prova Dropbox"),
   giro completo con Wi-Fi, giro offline poi hotspot, il percorso reale `/Applicazioni/VoceAgente/inbox/` creato da Dropbox.
 - Non fatta la versione web con consegna su Dropbox né le "modifiche in attesa" della web app (aspettano il via dell'utente).
+
+## Prima prova completa Android (03/11/2026, v1.0.1 sul Motorola) — FUNZIONA
+- Configurazione fatta (chiave Groq creata dal laptop, app Dropbox "Full Dropbox" con `files.content.write`, autorizzazione con indirizzo
+  copiato sul laptop e codice incollato sul Motorola). Verificato da Claude su Dropbox: `/Applicazioni/VoceAgente/prova-connessione.txt`
+  e tre file in `inbox/` (2026-11-03-1430, -1440, -1447), formato e testi ripuliti corretti (titolo + testo, es. "Procedura sbrinamento frigorifero").
+- Problemi incontrati: (1) l'aggiornamento sopra la v0.1-prova NON ha funzionato (restava la vecchia): è stato necessario disinstallare
+  e reinstallare, perdendo le impostazioni (da rifare: chiave Groq + collegamento Dropbox). Evitare aggiornamenti non necessari e dire
+  all'utente che potrebbero richiedere la disinstallazione. (2) Dopo la reinstallazione va riattivato "Consenti l'utilizzo in background"
+  (Impostazioni > App > Note Auto > Batteria) per lo schermo spento. (3) Su Motorola accensione + volume giù (screenshot) avvia la registrazione:
+  per lo screenshot usare tre dita sullo schermo (lo ha dettato lui stesso in una nota). (4) Whisper ha inventato "SIGLA" su una registrazione
+  quasi vuota e la pulizia non è riuscita su quella sola parola: aggiunti "sigla", "iscriviti al canale", "alla prossima", "a presto" al filtro (v1.0.2,
+  NON ancora installata: aggiornare solo quando servono altre modifiche). L'elenco note ora mostra l'errore di pulizia (⚠).
+- Ancora da provare: giro offline poi hotspot; pausa di sessione (10 min) con più note; suoni in auto.
