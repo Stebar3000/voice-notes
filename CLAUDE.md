@@ -315,3 +315,10 @@ Indice delle note di lavoro (deciso 02/11/2026):
      avviso rosso). Il permesso `files.content.write` basta. Prova solo in simulazione: l'utente non vuole spostare file veri.
   Aggiornamento per l'utente: Claude sostituisce i .js in `/Projects/Audio Notes/backup-knowledge/`, lui preme "Ricarica"
   in chrome://extensions. Nient'altro.
+- Decisione 04/11 sera (utente): l'estensione diventerà il motore di TUTTE le operazioni meccaniche (Dropbox ↔ knowledge,
+  spostamenti, cancellazioni, scritture Joplin via "cassetta d'uscita" nella knowledge), a costo zero; le chat solo per il lavoro
+  di qualità. Niente protocollo JSON di comandi: i compiti si scrivono come moduli JavaScript (Claude li aggiunge, l'utente
+  ricarica). La progettazione si fa da fuori, non dentro il progetto Claude. Per ora solo Audio Notes.
+  Fatti dall'utente: la scrittura nella knowledge con Depot ("aggiungi da altro progetto") funziona; nell'interfaccia serve
+  ricaricare la pagina per vedere i file nuovi; la chat tecnica ha un comando "tree /f" per verificare la struttura.
+  Prossimo: prova di scrittura e cancellazione dall'estensione nel progetto Audio Notes (`_prova/scrittura/test.md`).
