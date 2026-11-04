@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "Backup knowledge",
+  "version": "0.1.0",
+  "description": "Backup automatico giornaliero della knowledge dei progetti claude.ai su Dropbox, con le cartelle vere.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1ZtP/8DFQdHWDmy2LQyKzhpahzxEO3lv/oXphZYd59M4bk4Od8WYC0mgywiOnMCqIntNBl4XMpK5d05pVsvgXLEnRmE8AIKSo/mA2K/nPyUYGmdTa4RlbQLsZdFg9Xaco4UkGqeyrC6uHOfxX1T2ClZWxJRb26bFzwNpY/IbzoJ3xR6lQi083mnJj6bAj/IxAYVEnHg+glGG7tkow82MR+kUWAyGog+2GOra3sdxG/GaCyKWY38UgZ96qwWeLk4x+0TOYdOYKhntkRi31hFcIgZ2LUH5h3QmH6Otv9mR/OypF1NG+qq4x34y+3eAnyQl++Tb7VKkHbNX2KbxOwvmgQIDAQAB",
+  "background": {
+    "service_worker": "worker.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Backup knowledge"
+  },
+  "options_page": "options.html",
+  "permissions": [
+    "alarms",
+    "storage",
+    "unlimitedStorage",
+    "scripting",
+    "notifications"
+  ],
+  "host_permissions": [
+    "https://claude.ai/*",
+    "https://api.dropboxapi.com/*",
+    "https://content.dropboxapi.com/*"
+  ]
+}

@@ -300,3 +300,11 @@ Indice delle note di lavoro (deciso 02/11/2026):
   scritture: POST `…/docs`, DELETE `…/docs/{id}`, PUT `…/projects/{pid}`. Verificato sul backup reale dell'utente (tutti i progetti, 22 s):
   `/docs` include i documenti nelle cartelle (il percorso sta nel nome), testo esatto; Depot sostituisce "/" con "_" (struttura persa).
   File caricati: solo anteprima webp, non l'originale. Fattibile un'estensione nostra: backup automatico su Dropbox con cartelle vere.
+- **Estensione `backup-knowledge/` v0.1.0 scritta e provata (04/11/2026)**, DA INSTALLARE sul PC dell'utente. Solo file di testo
+  (icona disegnata nel codice). ID fisso `jadbhjncdakibmflmidckmiiagkopipo` (chiave pubblica nel manifest). Timer orario + controllo
+  all'avvio; backup se l'ultimo riuscito ha più di 24 h; scheda claude.ai esistente o aperta in secondo piano; Dropbox con PKCE a
+  codice incollato (stessa App key dell'app Android); scrive solo, mai cancella; cache delle impronte (riscrive solo i cambiati,
+  tutto una volta a settimana); allarme se i documenti risultano 0 dopo essere stati >0. Prove: test Node + Chromium con claude.ai e
+  Dropbox simulati (backup, invariati, lista vuota, sessione scaduta, scatto del timer, riuso della scheda): tutto OK.
+  Copia installabile su Dropbox: `/Projects/Audio Notes/backup-knowledge/` (da caricare in Chrome come "non pacchettizzata").
+  Non provato dal vivo: claude.ai reale e autorizzazione Dropbox reale.

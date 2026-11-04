@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>Backup knowledge</title>
+<style>
+  :root { --bg:#f8fafc; --card:#fff; --fg:#0f172a; --mut:#64748b; --line:#e2e8f0; --acc:#2563eb; --ok:#15803d; --bad:#b91c1c; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0f172a; --card:#111827; --fg:#e5e7eb; --mut:#94a3b8; --line:#1f2937; --acc:#60a5fa; --ok:#4ade80; --bad:#f87171; } }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.45 system-ui, sans-serif; }
+  main { max-width:760px; margin:0 auto; padding:24px 16px 60px; }
+  h1 { font-size:22px; margin:0 0 4px; } h2 { font-size:16px; margin:0 0 10px; }
+  .sub { color:var(--mut); margin:0 0 20px; }
+  section { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:16px; }
+  label { display:block; font-size:13px; color:var(--mut); margin:8px 0 4px; }
+  input[type=text] { width:100%; box-sizing:border-box; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--fg); font:inherit; }
+  button { padding:8px 14px; border-radius:8px; border:1px solid var(--line); background:var(--bg); color:var(--fg); font:inherit; cursor:pointer; margin:8px 8px 0 0; }
+  button.main { background:var(--acc); color:#fff; border-color:var(--acc); }
+  button:disabled { opacity:.5; cursor:default; }
+  .row { display:flex; align-items:center; gap:10px; padding:6px 0; border-top:1px solid var(--line); }
+  .row:first-child { border-top:none; }
+  .row small { color:var(--mut); margin-left:auto; }
+  .msg { margin-top:10px; white-space:pre-wrap; font-size:14px; }
+  .ok { color:var(--ok); } .bad { color:var(--bad); }
+  pre { white-space:pre-wrap; font-size:13px; background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:10px; margin:10px 0 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Backup knowledge</h1>
+  <p class="sub">Copia ogni giorno, da sola, istruzioni e documenti dei progetti scelti in Dropbox, in <b>/Projects/&lt;nome progetto&gt;/knowledge/</b>. Non cancella mai nulla su Dropbox.</p>
+
+  <section>
+    <h2>Stato</h2>
+    <div id="status">…</div>
+    <button class="main" id="run">Backup ora</button>
+    <pre id="report" hidden></pre>
+  </section>
+
+  <section>
+    <h2>1. Collegamento a Dropbox</h2>
+    <div id="dbxState" class="msg"></div>
+    <label for="appKey">App key dell'app Dropbox (la stessa dell'app Android)</label>
+    <input type="text" id="appKey" autocomplete="off">
+    <button id="auth">Autorizza</button>
+    <label for="code">Codice mostrato da Dropbox dopo "Consenti"</label>
+    <input type="text" id="code" autocomplete="off">
+    <button id="link">Collega</button>
+    <div id="dbxMsg" class="msg"></div>
+  </section>
+
+  <section>
+    <h2>2. Progetti da salvare</h2>
+    <p class="sub" style="margin:0 0 8px">Serve essere entrati in claude.ai in questo Chrome. Il cambio si salva subito.</p>
+    <button id="load">Carica l'elenco dei progetti</button>
+    <div id="projects" class="msg"></div>
+  </section>
+</main>
+<script type="module" src="options.js"></script>
+</body>
+</html>
