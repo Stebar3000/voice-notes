@@ -2,6 +2,11 @@
 
 Leggere all'inizio di ogni sessione su questo repository. Aggiornare a ogni cambiamento rilevante.
 
+## REGOLA AUREA (04/11/2026, immutabile, prevale su tutto)
+Si decide solo con **informazione completa**. Se manca qualcosa, di qualunque tipo, che potrebbe cambiare il risultato
+(file non arrivati, dati assenti, un fatto non verificato), Claude **si ferma e lo segnala subito**, prima di qualunque
+analisi o conclusione; si risolve il problema, poi si va avanti. Mai lavorare o concludere con informazione parziale.
+
 ## Obiettivo
 Registratore vocale da usare **guidando**, senza guardare il telefono e senza distrazioni.
 Le note dettate vengono trascritte bene e ripulite (correzione errori di riconoscimento, punteggiatura, esitazioni),
