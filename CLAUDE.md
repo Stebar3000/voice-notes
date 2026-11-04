@@ -308,3 +308,10 @@ Indice delle note di lavoro (deciso 02/11/2026):
   Dropbox simulati (backup, invariati, lista vuota, sessione scaduta, scatto del timer, riuso della scheda): tutto OK.
   Copia installabile su Dropbox: `/Projects/Audio Notes/backup-knowledge/` (da caricare in Chrome come "non pacchettizzata").
   Non provato dal vivo: claude.ai reale e autorizzazione Dropbox reale.
+- 04/11 sera: prima prova reale dell'estensione RIUSCITA (3 progetti, struttura corretta in `/Projects/<nome>/knowledge/`).
+  **Modifiche in attesa per l'estensione (accorpare, applicare solo al via dell'utente):**
+  1. Copia allineata: cancellare da Dropbox i file scritti dall'estensione che nel progetto non ci sono più (spostati o
+     cancellati); mai se la lettura ha errori, se i documenti sono 0, o se si cancellerebbe più di metà dei file (allora
+     avviso rosso). Il permesso `files.content.write` basta. Prova solo in simulazione: l'utente non vuole spostare file veri.
+  Aggiornamento per l'utente: Claude sostituisce i .js in `/Projects/Audio Notes/backup-knowledge/`, lui preme "Ricarica"
+  in chrome://extensions. Nient'altro.
