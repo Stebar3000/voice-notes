@@ -324,3 +324,5 @@ Indice delle note di lavoro (deciso 02/11/2026):
   Prossimo: prova di scrittura e cancellazione dall'estensione nel progetto Audio Notes (`_prova/scrittura/test.md`).
   v0.2.0 contiene anche i pulsanti "Prova scrittura"/"Prova cancellazione" (solo `_prova/scrittura/test.md` in Audio Notes,
   con verifica per rilettura) e "Consenti la prossima pulizia grande" (sblocco una tantum). Prove simulate tutte OK.
+- 04/11 23:06 PROVA REALE v0.2.0 RIUSCITA: l'estensione ha creato `_prova/scrittura/test.md` nel progetto Audio Notes (testo letto
+  identico dall'utente) e l'ha cancellato. Scrittura e cancellazione nella knowledge dall'estensione: FUNZIONANO.
