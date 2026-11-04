@@ -281,3 +281,12 @@ Indice delle note di lavoro (deciso 02/11/2026):
 - Idea dell'utente: verifica con Groq del numero/tipo di richieste per nota, solo come controllo. Valutazione Claude: rischio di
   falsi allarmi (contare le richieste è soggettivo); proposto di rimandare e, se serve, provarla a ritroso sull'archivio
   (`elaborate/` + `registro/` su Dropbox) per misurare quanti scarti veri trova, prima di accenderla.
+
+## Ordine delle cartelle e backup della knowledge (04/11/2026)
+- Regola dell'utente: niente cartelle nuove nella radice di Dropbox; un'unica radice di progetti, **`/Projects/`**,
+  con sottocartelle chiamate per **obiettivo**, mai per strumento (niente "Claude", "Gemini", "Agente", "Lavoro").
+  Questo progetto: **`/Projects/Audio Notes/`** (stesso nome del progetto Claude). Dati che l'utente passa a Claude: lì dentro.
+- `/Applicazioni/VoceAgente/` resta per ora (per non toccare l'app Android); lo spostamento si farà più avanti.
+- Nuova linea di sviluppo in analisi: **estensione Chrome** per il backup automatico della knowledge dei progetti Claude
+  su Dropbox, byte per byte, senza chat e senza token. Modello di partenza: estensione "Depot: Context Manager for Claude
+  Projects" v1.5.0, sorgente in chiaro in `/Projects/Audio Notes/Depot/`.
