@@ -329,3 +329,8 @@ Indice delle note di lavoro (deciso 02/11/2026):
   Verificato anche: una chat GIÀ APERTA (chat tecnica, da iPhone) vede il documento creato dall'estensione, ma dopo qualche
   secondo (al primo tentativo immediato non lo trovava, al secondo sì). Conseguenza: la chat business può restare viva e trovare
   le note nuove; tra scrittura dell'estensione e lettura della chat serve un margine (i risvegli al minuto 20 lo danno).
+- Idea utente 04/11 23:35: ingresso note con cursore Dropbox (list_folder + longpoll, come lo script Joplin) invece del timer orario.
+  Valutazione Claude: fattibile; vincolo MV3 (il service worker viene chiuso se una risposta fetch tarda > 30 s, il longpoll dura 30-480 s):
+  longpoll vero solo con documento "offscreen"; alternativa KISS: stesso cursore controllato ogni minuto con chrome.alarms
+  (list_folder/continue, chiamata leggerissima). Serve comunque il permesso Dropbox di lettura (files.metadata.read + content.read).
+  La latenza finale la decide il risveglio della chat business, non la copia.
