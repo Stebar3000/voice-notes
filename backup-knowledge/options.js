@@ -11,7 +11,7 @@ function reportText(r) {
   const out = [`${stamp(r.at)} (${r.why}) — ${r.ok ? 'OK' : 'PROBLEMI'}`];
   if (r.error) out.push('Errore: ' + r.error);
   for (const p of r.projects) {
-    out.push(`• ${p.name}: ${p.docs} documenti · file scritti ${p.written}, invariati ${p.same}`);
+    out.push(`• ${p.name}: ${p.docs} documenti · file scritti ${p.written}, invariati ${p.same}, tolti ${p.deleted || 0}`);
     for (const e of p.errors) out.push('   ! ' + e);
   }
   return out.join('\n');
@@ -81,6 +81,20 @@ $('run').onclick = async () => {
     $('run').textContent = 'Backup ora';
     refresh();
   }
+};
+async function test(btn, type) {
+  btn.disabled = true;
+  $('testMsg').textContent = 'In corso…';
+  try {
+    const r = await send({ type });
+    $('testMsg').innerHTML = r.ok ? `<span class="ok">${esc(r.text)}</span>` : `<span class="bad">${esc(r.error)}</span>`;
+  } finally { btn.disabled = false; }
+}
+$('testWrite').onclick = () => test($('testWrite'), 'testWrite');
+$('testDelete').onclick = () => test($('testDelete'), 'testDelete');
+$('allowBig').onclick = async () => {
+  await send({ type: 'allowBig' });
+  $('allowMsg').textContent = 'Consentito una volta: vale per il prossimo backup, poi torna il blocco.';
 };
 function alertBox(t) { $('report').hidden = false; $('report').textContent = t; }
 

@@ -94,3 +94,28 @@ export async function upload(path, text) {
   }
   throw new Error('Dropbox non risponde su ' + path);
 }
+
+// Toglie un file (finisce nei "File eliminati" di Dropbox, recuperabile). Un file già assente non è un errore.
+export async function remove(path) {
+  for (let i = 0; i < 4; i++) {
+    let res;
+    try {
+      res = await fetch('https://api.dropboxapi.com/2/files/delete_v2', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + await token(i > 0), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path }),
+      });
+    } catch (e) {
+      if (e.code === 'DBX') throw e;
+      if (i === 3) throw new Error('rete verso Dropbox: ' + e.message);
+      await sleep(1500 * 2 ** i);
+      continue;
+    }
+    if (res.ok) return true;
+    const t = await res.text();
+    if (res.status === 409 && t.includes('not_found')) return true;
+    if ((res.status === 429 || res.status >= 500 || res.status === 401) && i < 3) { await sleep(1500 * 2 ** i); continue; }
+    throw new Error(`Dropbox ${res.status} cancellando ${path}: ${t.slice(0, 300)}`);
+  }
+  throw new Error('Dropbox non risponde cancellando ' + path);
+}

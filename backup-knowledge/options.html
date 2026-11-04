@@ -27,13 +27,15 @@
 <body>
 <main>
   <h1>Backup knowledge</h1>
-  <p class="sub">Copia ogni giorno, da sola, istruzioni e documenti dei progetti scelti in Dropbox, in <b>/Projects/&lt;nome progetto&gt;/knowledge/</b>. Non cancella mai nulla su Dropbox.</p>
+  <p class="sub">Copia ogni giorno, da sola, istruzioni e documenti dei progetti scelti in Dropbox, in <b>/Projects/&lt;nome progetto&gt;/knowledge/</b>. Tiene Dropbox allineato: toglie i file che nel progetto non ci sono più, con blocchi di sicurezza.</p>
 
   <section>
     <h2>Stato</h2>
     <div id="status">…</div>
     <button class="main" id="run">Backup ora</button>
     <pre id="report" hidden></pre>
+    <button id="allowBig">Consenti la prossima pulizia grande</button>
+    <div id="allowMsg" class="msg"></div>
   </section>
 
   <section>
@@ -53,6 +55,13 @@
     <p class="sub" style="margin:0 0 8px">Serve essere entrati in claude.ai in questo Chrome. Il cambio si salva subito.</p>
     <button id="load">Carica l'elenco dei progetti</button>
     <div id="projects" class="msg"></div>
+  </section>
+  <section>
+    <h2>Prove nella knowledge</h2>
+    <p class="sub" style="margin:0 0 8px">Agiscono solo sul documento <b>_prova/scrittura/test.md</b> del progetto Audio Notes.</p>
+    <button id="testWrite">Prova scrittura</button>
+    <button id="testDelete">Prova cancellazione</button>
+    <div id="testMsg" class="msg"></div>
   </section>
 </main>
 <script type="module" src="options.js"></script>

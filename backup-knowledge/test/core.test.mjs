@@ -36,3 +36,20 @@ test('quando parte', () => {
 test('intestazione ASCII', () => {
   assert.equal(asciiJson({ path: '/Projects/Così è' }), '{"path":"/Projects/Cos\\u00ec \\u00e8"}');
 });
+
+import { cleanupPlan } from '../core.js';
+test('copia allineata', () => {
+  const owned = ['/P/A/knowledge/a.md', '/P/A/knowledge/b.md', '/P/A/knowledge/c.md', '/P/A/istruzioni-progetto.md'];
+  assert.deepEqual(cleanupPlan(owned, owned, { docs: 3 }), { action: 'none', stale: [] });
+  // b spostato in x/, c cancellato: 2 su 4, non più di metà -> si tolgono
+  const cur = ['/P/A/knowledge/a.md', '/P/A/knowledge/x/b.md', '/P/A/istruzioni-progetto.md'];
+  assert.deepEqual(cleanupPlan(owned, cur, { docs: 2 }), { action: 'delete', stale: ['/P/A/knowledge/b.md', '/P/A/knowledge/c.md'] });
+  assert.equal(cleanupPlan(owned, cur, { docs: 2, hasErrors: true }).action, 'defer');
+  assert.equal(cleanupPlan(owned, [], { docs: 0 }).action, 'defer');
+  // tutto riorganizzato: 3 su 4 -> blocco, salvo consenso
+  const moved = ['/P/A/knowledge/n/a.md', '/P/A/knowledge/n/b.md', '/P/A/knowledge/n/c.md', '/P/A/istruzioni-progetto.md'];
+  assert.equal(cleanupPlan(owned, moved, { docs: 3 }).action, 'block');
+  assert.equal(cleanupPlan(owned, moved, { docs: 3, allowBig: true }).action, 'delete');
+  // solo maiuscole diverse: non è un file da togliere
+  assert.equal(cleanupPlan(['/P/A/knowledge/A.md'], ['/p/a/knowledge/a.md'], { docs: 1 }).action, 'none');
+});

@@ -1,6 +1,6 @@
 // Cuore dell'estensione: timer, scheda claude.ai, lettura dei progetti, scrittura su Dropbox, esito.
-import { planProject, isDue, stamp } from './core.js';
-import { pageListProjects, pageReadProject } from './claude.js';
+import { planProject, isDue, stamp, cleanupPlan } from './core.js';
+import { pageListProjects, pageReadProject, pageAddDoc, pageDeleteDoc } from './claude.js';
 import * as dbx from './dropbox.js';
 
 const BASE = '/Projects';
@@ -112,7 +112,7 @@ async function doBackup(why) {
   const now = Date.now();
   await store.set({ lastTryAt: now, runningSince: now });
   await setBadge('…', '#6b7280', 'Backup in corso');
-  const st = await store.get(['selected', 'hashes', 'fullAt', 'counts']);
+  const st = await store.get(['selected', 'hashes', 'fullAt', 'counts', 'allowBigCleanup']);
   const selected = st.selected || {};
   const hashes = st.hashes || {};
   const counts = st.counts || {};
@@ -124,7 +124,7 @@ async function doBackup(why) {
     if (!Object.keys(selected).length) throw new Error('nessun progetto scelto nelle impostazioni');
     tab = await claudeTab();
     for (const [pid, sel] of Object.entries(selected)) {
-      const pr = { name: sel.name, docs: 0, written: 0, same: 0, errors: [] };
+      const pr = { name: sel.name, docs: 0, written: 0, same: 0, deleted: 0, errors: [] };
       report.projects.push(pr);
       const data = await inPage(tab.tabId, pageReadProject, [sel.orgId, pid]);
       if (!data || !data.ok) {
@@ -138,17 +138,30 @@ async function doBackup(why) {
       const plan = planProject(BASE, { name: pr.name, instructions: data.instructions, docs: data.docs.filter((d) => d.content != null) });
       pr.docs = data.docs.length;
       if (pr.docs === 0 && (counts[pid] || 0) > 0) pr.errors.push(`claude.ai non ha restituito documenti (l'ultima volta erano ${counts[pid]}): nulla è stato toccato`);
+      // file scritti nei backup precedenti (prima di scrivere quelli di oggi): servono alla copia allineata
+      const prefix = plan.root.toLowerCase() + '/';
+      const owned = Object.keys(hashes).filter((p) => p.toLowerCase().startsWith(prefix));
       for (const f of plan.files) {
         const h = await sha(f.content);
         if (!full && hashes[f.path] === h) { pr.same++; continue; }
         try { await dbx.upload(f.path, f.content); hashes[f.path] = h; pr.written++; }
         catch (e) { if (e.code === 'DBX') throw e; pr.errors.push(String(e.message || e)); }
       }
+      // copia allineata: si tolgono da Dropbox i file scritti in passato che nel progetto non ci sono più
+      const cp = cleanupPlan(owned, plan.files.map((f) => f.path), { hasErrors: pr.errors.length > 0, docs: pr.docs, allowBig: !!st.allowBigCleanup });
+      if (cp.action === 'defer') pr.errors.push(`pulizia rinviata: ${cp.stale.length} file non più nel progetto restano su Dropbox finché la lettura non è senza errori`);
+      if (cp.action === 'block') pr.errors.push(`pulizia bloccata per sicurezza: andrebbero tolti ${cp.stale.length} file su ${owned.length}. Se è voluto, premi "Consenti la prossima pulizia grande"`);
+      if (cp.action === 'delete') {
+        for (const p of cp.stale) {
+          try { await dbx.remove(p); delete hashes[p]; pr.deleted++; }
+          catch (e) { if (e.code === 'DBX') throw e; pr.errors.push(String(e.message || e)); }
+        }
+      }
       if (pr.docs > 0) counts[pid] = pr.docs;
       const lines = [
         `Backup della knowledge del progetto "${pr.name}"`,
         `Data: ${stamp(now)}`,
-        `Documenti: ${pr.docs} · file scritti ora ${pr.written}, invariati ${pr.same} (istruzioni comprese)`,
+        `Documenti: ${pr.docs} · file scritti ora ${pr.written}, invariati ${pr.same} (istruzioni comprese), tolti ${pr.deleted}`,
         `Istruzioni di progetto: ${data.instructions ? 'salvate in istruzioni-progetto.md' : 'nessuna'}`,
       ];
       if (data.files.length) lines.push(`File caricati non copiati (claude.ai non fornisce gli originali): ${data.files.join(', ')}`);
@@ -164,7 +177,7 @@ async function doBackup(why) {
   } finally {
     if (tab && tab.created) { try { await chrome.tabs.remove(tab.tabId); } catch {} }
   }
-  const upd = { lastReport: report, runningSince: 0, hashes, counts };
+  const upd = { lastReport: report, runningSince: 0, hashes, counts, allowBigCleanup: false };
   if (report.ok) { upd.lastOkAt = now; if (full) upd.fullAt = now; }
   await store.set(upd);
   await showResult(report);
@@ -214,6 +227,9 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
           finally { if (tab.created) { try { await chrome.tabs.remove(tab.tabId); } catch {} } }
         }
         case 'runNow': return { ok: true, report: await runBackup('pulsante') };
+        case 'allowBig': await store.set({ allowBigCleanup: true }); return { ok: true };
+        case 'testWrite': return await testDoc('write');
+        case 'testDelete': return await testDoc('delete');
         default: return { ok: false, error: 'comando sconosciuto' };
       }
     } catch (e) {
@@ -222,3 +238,35 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
   })().then(reply);
   return true;
 });
+
+// ---------- prove di scrittura e cancellazione nella knowledge (solo progetto Audio Notes, solo il documento di prova) ----------
+const TEST_PROJECT = 'Audio Notes';
+const TEST_DOC = '_prova/scrittura/test.md';
+
+async function testDoc(kind) {
+  const { selected = {} } = await store.get('selected');
+  const hit = Object.entries(selected).find(([, v]) => v.name === TEST_PROJECT);
+  if (!hit) return { ok: false, error: `scegli prima "${TEST_PROJECT}" tra i progetti da salvare` };
+  const [pid, sel] = hit;
+  const tab = await claudeTab();
+  try {
+    if (kind === 'write') {
+      const content = `Prova di scrittura dell'estensione Backup knowledge.\nCreato il ${stamp(Date.now())}.\n`;
+      const r = await inPage(tab.tabId, pageAddDoc, [sel.orgId, pid, TEST_DOC, content]);
+      if (!r || !r.ok) return { ok: false, error: 'scrittura non riuscita: ' + (r ? r.error : 'nessuna risposta') };
+      const check = await inPage(tab.tabId, pageReadProject, [sel.orgId, pid]);
+      const found = check && check.ok && check.docs.find((d) => d.file_name === TEST_DOC);
+      if (!found) return { ok: false, error: 'scritto, ma rileggendo il progetto il documento non compare' };
+      if (found.content !== content) return { ok: false, error: 'scritto, ma il contenuto riletto è diverso' };
+      return { ok: true, text: `Creato "${TEST_DOC}" in ${TEST_PROJECT} e verificato rileggendolo (testo identico). Ricarica la pagina di claude.ai per vederlo.` };
+    }
+    const r = await inPage(tab.tabId, pageDeleteDoc, [sel.orgId, pid, TEST_DOC]);
+    if (!r || !r.ok) return { ok: false, error: 'cancellazione non riuscita: ' + (r ? r.error : 'nessuna risposta') };
+    const check = await inPage(tab.tabId, pageReadProject, [sel.orgId, pid]);
+    if (!check || !check.ok) return { ok: false, error: 'cancellato, ma la verifica non è riuscita' };
+    if (check.docs.some((d) => d.file_name === TEST_DOC)) return { ok: false, error: 'cancellato, ma il documento risulta ancora presente' };
+    return { ok: true, text: `Cancellato "${TEST_DOC}" (${r.deleted}) e verificato: non c'è più. Ricarica la pagina di claude.ai.` };
+  } finally {
+    if (tab.created) { try { await chrome.tabs.remove(tab.tabId); } catch {} }
+  }
+}

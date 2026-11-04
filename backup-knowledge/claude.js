@@ -73,3 +73,41 @@ export function pageReadProject(orgId, pid) {
     }
   })();
 }
+
+// Prova di scrittura: crea un documento (il percorso delle cartelle sta nel nome). Una sola richiesta, nessun nuovo
+// tentativo su errore di rete: la scrittura potrebbe essere già avvenuta e si creerebbe un doppione.
+export function pageAddDoc(orgId, pid, fileName, content) {
+  return (async () => {
+    try {
+      const res = await fetch(`/api/organizations/${orgId}/projects/${pid}/docs`, {
+        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ file_name: fileName, content }),
+      });
+      if (res.status === 401 || res.status === 403) return { ok: false, code: 'LOGIN', error: 'sessione claude.ai non attiva' };
+      const text = await res.text();
+      if (!res.ok) return { ok: false, error: `creazione -> ${res.status}: ${text.slice(0, 200)}` };
+      let j = {}; try { j = JSON.parse(text); } catch {}
+      return { ok: true, uuid: j.uuid || j.id || '', file_name: j.file_name || fileName };
+    } catch (e) { return { ok: false, error: String(e.message || e) }; }
+  })();
+}
+
+// Prova di cancellazione: toglie i documenti con esattamente quel nome.
+export function pageDeleteDoc(orgId, pid, fileName) {
+  const base = `/api/organizations/${orgId}/projects/${pid}/docs`;
+  return (async () => {
+    try {
+      const res = await fetch(base, { credentials: 'include' });
+      if (!res.ok) return { ok: false, error: `elenco -> ${res.status}` };
+      const raw = await res.json();
+      const docs = Array.isArray(raw) ? raw : (raw.docs || raw.data || []);
+      const hit = docs.filter((d) => (d.file_name || d.name) === fileName);
+      if (!hit.length) return { ok: false, error: 'documento non trovato: ' + fileName };
+      for (const d of hit) {
+        const r = await fetch(`${base}/${d.uuid || d.id}`, { method: 'DELETE', credentials: 'include' });
+        if (!r.ok && r.status !== 404) return { ok: false, error: `cancellazione -> ${r.status}` };
+      }
+      return { ok: true, deleted: hit.length };
+    } catch (e) { return { ok: false, error: String(e.message || e) }; }
+  })();
+}

@@ -1,7 +1,7 @@
 // Funzioni pure (niente Chrome, niente rete): si provano in Node con `node --test`.
 
 // Caratteri che Windows non accetta nei nomi: li sostituiamo con "_".
-const UNSAFE = /[\\:*?"<>|\u0000-\u001f]/g;
+const UNSAFE = /[\\:*?"<>|\x00-\x1f]/g;
 
 // Estensioni che sono già testo: il documento si salva con il suo nome.
 // Per le altre (es. .docx, .pdf caricati) claude.ai conserva solo il testo estratto,
@@ -67,13 +67,25 @@ export function isDue(state, now, { everyMs = 23.5 * 3600e3, retryMs = 55 * 60e3
   return true;
 }
 
-// Le intestazioni HTTP devono essere ASCII: i caratteri accentati diventano \uXXXX.
+// Le intestazioni HTTP devono essere ASCII: i caratteri accentati diventano sequenze di escape JSON.
 export function asciiJson(obj) {
-  return JSON.stringify(obj).replace(/[\u007f-￿]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`);
+  return JSON.stringify(obj).replace(/[^ -~]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`);
 }
 
 export function two(n) { return String(n).padStart(2, '0'); }
 export function stamp(ms) {
   const d = new Date(ms);
   return `${two(d.getDate())}/${two(d.getMonth() + 1)}/${d.getFullYear()} ${two(d.getHours())}:${two(d.getMinutes())}`;
+}
+
+// Copia allineata: quali file scritti in passato (owned) non ci sono più nel progetto, e se è sicuro toglierli.
+// action: 'none' niente da fare · 'delete' togliere stale · 'defer' lettura non pulita, si rimanda ·
+// 'block' si toglierebbe più di metà dei file: serve il consenso esplicito.
+export function cleanupPlan(owned, current, { hasErrors = false, docs = 0, allowBig = false } = {}) {
+  const cur = new Set(current.map((p) => p.toLowerCase()));
+  const stale = owned.filter((p) => !cur.has(p.toLowerCase()));
+  if (!stale.length) return { action: 'none', stale };
+  if (hasErrors || docs === 0) return { action: 'defer', stale };
+  if (stale.length * 2 > owned.length && !allowBig) return { action: 'block', stale };
+  return { action: 'delete', stale };
 }
