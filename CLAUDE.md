@@ -295,3 +295,8 @@ Indice delle note di lavoro (deciso 02/11/2026):
 - Nuova linea di sviluppo in analisi: **estensione Chrome** per il backup automatico della knowledge dei progetti Claude
   su Dropbox, byte per byte, senza chat e senza token. Modello di partenza: estensione "Depot: Context Manager for Claude
   Projects" v1.5.0, sorgente in chiaro in `/Projects/Audio Notes/Depot/`.
+- Analisi Depot (04/11, file completi): lavora dallo script dentro la scheda claude.ai con la sessione dell'utente; endpoint interni
+  `/api/organizations`, `/api/organizations/{org}/projects`, `…/projects/{pid}` (istruzioni = `prompt_template`), `…/docs`, `…/files`;
+  scritture: POST `…/docs`, DELETE `…/docs/{id}`, PUT `…/projects/{pid}`. Verificato sul backup reale dell'utente (tutti i progetti, 22 s):
+  `/docs` include i documenti nelle cartelle (il percorso sta nel nome), testo esatto; Depot sostituisce "/" con "_" (struttura persa).
+  File caricati: solo anteprima webp, non l'originale. Fattibile un'estensione nostra: backup automatico su Dropbox con cartelle vere.
