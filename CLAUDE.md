@@ -326,3 +326,6 @@ Indice delle note di lavoro (deciso 02/11/2026):
   con verifica per rilettura) e "Consenti la prossima pulizia grande" (sblocco una tantum). Prove simulate tutte OK.
 - 04/11 23:06 PROVA REALE v0.2.0 RIUSCITA: l'estensione ha creato `_prova/scrittura/test.md` nel progetto Audio Notes (testo letto
   identico dall'utente) e l'ha cancellato. Scrittura e cancellazione nella knowledge dall'estensione: FUNZIONANO.
+  Verificato anche: una chat GIÀ APERTA (chat tecnica, da iPhone) vede il documento creato dall'estensione, ma dopo qualche
+  secondo (al primo tentativo immediato non lo trovava, al secondo sì). Conseguenza: la chat business può restare viva e trovare
+  le note nuove; tra scrittura dell'estensione e lettura della chat serve un margine (i risvegli al minuto 20 lo danno).
