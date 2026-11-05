@@ -351,3 +351,6 @@ Indice delle note di lavoro (deciso 02/11/2026):
 - Aggiornare l'estensione: commit e push su GitHub, poi sul PC `curl` dei file da raw.githubusercontent.com/Stebar3000/voice-notes/main/
   backup-knowledge/<file> dentro `$HOME/mnt/Audio Notes/backup-knowledge/`, e verifica con sha256sum contro la copia di lavoro.
   Verificato 05/11: il terminale del PC raggiunge GitHub; copia v0.3.0 sul PC identica (sha256) al repository.
+- Regola 05/11: Claude NON sa da quale dispositivo scrive l'utente (vede solo se il PC è raggiungibile, che può esserlo anche
+  mentre l'utente scrive dall'iPhone). Le modifiche all'estensione/codice si fanno solo quando l'utente dice di essere al PC
+  o dà il via esplicito; altrimenti si discute soltanto. Non c'è mai fretta.
