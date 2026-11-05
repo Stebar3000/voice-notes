@@ -376,3 +376,9 @@ Indice delle note di lavoro (deciso 02/11/2026):
   documenti di testo; l'unica via per un binario è il caricamento a mano dall'interfaccia, che l'utente non farà). Osservazione
   dell'utente: un PDF caricato pesa in token più del suo testo (circa 2 caratteri per token invece di ~3 per l'italiano): overhead inutile.
   Un file non di testo nella cartella Dropbox resta solo su Dropbox: il resoconto lo elenca come "non copiato".
+- Idea utente 05/11 (da progettare): lo script Google, che già fa OCR dei PDF da una cartella-inbox con convenzione di nomi,
+  può convertire anche i file non di testo trovati nella cartella Dropbox di un progetto (PDF con OCR; Word e Excel da verificare,
+  l'utente non l'ha mai provato) e scrivere accanto il testo con lo stesso nome ed estensione diversa. Il mirroring tratta solo il testo
+  e ignora il resto. Punti aperti segnalati da Claude: dove va l'originale (proposta: fuori da `knowledge/`), collisioni di nome
+  (es. `x.pdf` e `x.docx` → stesso `x.md`), cosa succede se si modifica il testo derivato e poi cambia l'originale, formato Markdown
+  dall'export Google (da verificare).
