@@ -456,3 +456,42 @@ Indice delle note di lavoro (deciso 02/11/2026):
      visto che il POST JSON è chiuso (409 conversation_upgraded).
   4. Prossimo pacchetto dell'estensione: 400 "required scope" come permesso mancante; `_segnali/`; cartelle con "_" in LLM-Mirroring
      non sono progetti.
+
+## Protocollo dei comandi (progettazione 05/11/2026 sera, approvata dall'utente; NIENTE codice finché non dà il via)
+- Due pozzi, stesso formalismo, code separate: `estensione` (agisce in Chrome; Dropbox, claude.ai) e `script` (Google Apps, lato server).
+- **Comando** = piccolo file JSON `{v, id, da, comando, parametri, risposta}`. `comando` da un ELENCO CHIUSO (da definire), parametri
+  con limiti dichiarati; mai codice. Comando sconosciuto o fuori limiti → rifiutato, il rifiuto è l'esito.
+- **Dove**: `/Projects/LLM-Mirroring/_comandi/<pozzo>/in/<id>.json`, creato dalla chat con il connettore Dropbox (solo creazione).
+  `id` = data-ora + identificativo chat + suffisso casuale: nome sempre nuovo (il connettore non sovrascrive).
+- **Mai due volte**: l'esecutore sposta prima `in/` → `in-corso/` (spostamento atomico su Dropbox: se fallisce perché il file non c'è,
+  lo ha già preso qualcun altro e si salta); a fine lavoro → `fatti/`. Seconda difesa: id già presente nel log = non rieseguito.
+- **Interrotti**: ogni esecutore a ogni giro controlla il proprio `in-corso/`; oltre il tempo massimo (proposta: estensione 30 min,
+  script 15 min) il comando va in `interrotti/`, nel log come "interrotto", la chat riceve la risposta "interrotto, non rieseguito";
+  mai rieseguito in automatico. Segnalazione: resoconto dell'estensione / mail giornaliera dello script.
+- **Log**: `_comandi/<pozzo>/log/AAAA-MM.md`, una riga per comando (id, ora, comando, da, esito, durata). Lo scrive solo l'esecutore.
+- **Risposte, un solo meccanismo**: chat di progetto → entrambi i pozzi scrivono `/Projects/LLM-Mirroring/<Progetto>/_risposte/<id>.md`
+  su Dropbox; il mirroring la porta nella knowledge come `_risposte/<id>.md`; la chat la cerca per id (l'ha generato lei).
+  Chat esterne → `_comandi/<pozzo>/risposte/<id>.md`, lettura secca con il connettore Dropbox.
+- **Identificativo della chat**: una chat normale non conosce in modo affidabile il proprio indirizzo; se lo genera al primo comando
+  (es. `chat-20261105-k7q2`), lo tiene nel contesto e lo riusa (lo spiega la skill). Serve solo a log e tracciabilità.
+  Chat di progetto: `da` = nome del progetto.
+- **Cursore, reazione per percorso** (da scrivere nell'estensione): file nuovo in `_comandi/estensione/in/` → esegui il comando;
+  ogni altro cambio sotto `_comandi/` (risposte, spostamenti, log, coda dello script) → ignorato; cartelle con "_" nella radice di
+  LLM-Mirroring → ignorate; cambio dentro un progetto → mirroring di QUEL solo progetto (salvo nomi riservati).
+- **FATTO VERIFICATO nel codice (worker.js, 05/11)**: oggi `checkCursor` salta solo se l'ultimo giro è finito da meno di 30 s, e in quel caso
+  NON consuma il cursore (i cambi li vede al minuto dopo). Le scritture proprie dell'estensione invece sono ignorate da un altro meccanismo:
+  a fine di ogni giro (`runMirror`, riga ~283) e dopo "Inserisci nel mirroring" il cursore viene riportato all'ultimo stato
+  (`latestCursor`), quindi tutto ciò che è cambiato DURANTE il giro viene scartato. Difetto: anche un cambio altrui arrivato durante il
+  giro va perso per il cursore e lo recupera solo il giro completo dei 15 min. Con i comandi diventa rilevante (un comando o una risposta
+  dello script arrivati durante un giro aspetterebbero fino a 15 min). Correzione proposta per il pacchetto dei comandi: niente reset
+  cieco; a fine giro si leggono le voci dal cursore precedente e si scartano solo quelle che corrispondono a scritture proprie del giro
+  (percorso + content_hash), le altre si trattano normalmente. Non correggere senza ordine.
+- **Pulizia di `_risposte/`**: l'estensione cancella dal lato Dropbox le risposte più vecchie di 7 giorni (proposta); il mirroring le toglie
+  dalla knowledge. Per non far scattare la protezione "più di metà" (core.js `planSync`: confronta le cancellazioni con il numero di file
+  nel file guida), i file sotto `_risposte/` NON entrano nel conteggio (né nelle cancellazioni né nel totale) e la loro cancellazione
+  è sempre ammessa. Resta valida per tutti la protezione "lato vuoto". Da scrivere in `planSync` + test.
+- **Attesa della risposta (regola per la skill)**: la chat non controlla a ripetizione (costa token). Se il risultato non le serve per
+  proseguire, non aspetta. Se le serve: `send_later` a +3 minuti (cursore ≤1 min + esecuzione + mirroring ≤1 min + qualche secondo
+  perché la knowledge mostri il file), poi cerca `_risposte/<id>.md` (chat di progetto) o legge `_comandi/<pozzo>/risposte/<id>.md`
+  (chat esterne). Se manca, un solo nuovo tentativo a +5 minuti; poi dichiara "nessuna risposta per <id>" all'utente e non ripete il comando.
+- Ancora da definire: elenco chiuso dei comandi con parametri e limiti; testo della skill per le chat.
