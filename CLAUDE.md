@@ -353,3 +353,16 @@ Indice delle note di lavoro (deciso 02/11/2026):
   Verificato 05/11: il terminale del PC raggiunge GitHub; copia v0.3.0 sul PC identica (sha256) al repository.
 - **Regola 05/11 (sostituisce quella sul dispositivo): codice e modifiche SOLO su ordine esplicito dell'utente** ("fallo", "procedi").
   Fino ad allora si progetta e basta. Claude non sa da quale dispositivo scrive l'utente; decide lui quando è il momento. Mai fretta.
+
+## Mirroring a due vie knowledge ↔ Dropbox (progettazione 05/11/2026, NON ancora da scrivere)
+- Prassi dell'utente: tutti i documenti dei progetti in Markdown (Word solo come editor). Mirroring a due vie tra
+  `/Projects/<nome>/knowledge/` e la knowledge del progetto; il backup attuale diventa il lato Dropbox del mirroring.
+- Regole: solo file di testo (.md, .txt; il resto ignorato ed elencato); modifica nella knowledge = crea il nuovo poi cancella il vecchio;
+  conflitto (cambiato da entrambe le parti, ritenuto impossibile) → vince la knowledge (Dropbox conserva la versione precedente);
+  protezioni sulle cancellazioni come ora. Dropbox → knowledge con cursore (quasi tempo reale); knowledge → Dropbox ogni 15-30 min.
+- Istruzioni di progetto: SOLO a senso unico (knowledge → Dropbox). Si modificano a mano dall'interfaccia. Fatto verificato dall'utente:
+  le chat già aperte NON rileggono le istruzioni cambiate; valgono solo per le chat nuove.
+- "File guida" (idea dell'utente): lo stato dell'ultimo allineamento sta in un file SOLO su Dropbox, in `/Projects/<nome>/`,
+  fuori da `knowledge/` (non va nella knowledge). L'estensione lo legge all'inizio, confronta i due lati, applica, e lo riscrive
+  per ultimo. Lo script Google si aggancia alla modifica di quel solo file per sapere cosa è cambiato, senza guardare tutti i file.
+  Da definire il protocollo minimo (formato, sezione "ultime modifiche").
