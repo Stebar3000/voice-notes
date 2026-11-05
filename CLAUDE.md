@@ -436,3 +436,6 @@ Indice delle note di lavoro (deciso 02/11/2026):
   files.content.read" (la lettura metadati funzionava). Rimedio: nella App Console di Dropbox abilitare files.content.read (scheda
   Permissions, Submit), poi Ricollega/Autorizza/Collega. Da correggere nel prossimo pacchetto: riconoscere anche l'errore 400
   "required scope" come permesso mancante (oggi solo 401 missing_scope).
+  Causa (05/11 20:07): l'utente aveva aggiunto i permessi all'app Dropbox dello script Joplin, non a quella dell'estensione
+  (la stessa dell'app Android). Corretto dall'utente. Deciso: niente permanent_delete (delete_v2 basta con content.write e lascia
+  i file recuperabili); l'estensione resta con PKCE senza chiave segreta, app separata da quella dello script.
