@@ -366,3 +366,9 @@ Indice delle note di lavoro (deciso 02/11/2026):
   fuori da `knowledge/` (non va nella knowledge). L'estensione lo legge all'inizio, confronta i due lati, applica, e lo riscrive
   per ultimo. Lo script Google si aggancia alla modifica di quel solo file per sapere cosa è cambiato, senza guardare tutti i file.
   Da definire il protocollo minimo (formato, sezione "ultime modifiche").
+- **REGOLA ESPLICITA (05/11, utente): nei progetti si caricano SOLO file di testo** (.md di norma; .txt, .csv ammessi).
+  Niente PDF, Word, Excel o immagini nella knowledge né nell'area dei file caricati. La conversione si fa FUORI dal progetto:
+  PDF → testo con l'OCR dello script Google Apps (stesse chiamate di Lens, già collaudato, migliore di Tesseract);
+  Word → Markdown; Excel → CSV. Motivi: le cartelle della knowledge accettano solo testo; il testo è ciò che viene tokenizzato,
+  interrogato e letto dalle chat; fuori costa zero ed è più affidabile. Il mirroring tratta solo testo: un file non di testo nella
+  cartella Dropbox del progetto è un ERRORE da segnalare nel resoconto (non si ignora in silenzio).
