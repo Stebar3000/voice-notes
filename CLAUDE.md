@@ -563,3 +563,10 @@ Indice delle note di lavoro (deciso 02/11/2026):
   comando cancella. `attiva-chat` dopo la prova; `elenca` escluso.
 - BOZZA consegnata: `docs/skill-comandi-mirroring.md` (SKILL.md con frontmatter `comandi-mirroring`): come scrivere il comando, id, `da`,
   `risposta`, dove leggere la risposta, attesa (send_later 3 + 5 min, poi "nessuna risposta"), mai ripetere, elenco comandi dei due pozzi, regole.
+
+## Prova attivazione chat via interfaccia (05/11/2026 sera, in corso)
+- Strumenti browser di Claude verificati: Claude in Chrome NON collegato (nessun browser connesso); browser integrato dell'app desktop
+  raggiungibile ma NON autenticato su claude.ai (logout involontario → pagina di login). Claude non inserisce password: niente prova diretta.
+- Ripiego scelto: snippet da incollare nella console di Chrome (F12) su una chat di prova in un progetto di prova (mai la business):
+  trova il campo (editor ProseMirror contenteditable), scrive "ping" con execCommand('insertText'), clicca il pulsante di invio
+  (o Invio sintetico se manca), riporta selettori ed esito. Nessuna modifica al repository. Esito: DA RICEVERE dall'utente.
