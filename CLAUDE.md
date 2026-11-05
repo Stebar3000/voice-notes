@@ -372,3 +372,7 @@ Indice delle note di lavoro (deciso 02/11/2026):
   Word → Markdown; Excel → CSV. Motivi: le cartelle della knowledge accettano solo testo; il testo è ciò che viene tokenizzato,
   interrogato e letto dalle chat; fuori costa zero ed è più affidabile. Il mirroring tratta solo testo: un file non di testo nella
   cartella Dropbox del progetto è un ERRORE da segnalare nel resoconto (non si ignora in silenzio).
+  Precisazione 05/11: con il mirroring i file binari nella knowledge sono IMPOSSIBILI per costruzione (l'estensione scrive solo
+  documenti di testo; l'unica via per un binario è il caricamento a mano dall'interfaccia, che l'utente non farà). Osservazione
+  dell'utente: un PDF caricato pesa in token più del suo testo (circa 2 caratteri per token invece di ~3 per l'italiano): overhead inutile.
+  Un file non di testo nella cartella Dropbox resta solo su Dropbox: il resoconto lo elenca come "non copiato".
