@@ -486,6 +486,11 @@ Indice delle note di lavoro (deciso 02/11/2026):
   dello script arrivati durante un giro aspetterebbero fino a 15 min). Correzione proposta per il pacchetto dei comandi: niente reset
   cieco; a fine giro si leggono le voci dal cursore precedente e si scartano solo quelle che corrispondono a scritture proprie del giro
   (percorso + content_hash), le altre si trattano normalmente. Non correggere senza ordine.
+  DECISO 05/11 (proposta dell'utente, preferita): cursore preso all'INIZIO del giro (prima di leggere i due lati), anche in
+  "Inserisci nel mirroring". I cambi arrivati durante il giro si vedono al minuto dopo; le scritture proprie causano al massimo un giro
+  in più che trova tutto uguale. Verificato nel codice (syncProject): un giro senza novità non scrive nulla su Dropbox (upload solo per
+  op up/delD; istruzioni solo se cambia l'impronta; resoconto solo se ci sono modifiche o cambiano i problemi; guida solo se ci sono
+  modifiche o cambia lo stato), quindi niente ciclo. Costo: una lettura in più della knowledge di quel progetto.
 - **Pulizia di `_risposte/`**: l'estensione cancella dal lato Dropbox le risposte più vecchie di 7 giorni (proposta); il mirroring le toglie
   dalla knowledge. Per non far scattare la protezione "più di metà" (core.js `planSync`: confronta le cancellazioni con il numero di file
   nel file guida), i file sotto `_risposte/` NON entrano nel conteggio (né nelle cancellazioni né nel totale) e la loro cancellazione
