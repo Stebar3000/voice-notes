@@ -541,3 +541,25 @@ Indice delle note di lavoro (deciso 02/11/2026):
   da esentare dalla protezione "più di metà" come `_risposte/`. Motivo: la knowledge crescerebbe senza fine (tetto 2.000.000 token).
 - DA AGGIORNARE al prossimo ordine (testi consegnati, anche in `docs/`): `docs/protocollo-business.md` (percorso `business/inbox/`,
   punto 6 sul registro solo nella knowledge, regola del nome identico) e tabella nomi in `docs/avvio-progetto-audio-notes.md`.
+
+## Specifiche script, comandi v1 e skill (05/11/2026 sera)
+- Fatti dello script (dall'utente, verificati): tre moduli, rilevanti Joplin e conversione binari (PDF, doc/docx, xls/xlsx → testo con doppia
+  estensione accanto, originale in `Originali/`). Dropbox osserva `/Projects/LLM-Mirroring/` (ricorsiva) e `/Notes`; dentro LLM-Mirroring lo
+  script oggi ignora tutto tranne la comparsa di un binario. L'app Dropbox dello script vede SOLO `/Projects/LLM-Mirroring/` e `/Notes`
+  (NON `/Applicazioni/VoceAgente`), può scrivere e spostare. Comandi del pozzo script: tutti nuovi, da implementare. Lo script si modifica
+  liberamente (cartella locale + clasp push); le specifiche le implementa un altro modello senza contesto.
+- CONSEGNATO: `docs/specifiche-script-google.md` (autosufficiente): esclusioni nel dispatcher, modulo Comandi (formato, presa in carico con
+  move_v2 + LockService, validazione, duplicati via log, risposte, interrotti a 15 min con PropertiesService, log mensile), comandi v1 `ping`
+  e `invia-mail` (solo al proprietario, prefisso `[Claude] `, tetto 10/giorno), contesto ingresso note, controllo giornaliero 08:00 Lisbona
+  (sessioni >12 h senza registro con nome identico, registri incompleti, interrotti 24 h; una sola mail e solo se serve), criteri di accettazione.
+- MODIFICA al formato id (da confermare dall'utente): `AAAAMMGG-HHMMSS-xxxxxx` (6 caratteri a-z0-9), senza l'identificativo della chat
+  nell'id (nomi file sicuri; chi chiede è nel campo `da`). Campo `risposta` = `"_comandi"` oppure il nome esatto della cartella del progetto
+  (deve contenere `_mirroring.json`, altrimenti rifiutato e risposta in `_comandi/<pozzo>/risposte/`).
+- Pozzo ESTENSIONE, elenco chiuso v1 (proposta): `ping`; `allinea` {progetto}; `copia` {da sotto /Projects o /Notes, a dentro un progetto,
+  non esistente}; `sposta` {da, a sotto /Projects, mai /Notes né `_comandi`}; `pubblica-joplin` {progetto, sorgente nella knowledge,
+  destinazione `nuova` | percorso esistente in /Notes} con validazione (riga 1 titolo senza caratteri vietati, riga 2 vuota, riga 3 abstract;
+  nuova → `/Notes/!VOCE-INBOX/<titolo>.md` senza sovrascrivere; modifica → nome file = riga 1, sostituzione nello stesso percorso: l'estensione
+  sovrascrive direttamente, non serve cancella+ricrea). `/Applicazioni/VoceAgente/` tolta dai percorsi ammessi (non serve più). Nessun
+  comando cancella. `attiva-chat` dopo la prova; `elenca` escluso.
+- BOZZA consegnata: `docs/skill-comandi-mirroring.md` (SKILL.md con frontmatter `comandi-mirroring`): come scrivere il comando, id, `da`,
+  `risposta`, dove leggere la risposta, attesa (send_later 3 + 5 min, poi "nessuna risposta"), mai ripetere, elenco comandi dei due pozzi, regole.
