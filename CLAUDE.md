@@ -516,9 +516,28 @@ Indice delle note di lavoro (deciso 02/11/2026):
   script; ritardo fino a 15 min (knowledge → Dropbox arriva col giro completo, salvo comando `allinea`), irrilevante per un controllo giornaliero.
 - Pozzo dello script: Claude non conosce i moduli attuali (script ristrutturato altrove, ultima copia letta 01/11): informazioni chieste all'utente.
 - Ancora da definire: elenco chiuso del pozzo script; testo della skill per le chat.
-- PROPOSTA UTENTE IN VALUTAZIONE (05/11): cartella base dell'app Android = `/Projects/LLM-Mirroring/Audio Notes/business` → le sessioni
+- (Verifica, poi DECISA: vedi sotto) Proposta utente (05/11): cartella base dell'app Android = `/Projects/LLM-Mirroring/Audio Notes/business` → le sessioni
   arrivano in `business/inbox/` e il mirroring le porta nella knowledge da solo (niente lavoro fisso, secondo cursore, `acquisite/`,
   chat tecnica oraria). VERIFICATO nel codice android/: la cartella è modificabile nelle Impostazioni ("Cartella su Dropbox", `dbxBase`,
   normalizzata senza barra finale); la consegna scrive `<base>/inbox/AAAA-MM-GG-HHMM.md` in modalità add con autorename; "Prova Dropbox"
   scrive `<base>/prova-connessione.txt` (sovrascrive) → con la nuova base finirebbe nella knowledge come `business/prova-connessione.txt`.
   Nessuna modifica al codice dell'app né reinstallazione.
+
+## Ingresso diretto delle note nel mirroring (DECISO 05/11/2026 sera, prevale su quanto sopra)
+- Cartella base dell'app Android = `/Projects/LLM-Mirroring/Audio Notes/business`: le sessioni arrivano in `business/inbox/AAAA-MM-GG-HHMM.md`
+  e il mirroring le porta nella knowledge `business/inbox/`. La cartella la cambia l'UTENTE nelle Impostazioni dell'app quando sarà il
+  momento delle prove (nessuna modifica al codice). "Prova Dropbox" con la nuova base crea `business/prova-connessione.txt` (da cancellare).
+- SUPERATI: lavoro fisso "ingresso delle note", secondo cursore su inbox, `acquisite/`, `elaborate/`, chat tecnica oraria per l'ingresso,
+  `business/note/` (ora `business/inbox/`), registro doppio su `/Applicazioni/VoceAgente/registro/`.
+- Registro: SOLO nella knowledge `business/registro/`; arriva su Dropbox col mirroring (`/Projects/LLM-Mirroring/Audio Notes/business/registro/`),
+  dove lo legge lo script. La "decisione aperta sul registro" è chiusa così.
+- **Regola di protocollo**: il registro ha ESATTAMENTE lo stesso nome del file di sessione, compreso un eventuale " (1)" aggiunto da Dropbox
+  (es. `2026-11-05-0830 (1).md` → registro `2026-11-05-0830 (1).md`). Una sessione è da elaborare se manca il registro con lo stesso nome.
+- Business: legge `business/inbox/`, non usa Dropbox per l'ingresso. Script: niente spostamenti; mail giornaliera se in `business/inbox/`
+  c'è una sessione più vecchia di 12 ore senza registro o se ci sono registri incompleti.
+- Accettato dall'utente: le note arrivano nella knowledge solo con PC acceso e Chrome aperto (nessuna perdita, solo ritardo).
+- File vecchi in `/Applicazioni/VoceAgente/`: restano lì.
+- LAVORO FUTURO (rimandato): archivio periodico delle sessioni fuori dal mirroring, regola "si archiviano SOLO sessioni con registro";
+  da esentare dalla protezione "più di metà" come `_risposte/`. Motivo: la knowledge crescerebbe senza fine (tetto 2.000.000 token).
+- DA AGGIORNARE al prossimo ordine (testi consegnati, anche in `docs/`): `docs/protocollo-business.md` (percorso `business/inbox/`,
+  punto 6 sul registro solo nella knowledge, regola del nome identico) e tabella nomi in `docs/avvio-progetto-audio-notes.md`.
