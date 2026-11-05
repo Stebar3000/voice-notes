@@ -432,3 +432,7 @@ Indice delle note di lavoro (deciso 02/11/2026):
   Script Google RISTRUTTURATO dall'utente: un modulo unico riceve tutti i trigger Dropbox delle cartelle monitorate, risponde subito e fa da
   dispatcher verso moduli leggeri (Joplin, conversione dei binari dei progetti, altri in futuro); trigger orari solo come riserva.
   Divisione dei compiti da rispettare: mirroring = solo estensione; conversione binari = solo script.
+- 05/11 19:58 PRIMA PROVA REALE v1.0.0: "Inserisci nel mirroring" fallito: Dropbox 400 su files/download "app non ha lo scope
+  files.content.read" (la lettura metadati funzionava). Rimedio: nella App Console di Dropbox abilitare files.content.read (scheda
+  Permissions, Submit), poi Ricollega/Autorizza/Collega. Da correggere nel prossimo pacchetto: riconoscere anche l'errore 400
+  "required scope" come permesso mancante (oggi solo 401 missing_scope).
