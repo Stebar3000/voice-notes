@@ -3,7 +3,6 @@ import { stamp } from './core.js';
 const $ = (id) => document.getElementById(id);
 const store = chrome.storage.local;
 const send = (msg) => chrome.runtime.sendMessage(msg);
-
 function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
 function reportText(r) {
@@ -11,25 +10,30 @@ function reportText(r) {
   const out = [`${stamp(r.at)} (${r.why}) — ${r.ok ? 'OK' : 'PROBLEMI'}`];
   if (r.error) out.push('Errore: ' + r.error);
   for (const p of r.projects) {
-    out.push(`• ${p.name}: ${p.docs} documenti · file scritti ${p.written}, invariati ${p.same}, tolti ${p.deleted || 0}`);
-    for (const e of p.errors) out.push('   ! ' + e);
+    out.push(`• ${p.name}: ${p.changes.length ? p.changes.length + ' modifiche' : 'nessuna modifica'}`);
+    for (const c of p.changes) out.push(`   ${c.file}: ${c.tipo} → ${c.verso}${c.conflitto ? ' (conflitto: vince la knowledge)' : ''}`);
+    for (const x of p.pending) out.push('   in attesa di conversione: ' + x);
+    for (const e of p.problems) out.push('   ! ' + e);
   }
+  if (r.ignored && r.ignored.length) out.push('Cartelle senza file guida (ignorate): ' + r.ignored.join(', '));
   return out.join('\n');
 }
 
 async function refresh() {
-  const st = await store.get(['lastOkAt', 'lastReport', 'selected', 'dbxRefresh', 'dbxAppKey']);
-  const n = Object.keys(st.selected || {}).length;
+  const st = await store.get(['lastOkAt', 'lastReport', 'dbxRefresh', 'dbxAppKey']);
   const r = st.lastReport;
-  let html = st.lastOkAt ? `Ultimo backup riuscito: <b>${stamp(st.lastOkAt)}</b>` : 'Nessun backup riuscito finora.';
+  let html = st.lastOkAt ? `Ultimo allineamento riuscito: <b>${stamp(st.lastOkAt)}</b>` : 'Nessun allineamento riuscito finora.';
   if (r && !r.ok) html += `<br><span class="bad">Ultimo tentativo ${stamp(r.at)}: problemi (dettaglio sotto).</span>`;
-  html += `<br>Progetti scelti: ${n}. Controllo automatico ogni ora; backup se l'ultimo riuscito ha più di 24 ore.`;
+  html += '<br>Automatico: subito dopo ogni cambio su Dropbox, e comunque ogni 15 minuti.';
   $('status').innerHTML = html;
   $('report').hidden = !r;
   $('report').textContent = reportText(r);
-  $('dbxState').innerHTML = st.dbxRefresh ? '<span class="ok">Dropbox collegato.</span>' : '<span class="bad">Dropbox non collegato.</span>';
+  $('dbxState').innerHTML = st.dbxRefresh ? '<span class="ok">Dropbox collegato.</span> ' : '<span class="bad">Dropbox non collegato.</span> ';
+  if (!st.dbxRefresh) $('dbxBox').hidden = false;
   if (st.dbxAppKey && !$('appKey').value) $('appKey').value = st.dbxAppKey;
 }
+
+$('toggleDbx').onclick = () => { $('dbxBox').hidden = !$('dbxBox').hidden; };
 
 $('auth').onclick = async () => {
   const key = $('appKey').value.trim();
@@ -49,62 +53,46 @@ $('link').onclick = async () => {
   refresh();
 };
 
-$('load').onclick = async () => {
+async function loadProjects() {
   $('load').disabled = true;
   $('projects').textContent = 'Carico…';
   try {
     const r = await send({ type: 'listProjects' });
     if (!r || !r.ok) { $('projects').innerHTML = `<span class="bad">${esc((r && r.error) || 'nessuna risposta')}</span>`; return; }
-    const { selected = {} } = await store.get('selected');
     const list = r.projects.slice().sort((a, b) => a.name.localeCompare(b.name, 'it'));
-    $('projects').innerHTML = list.map((p) => `<label class="row"><input type="checkbox" data-id="${esc(p.uuid)}" ${selected[p.uuid] ? 'checked' : ''}>${esc(p.name)}${p.archived ? ' <small>archiviato</small>' : ''}</label>`).join('') || 'Nessun progetto.';
-    $('projects').querySelectorAll('input').forEach((cb) => {
-      cb.onchange = async () => {
-        const p = list.find((x) => x.uuid === cb.dataset.id);
-        const cur = (await store.get('selected')).selected || {};
-        if (cb.checked) cur[p.uuid] = { name: p.name, orgId: p.orgId }; else delete cur[p.uuid];
-        await store.set({ selected: cur });
-        refresh();
+    $('projects').innerHTML = list.map((p) => `<div class="row">${esc(p.name)}${p.archived ? ' <small>archiviato</small>' : ''}${p.dir
+      ? ` <small class="ok">nel mirroring ✓</small>`
+      : ` <button class="small" data-id="${esc(p.uuid)}">Inserisci nel mirroring</button>`}</div>`).join('') || 'Nessun progetto.';
+    $('projects').querySelectorAll('button').forEach((b) => {
+      b.onclick = async () => {
+        b.disabled = true;
+        b.textContent = 'Copio…';
+        const x = await send({ type: 'insert', pid: b.dataset.id });
+        if (!x.ok) { b.disabled = false; b.textContent = 'Inserisci nel mirroring'; alertBox('NON INSERITO: ' + x.error); return; }
+        alertBox(x.text);
+        loadProjects();
       };
     });
   } finally { $('load').disabled = false; }
-};
+}
+$('load').onclick = loadProjects;
 
 $('run').onclick = async () => {
   $('run').disabled = true;
-  $('run').textContent = 'Backup in corso…';
+  $('run').textContent = 'Allineamento in corso…';
   try {
     const r = await send({ type: 'runNow' });
     if (!r.ok) alertBox(r.error);
+    else if (!r.report) alertBox('Dropbox non collegato.');
   } finally {
     $('run').disabled = false;
-    $('run').textContent = 'Backup ora';
+    $('run').textContent = 'Allinea ora';
     refresh();
   }
 };
-async function test(btn, type) {
-  btn.disabled = true;
-  $('testMsg').textContent = 'In corso…';
-  try {
-    const r = await send({ type });
-    $('testMsg').innerHTML = r.ok ? `<span class="ok">${esc(r.text)}</span>` : `<span class="bad">${esc(r.error)}</span>`;
-  } finally { btn.disabled = false; }
-}
-$('testWrite').onclick = () => test($('testWrite'), 'testWrite');
-$('testDelete').onclick = () => test($('testDelete'), 'testDelete');
 $('allowBig').onclick = async () => {
   await send({ type: 'allowBig' });
-  $('allowMsg').textContent = 'Consentito una volta: vale per il prossimo backup, poi torna il blocco.';
-};
-$('testMessage').onclick = async () => {
-  const b = $('testMessage');
-  b.disabled = true;
-  $('messageMsg').hidden = false;
-  $('messageMsg').textContent = 'Invio in corso (fino a 2 minuti)…';
-  try {
-    const r = await send({ type: 'testMessage', chat: $('chatUrl').value });
-    $('messageMsg').textContent = r.ok ? r.text : 'NON RIUSCITO: ' + r.error;
-  } finally { b.disabled = false; }
+  $('allowMsg').textContent = 'Consentito una volta: vale per il prossimo allineamento, poi torna il blocco.';
 };
 function alertBox(t) { $('report').hidden = false; $('report').textContent = t; }
 

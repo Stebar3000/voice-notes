@@ -1,16 +1,15 @@
-# Backup knowledge (estensione Chrome)
+# Mirroring knowledge (estensione Chrome)
 
-Ogni giorno, da sola, copia istruzioni e documenti dei progetti claude.ai scelti su Dropbox:
+Mirroring a due vie tra la knowledge dei progetti claude.ai e `/Projects/LLM-Mirroring/<Progetto>/` su Dropbox. Solo file di testo.
 
-- `/Projects/<nome progetto>/knowledge/…` — i documenti, con le cartelle vere e il testo esatto
-- `/Projects/<nome progetto>/istruzioni-progetto.md` — le istruzioni del progetto
-- `/Projects/<nome progetto>/ultimo-backup.txt` — data, conteggi, esito
+- Ingresso: pulsante "Inserisci nel mirroring" (copia completa knowledge → cartella vuota, poi file guida).
+- Si allineano solo i progetti con il file guida `_mirroring.json` (stato dell'ultimo allineamento: per ogni file nome nella
+  knowledge e impronta Dropbox; `ultimo_giro` con le modifiche). Riscritto per ultimo e solo se qualcosa è cambiato.
+- Nomi riservati nella cartella del progetto: `Originali/`, `_mirroring.json`, `_resoconto.txt`, `_istruzioni-progetto.md`
+  (istruzioni a senso unico, dalla knowledge a Dropbox).
+- Regole: cambiato da una parte → copiato dall'altra; sparito da una parte (prima c'era) → cancellato dall'altra; cambiato da
+  entrambe → vince la knowledge. Protezioni: niente cancellazioni se un lato è vuoto o se sparirebbe più di metà dei file.
+- Tempi: cursore Dropbox controllato ogni minuto (giro subito se cambia qualcosa); giro completo ogni 15 minuti.
+- File non di testo (PDF, Word, Excel) nella cartella: non copiati; "in attesa di conversione" per un'ora, poi segnalati.
 
-Non cancella mai nulla su Dropbox. I documenti nati da Word o PDF caricati si salvano come `….docx.txt` (claude.ai conserva solo il testo).
-Le immagini caricate non si copiano (claude.ai non fornisce gli originali): sono elencate in `ultimo-backup.txt`.
-
-Funzionamento: un timer controlla ogni ora; se l'ultimo backup riuscito ha più di 24 ore lo rifà. Il controllo
-riparte anche all'avvio di Chrome. Il lavoro gira in una scheda claude.ai (se non ce n'è una, ne apre una in
-secondo piano e la richiude). Icona: ✓ verde = ultimo backup riuscito, ! rosso = problema (con avviso sul desktop).
-
-Prove: `node --test test/` (funzioni pure). Prova completa con Chromium e servizi simulati fatta il 04/11/2026.
+Prove: `node --test test/` (pianificatore) e prova completa in Chromium con claude.ai e Dropbox simulati (05/11/2026).

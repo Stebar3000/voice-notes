@@ -61,8 +61,8 @@ async function token(force) {
 }
 
 // Scrive (o sovrascrive) un file di testo. Riprova da sola su errori passeggeri.
-export async function upload(path, text) {
-  const body = new TextEncoder().encode(text);
+export async function upload(path, data) {
+  const body = typeof data === 'string' ? new TextEncoder().encode(data) : data;
   let force = false;
   for (let i = 0; i < 5; i++) {
     let res;
@@ -84,6 +84,7 @@ export async function upload(path, text) {
     }
     if (res.ok) return res.json();
     const text2 = await res.text();
+    if (res.status === 401 && text2.includes('missing_scope')) { const e = new Error('Dropbox: permessi mancanti. Premi "Ricollega Dropbox" e rifai Autorizza e Collega'); e.code = 'DBX'; throw e; }
     if (res.status === 401 && !force) { force = true; continue; }
     if ((res.status === 429 || res.status >= 500) && i < 4) {
       const ra = Number(res.headers.get('Retry-After'));
@@ -118,4 +119,93 @@ export async function remove(path) {
     throw new Error(`Dropbox ${res.status} cancellando ${path}: ${t.slice(0, 300)}`);
   }
   throw new Error('Dropbox non risponde cancellando ' + path);
+}
+
+// Chiamate "RPC" di Dropbox (JSON in, JSON out) con nuovi tentativi sugli errori passeggeri.
+async function rpc(endpoint, args) {
+  for (let i = 0; i < 4; i++) {
+    let res;
+    try {
+      res = await fetch('https://api.dropboxapi.com/2/' + endpoint, {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + await token(i > 0), 'Content-Type': 'application/json' },
+        body: JSON.stringify(args),
+      });
+    } catch (e) {
+      if (e.code === 'DBX') throw e;
+      if (i === 3) throw new Error('rete verso Dropbox: ' + e.message);
+      await sleep(1500 * 2 ** i);
+      continue;
+    }
+    const t = await res.text();
+    if (res.ok) return JSON.parse(t);
+    if (res.status === 401 && t.includes('missing_scope')) { const e = new Error('Dropbox: permessi mancanti. Premi "Ricollega Dropbox" e rifai Autorizza e Collega'); e.code = 'DBX'; throw e; }
+    if (res.status === 409) { const e = new Error(`Dropbox ${endpoint}: ${t.slice(0, 300)}`); e.status = 409; e.body = t; throw e; }
+    if ((res.status === 429 || res.status >= 500 || res.status === 401) && i < 3) { await sleep(1500 * 2 ** i); continue; }
+    throw new Error(`Dropbox ${res.status} ${endpoint}: ${t.slice(0, 300)}`);
+  }
+  throw new Error('Dropbox non risponde: ' + endpoint);
+}
+
+// Elenco completo (ricorsivo) di una cartella: [{path, rel, h, size, modified}] per i file. null se la cartella non esiste.
+export async function listAll(root) {
+  let r;
+  try { r = await rpc('files/list_folder', { path: root, recursive: true, include_deleted: false, limit: 2000 }); }
+  catch (e) { if (e.status === 409 && e.body && e.body.includes('not_found')) return null; throw e; }
+  const entries = [...r.entries];
+  while (r.has_more) { r = await rpc('files/list_folder/continue', { cursor: r.cursor }); entries.push(...r.entries); }
+  const base = root.toLowerCase().replace(/\/+$/, '') + '/';
+  return entries.filter((e) => e['.tag'] === 'file').map((e) => ({
+    path: e.path_display, rel: e.path_display.slice(base.length), h: e.content_hash, size: e.size, modified: e.server_modified,
+  })).filter((e) => e.path.toLowerCase().startsWith(base));
+}
+
+// Sottocartelle dirette (nomi) di una cartella; [] se non esiste.
+export async function listDirs(root) {
+  let r;
+  try { r = await rpc('files/list_folder', { path: root, recursive: false, limit: 2000 }); }
+  catch (e) { if (e.status === 409 && e.body && e.body.includes('not_found')) return []; throw e; }
+  const entries = [...r.entries];
+  while (r.has_more) { r = await rpc('files/list_folder/continue', { cursor: r.cursor }); entries.push(...r.entries); }
+  return entries.filter((e) => e['.tag'] === 'folder').map((e) => e.name);
+}
+
+// Cursore per sapere cosa cambia sotto una cartella (ricorsivo).
+export async function latestCursor(root) {
+  try { return (await rpc('files/list_folder/get_latest_cursor', { path: root, recursive: true })).cursor; }
+  catch (e) { if (e.status === 409 && e.body && e.body.includes('not_found')) return null; throw e; }
+}
+// Novità dal cursore: {changed: numero di voci, cursor}. reset=true se il cursore non vale più.
+export async function changesSince(cursor) {
+  let n = 0, r;
+  try { r = await rpc('files/list_folder/continue', { cursor }); }
+  catch (e) { if (e.status === 409) return { reset: true }; throw e; }
+  n += r.entries.length;
+  while (r.has_more) { r = await rpc('files/list_folder/continue', { cursor: r.cursor }); n += r.entries.length; }
+  return { changed: n, cursor: r.cursor };
+}
+
+// Scarica un file come byte. null se non esiste.
+export async function download(path) {
+  for (let i = 0; i < 4; i++) {
+    let res;
+    try {
+      res = await fetch('https://content.dropboxapi.com/2/files/download', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + await token(i > 0), 'Dropbox-API-Arg': asciiJson({ path }) },
+      });
+    } catch (e) {
+      if (e.code === 'DBX') throw e;
+      if (i === 3) throw new Error('rete verso Dropbox: ' + e.message);
+      await sleep(1500 * 2 ** i);
+      continue;
+    }
+    if (res.ok) return new Uint8Array(await res.arrayBuffer());
+    const t = await res.text();
+    if (res.status === 409 && t.includes('not_found')) return null;
+    if (res.status === 401 && t.includes('missing_scope')) { const e = new Error('Dropbox: permessi mancanti. Premi "Ricollega Dropbox" e rifai Autorizza e Collega'); e.code = 'DBX'; throw e; }
+    if ((res.status === 429 || res.status >= 500 || res.status === 401) && i < 3) { await sleep(1500 * 2 ** i); continue; }
+    throw new Error(`Dropbox ${res.status} scaricando ${path}: ${t.slice(0, 300)}`);
+  }
+  throw new Error('Dropbox non risponde scaricando ' + path);
 }
