@@ -417,3 +417,11 @@ Indice delle note di lavoro (deciso 02/11/2026):
   il cursore lo vede e l'estensione allinea entro un minuto. Proposta Claude: `_segnali/` diventa nome riservato (mai nel mirroring);
   l'estensione cancella i segnali dopo un giro riuscito; nome unico perché il connettore non sovrascrive; il giro periodico resta come
   rete di sicurezza e può passare da 15 a 60 minuti. La regola va scritta anche nel protocollo delle chat.
+- Visione utente 05/11 sera (prospettiva, non ora): i segnali diventano un CANALE DI COMANDI. Una chat (anche fuori progetto, con una
+  skill caricata di default che descrive il protocollo) scrive un piccolo file-comando su Dropbox (costo quasi tutto di overhead, il
+  contenuto è irrilevante); l'estensione (o lo script Google) lo esegue subito; il risultato torna nella knowledge del progetto (chat di
+  progetto) o in un file su Dropbox (chat esterne, pozzo comune con identificativo univoco per chat). Osservazioni di Claude: elenco chiuso
+  di comandi con nomi e parametri controllati (mai codice arbitrario: una chat può essere indotta da un testo letto a scrivere comandi);
+  ogni comando con id unico ed eseguito una sola volta; le cancellazioni mantengono le protezioni; l'estensione agisce dentro Chrome
+  (Dropbox, claude.ai, rete consentita), per azioni sul PC servirebbe un piccolo programma locale (native messaging); le cartelle che
+  iniziano con "_" nella radice LLM-Mirroring non sono progetti.
