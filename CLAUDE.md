@@ -195,6 +195,7 @@ Indice delle note di lavoro (deciso 02/11/2026):
 
 ## Passaggio di consegne
 - `docs/prompt-clone.md`: prompt per la sessione che sostituirà quella corrente. **Non va mai modificato.**
+- `docs/prompt-clone-2.md` (05/11/2026): versione aggiornata da usare ora (regola aurea, codice solo su ordine, PC, estensione).
 - `docs/protocollo-business.md`, `docs/avvio-progetto-audio-notes.md`: copie dei testi consegnati all'utente.
   Se un testo cambia, aggiornare anche la copia in `docs/`.
 
@@ -439,3 +440,19 @@ Indice delle note di lavoro (deciso 02/11/2026):
   Causa (05/11 20:07): l'utente aveva aggiunto i permessi all'app Dropbox dello script Joplin, non a quella dell'estensione
   (la stessa dell'app Android). Corretto dall'utente. Deciso: niente permanent_delete (delete_v2 basta con content.write e lascia
   i file recuperabili); l'estensione resta con PKCE senza chiave segreta, app separata da quella dello script.
+- 05/11 20:13 PROVA REALE v1.0.0 RIUSCITA: dopo i permessi corretti e il nuovo collegamento, "Inserisci nel mirroring" su Audio Notes
+  funziona ("tutto funziona perfettamente", utente). L'utente ha cancellato le vecchie cartelle di backup (preservando il necessario).
+  Parte estensione/mirroring CONCLUSA.
+
+## Passaggio a una nuova sessione (05/11/2026 sera)
+- La sessione precedente era vicina all'esaurimento del contesto: l'utente apre una nuova chat desktop (collegata al PC) con
+  `docs/prompt-clone-2.md` (il vecchio `docs/prompt-clone.md` resta intatto). La vecchia sessione resta aperta nel browser come controllo
+  e prepara le domande di verifica per la nuova.
+- Prossimi passi, in ordine, ciascuno solo su ordine dell'utente:
+  1. Verifica della nuova sessione (domande di controllo).
+  2. Protocollo dei comandi comune a estensione e script Google (due pozzi, elenco chiuso, parametri e limiti, id unico, log; skill
+     che lo descrive alle chat). Solo progettazione finché l'utente non dà il via.
+  3. Prova sospesa: attivare una chat esistente di un progetto tramite l'interfaccia (DOM: l'estensione apre la chat, scrive e invia),
+     visto che il POST JSON è chiuso (409 conversation_upgraded).
+  4. Prossimo pacchetto dell'estensione: 400 "required scope" come permesso mancante; `_segnali/`; cartelle con "_" in LLM-Mirroring
+     non sono progetti.
