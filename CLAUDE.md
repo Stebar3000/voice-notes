@@ -386,3 +386,13 @@ Indice delle note di lavoro (deciso 02/11/2026):
   e la fonte è dichiarata nel nome. Conversione SOLO in ingresso (input only): mai rigenerare automaticamente PDF/Word da un .md modificato.
   Produrre documenti binari da testo (es. Word da un .md) è un'attività separata, a richiesta, indipendente dalla fonte e dal mirroring.
   Ancora aperti: dove va l'originale; cosa fare se l'originale viene sostituito dopo che il testo derivato è stato modificato.
+- DECISO 05/11 (utente): unico albero per tutti i progetti mirrorati: `/Projects/LLM-Mirroring/<NomeProgetto>/…` (radice osservata dal
+  cursore Dropbox dello script, ricorsivo). Lo script Google (sviluppato ALTROVE dall'utente, non in questa conversazione) converte
+  PDF/Word/Excel trovati in un progetto: testo accanto con doppia estensione (`contratto.pdf.md`, `budget.xlsx.md`: anche Excel → .md),
+  originale spostato in `<NomeProgetto>/Originali/` (ignorata dal convertitore e dal mirroring). Due funzioni nello script: quella
+  chiamata da Dropbox risponde subito, un'altra fa il lavoro pochi secondi dopo. Conversione tramite Google Docs/Sheets (Word→MD già
+  verificato perfetto dall'utente; Excel da verificare, intestazione per foglio). Il mirroring vede solo testo.
+  Proposte di Claude (da confermare): Originali/ conserva i sottopercorsi; Excel in .md con `## Foglio: nome` + blocco ```csv per foglio;
+  file guida con nome riservato nella cartella del progetto, escluso dal mirroring, con l'uuid del progetto Claude (regge i cambi di nome);
+  l'estensione ignora i binari "in attesa di conversione" e li segnala solo se restano lì a lungo. Le cartelle `/Projects/<nome>/knowledge/`
+  del backup attuale andranno migrate nel nuovo albero.
