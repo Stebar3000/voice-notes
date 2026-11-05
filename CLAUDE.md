@@ -334,3 +334,9 @@ Indice delle note di lavoro (deciso 02/11/2026):
   longpoll vero solo con documento "offscreen"; alternativa KISS: stesso cursore controllato ogni minuto con chrome.alarms
   (list_folder/continue, chiamata leggerissima). Serve comunque il permesso Dropbox di lettura (files.metadata.read + content.read).
   La latenza finale la decide il risveglio della chat business, non la copia.
+- 05/11 notte: v0.3.0 pubblicata (impronte verificate): pulsante "Prova messaggio" che manda un messaggio a una chat esistente
+  con il vecchio indirizzo JSON `POST /api/organizations/{org}/chat_conversations/{uuid}/completion` (dopo GET della chat per
+  `current_leaf_message_uuid`). Scoperta dell'utente con DevTools: l'interfaccia attuale usa anche `claudeai-rpc/anthropic.bard.api.
+  v1alpha.ConversationService/*` in formato binario (application/proto); la chiamata d'invio vera non è stata individuata.
+  Se il POST JSON non va, ripiego: l'estensione apre la chat in secondo piano, scrive "elabora" e invia. Esito della prova: DA FARE.
+  Nota: l'utente ha incollato in chat i cookie di sessione; avvisato, ha scelto consapevolmente di non chiudere la sessione.
