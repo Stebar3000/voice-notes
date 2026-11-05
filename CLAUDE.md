@@ -590,3 +590,7 @@ Indice delle note di lavoro (deciso 02/11/2026):
   le schede aperte dall'estensione e il proxy della sandbox ignora --host-resolver-rules: serve il proxy locale (opzione `proxy`).
 - v1.0.1 copiata sul PC (commit f681eec, 7 file), impronte sha256 identiche al repository. DA FARE dall'utente: Ricarica, poi la prova
   reale con la chat di prova (giro 1 scheda lasciata aperta; giro 2 "Chiudi la scheda dopo l'invio" per vedere se la risposta arriva lo stesso).
+- 05/11 21:38 PROVA REALE v1.0.1 RIUSCITA (chat di prova, Haiku): giro 1 scheda lasciata aperta e giro 2 scheda chiusa subito dopo l'invio:
+  entrambi INVIATO, `scheda in secondo piano: true`, caricamento ~6,7 s, campo pronto subito, pulsante "Invia messaggio", totale ~9 s.
+  Con la scheda chiusa la risposta della chat è arrivata lo stesso (la generazione continua lato server). ATTIVAZIONE DI UNA CHAT ESISTENTE
+  DALL'ESTENSIONE, IN SECONDO PIANO E SENZA LASCIARE SCHEDE: FUNZIONA. Il punto 3 dei "prossimi passi" è chiuso.
