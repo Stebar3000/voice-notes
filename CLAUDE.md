@@ -516,3 +516,9 @@ Indice delle note di lavoro (deciso 02/11/2026):
   script; ritardo fino a 15 min (knowledge → Dropbox arriva col giro completo, salvo comando `allinea`), irrilevante per un controllo giornaliero.
 - Pozzo dello script: Claude non conosce i moduli attuali (script ristrutturato altrove, ultima copia letta 01/11): informazioni chieste all'utente.
 - Ancora da definire: elenco chiuso del pozzo script; testo della skill per le chat.
+- PROPOSTA UTENTE IN VALUTAZIONE (05/11): cartella base dell'app Android = `/Projects/LLM-Mirroring/Audio Notes/business` → le sessioni
+  arrivano in `business/inbox/` e il mirroring le porta nella knowledge da solo (niente lavoro fisso, secondo cursore, `acquisite/`,
+  chat tecnica oraria). VERIFICATO nel codice android/: la cartella è modificabile nelle Impostazioni ("Cartella su Dropbox", `dbxBase`,
+  normalizzata senza barra finale); la consegna scrive `<base>/inbox/AAAA-MM-GG-HHMM.md` in modalità add con autorename; "Prova Dropbox"
+  scrive `<base>/prova-connessione.txt` (sovrascrive) → con la nuova base finirebbe nella knowledge come `business/prova-connessione.txt`.
+  Nessuna modifica al codice dell'app né reinstallazione.
