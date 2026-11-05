@@ -572,3 +572,7 @@ Indice delle note di lavoro (deciso 02/11/2026):
   (o Invio sintetico se manca), riporta selettori ed esito. Nessuna modifica al repository. Esito: DA RICEVERE dall'utente.
 - 05/11 21:07 giro 1 (INVIA = false) RIUSCITO: campo trovato con `div.ProseMirror[contenteditable="true"]` (primo selettore),
   "ping" inserito e letto nel campo. Prossimo: giro 2 con INVIA = true (pulsante di invio e verifica dell'invio).
+- 05/11 21:10 giro 2 (INVIA = true) RIUSCITO: pulsante `button[aria-label="Invia messaggio"]` (etichetta italiana), click() da script
+  accettato, campo svuotato, messaggio "ping" comparso nella chat di prova (Haiku) che ha risposto. ATTIVAZIONE DI UNA CHAT VIA DOM: FUNZIONA
+  con scheda in primo piano e chat già aperta. Non ancora provato: scheda in secondo piano, chat aperta dall'estensione (caricamento della
+  pagina, attesa del campo), Chrome con la scheda "congelata". Il pulsante si cerca anche per etichetta inglese (cambio di lingua).
