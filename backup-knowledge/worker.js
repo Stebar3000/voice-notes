@@ -1,6 +1,6 @@
 // Cuore dell'estensione: timer, scheda claude.ai, lettura dei progetti, scrittura su Dropbox, esito.
 import { planProject, isDue, stamp, cleanupPlan } from './core.js';
-import { pageListProjects, pageReadProject, pageAddDoc, pageDeleteDoc } from './claude.js';
+import { pageListProjects, pageReadProject, pageAddDoc, pageDeleteDoc, pageSendMessage } from './claude.js';
 import * as dbx from './dropbox.js';
 
 const BASE = '/Projects';
@@ -230,6 +230,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
         case 'allowBig': await store.set({ allowBigCleanup: true }); return { ok: true };
         case 'testWrite': return await testDoc('write');
         case 'testDelete': return await testDoc('delete');
+        case 'testMessage': return await testMessage(msg.chat);
         default: return { ok: false, error: 'comando sconosciuto' };
       }
     } catch (e) {
@@ -266,6 +267,26 @@ async function testDoc(kind) {
     if (!check || !check.ok) return { ok: false, error: 'cancellato, ma la verifica non è riuscita' };
     if (check.docs.some((d) => d.file_name === TEST_DOC)) return { ok: false, error: 'cancellato, ma il documento risulta ancora presente' };
     return { ok: true, text: `Cancellato "${TEST_DOC}" (${r.deleted}) e verificato: non c'è più. Ricarica la pagina di claude.ai.` };
+  } finally {
+    if (tab.created) { try { await chrome.tabs.remove(tab.tabId); } catch {} }
+  }
+}
+
+// ---------- prova di invio di un messaggio a una chat (indirizzo della chat incollato dall'utente) ----------
+async function testMessage(chat) {
+  const m = String(chat || '').match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+  if (!m) return { ok: false, error: "incolla l'indirizzo della chat (claude.ai/chat/...)" };
+  const tab = await claudeTab();
+  try {
+    const orgs = await inPage(tab.tabId, pageListProjects);
+    const { selected = {} } = await store.get('selected');
+    const first = Object.values(selected)[0];
+    const orgId = (first && first.orgId) || (orgs && orgs.ok && orgs.projects[0] && orgs.projects[0].orgId);
+    if (!orgId) return { ok: false, error: 'organizzazione non trovata' };
+    const r = await inPage(tab.tabId, pageSendMessage, [orgId, m[0], `Prova di invio dall'estensione Backup knowledge (${stamp(Date.now())}). Rispondi solo: OK.`]);
+    if (!r) return { ok: false, error: 'nessuna risposta dalla pagina' };
+    const text = r.steps.join('\n');
+    return r.ok ? { ok: true, text: 'INVIO RIUSCITO. Controlla la chat.\n' + text } : { ok: false, error: (r.error || 'non riuscito') + '\n' + text };
   } finally {
     if (tab.created) { try { await chrome.tabs.remove(tab.tabId); } catch {} }
   }

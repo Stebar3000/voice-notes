@@ -111,3 +111,47 @@ export function pageDeleteDoc(orgId, pid, fileName) {
     } catch (e) { return { ok: false, error: String(e.message || e) }; }
   })();
 }
+
+// Prova di invio di un messaggio a una chat esistente con il vecchio indirizzo JSON (non documentato).
+// Prima legge la conversazione per sapere a quale messaggio agganciarsi, poi invia e legge la risposta (max 120 s).
+// Riporta stato e inizio delle risposte per capire, se non va, cosa manca. Mai cookie o intestazioni nel risultato.
+export function pageSendMessage(orgId, convId, text) {
+  const base = `/api/organizations/${orgId}/chat_conversations/${convId}`;
+  const out = { ok: false, steps: [] };
+  return (async () => {
+    try {
+      const g = await fetch(`${base}?tree=True&rendering_mode=messages&render_all_tools=true`, { credentials: 'include' });
+      const gt = await g.text();
+      out.steps.push(`lettura chat -> ${g.status}`);
+      let conv = {};
+      try { conv = JSON.parse(gt); } catch { out.steps.push('risposta non JSON: ' + gt.slice(0, 200)); }
+      if (!g.ok) { out.error = 'lettura della chat non riuscita: ' + gt.slice(0, 300); return out; }
+      const msgs = Array.isArray(conv.chat_messages) ? conv.chat_messages : [];
+      const leaf = conv.current_leaf_message_uuid || (msgs.length ? msgs[msgs.length - 1].uuid : null);
+      out.steps.push(`messaggi nella chat: ${msgs.length}; aggancio a: ${leaf || 'nessuno'}; campi: ${Object.keys(conv).slice(0, 25).join(', ')}`);
+      const body = {
+        prompt: text,
+        parent_message_uuid: leaf || undefined,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        locale: navigator.language || 'it-IT',
+        rendering_mode: 'messages',
+        attachments: [], files: [], sync_sources: [],
+      };
+      const ctl = new AbortController();
+      const timer = setTimeout(() => ctl.abort(), 120000);
+      const p = await fetch(`${base}/completion`, {
+        method: 'POST', credentials: 'include', signal: ctl.signal,
+        headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+        body: JSON.stringify(body),
+      });
+      out.steps.push(`invio -> ${p.status} (${p.headers.get('content-type') || 'senza tipo'})`);
+      let txt = '';
+      try { txt = await p.text(); } catch (e) { out.steps.push('lettura risposta interrotta: ' + e.message); }
+      clearTimeout(timer);
+      out.steps.push(`risposta: ${txt.length} caratteri; inizio: ${txt.slice(0, 400).replace(/\s+/g, ' ')}`);
+      out.ok = p.ok;
+      if (!p.ok) out.error = `invio rifiutato (${p.status}): ${txt.slice(0, 400)}`;
+      return out;
+    } catch (e) { out.error = String(e.message || e); return out; }
+  })();
+}

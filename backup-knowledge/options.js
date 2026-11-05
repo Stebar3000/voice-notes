@@ -96,6 +96,16 @@ $('allowBig').onclick = async () => {
   await send({ type: 'allowBig' });
   $('allowMsg').textContent = 'Consentito una volta: vale per il prossimo backup, poi torna il blocco.';
 };
+$('testMessage').onclick = async () => {
+  const b = $('testMessage');
+  b.disabled = true;
+  $('messageMsg').hidden = false;
+  $('messageMsg').textContent = 'Invio in corso (fino a 2 minuti)…';
+  try {
+    const r = await send({ type: 'testMessage', chat: $('chatUrl').value });
+    $('messageMsg').textContent = r.ok ? r.text : 'NON RIUSCITO: ' + r.error;
+  } finally { b.disabled = false; }
+};
 function alertBox(t) { $('report').hidden = false; $('report').textContent = t; }
 
 chrome.storage.onChanged.addListener(() => refresh());
