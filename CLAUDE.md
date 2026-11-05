@@ -412,3 +412,8 @@ Indice delle note di lavoro (deciso 02/11/2026):
   Prove simulate tutte OK (ingresso, rifiuto secondo ingresso, invariato, modifica K, modifica D, nuovo D in sottocartella, spostamento D,
   cancellazione K, PDF in attesa, Originali ignorata, conflitto, nomi ripuliti senza doppioni, cursore, permessi Dropbox mancanti).
   DA FARE dall'utente: Ricarica, "Ricollega Dropbox" (Autorizza+Collega), "Inserisci nel mirroring" su Audio Notes. Prova reale: DA FARE.
+- Idea utente 05/11 sera (da realizzare al prossimo ordine): "segnale" dalla chat. Quando una chat ha scritto nella knowledge, a fine lavoro
+  crea UN piccolo file su Dropbox (connettore, solo creazione) in `/Projects/LLM-Mirroring/<Progetto>/_segnali/AAAA-MM-GG-HHMMSS.txt`:
+  il cursore lo vede e l'estensione allinea entro un minuto. Proposta Claude: `_segnali/` diventa nome riservato (mai nel mirroring);
+  l'estensione cancella i segnali dopo un giro riuscito; nome unico perché il connettore non sovrascrive; il giro periodico resta come
+  rete di sicurezza e può passare da 15 a 60 minuti. La regola va scritta anche nel protocollo delle chat.
