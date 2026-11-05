@@ -425,3 +425,10 @@ Indice delle note di lavoro (deciso 02/11/2026):
   ogni comando con id unico ed eseguito una sola volta; le cancellazioni mantengono le protezioni; l'estensione agisce dentro Chrome
   (Dropbox, claude.ai, rete consentita), per azioni sul PC servirebbe un piccolo programma locale (native messaging); le cartelle che
   iniziano con "_" nella radice LLM-Mirroring non sono progetti.
+- Architettura comandi (utente, 05/11 sera): DUE pozzi di comandi con lo stesso formalismo ma code separate. (1) Estensione: agisce
+  in locale con Chrome aperto; può rispondere direttamente nella knowledge del progetto. (2) Script Google: agisce lato server (es. Google
+  Drive, altre operazioni server); risposte su Dropbox anche per le chat di progetto. Protocollo comune: elenco chiuso di comandi con
+  parametri e limiti dichiarati, così le chat sanno cosa chiedere e come; log delle esecuzioni (costo nullo).
+  Script Google RISTRUTTURATO dall'utente: un modulo unico riceve tutti i trigger Dropbox delle cartelle monitorate, risponde subito e fa da
+  dispatcher verso moduli leggeri (Joplin, conversione dei binari dei progetti, altri in futuro); trigger orari solo come riserva.
+  Divisione dei compiti da rispettare: mirroring = solo estensione; conversione binari = solo script.
