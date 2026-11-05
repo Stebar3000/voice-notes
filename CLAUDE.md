@@ -570,3 +570,5 @@ Indice delle note di lavoro (deciso 02/11/2026):
 - Ripiego scelto: snippet da incollare nella console di Chrome (F12) su una chat di prova in un progetto di prova (mai la business):
   trova il campo (editor ProseMirror contenteditable), scrive "ping" con execCommand('insertText'), clicca il pulsante di invio
   (o Invio sintetico se manca), riporta selettori ed esito. Nessuna modifica al repository. Esito: DA RICEVERE dall'utente.
+- 05/11 21:07 giro 1 (INVIA = false) RIUSCITO: campo trovato con `div.ProseMirror[contenteditable="true"]` (primo selettore),
+  "ping" inserito e letto nel campo. Prossimo: giro 2 con INVIA = true (pulsante di invio e verifica dell'invio).
