@@ -94,6 +94,37 @@ $('allowBig').onclick = async () => {
   await send({ type: 'allowBig' });
   $('allowMsg').textContent = 'Consentito una volta: vale per il prossimo allineamento, poi torna il blocco.';
 };
+// voci del risultato, nell'ordine in cui avvengono
+const CHAT_LABELS = [
+  ['error', 'errore'], ['url', 'indirizzo'], ['scheda_nascosta', 'scheda in secondo piano'], ['ms_caricamento', 'caricamento pagina (ms)'],
+  ['campo', 'campo trovato con'], ['ms_campo', 'campo pronto dopo (ms)'], ['testo_nel_campo', 'testo nel campo'],
+  ['pulsante', 'pulsante trovato con'], ['etichetta', 'etichetta del pulsante'], ['campo_svuotato', 'campo svuotato'],
+  ['messaggio_comparso', 'messaggio comparso nella chat'], ['ms', 'lavoro nella pagina (ms)'], ['ms_totale', 'totale (ms)'], ['scheda', 'scheda'],
+];
+(async () => {
+  const st = await store.get(['testChatUrl', 'testChatText', 'testChatClose']);
+  if (st.testChatUrl) $('chatUrl').value = st.testChatUrl;
+  if (st.testChatText) $('chatText').value = st.testChatText;
+  $('chatClose').checked = !!st.testChatClose;
+})();
+$('chatTest').onclick = async () => {
+  const url = $('chatUrl').value.trim(), text = $('chatText').value.trim(), closeAfter = $('chatClose').checked;
+  await store.set({ testChatUrl: url, testChatText: text, testChatClose: closeAfter });
+  $('chatTest').disabled = true;
+  $('chatTest').textContent = 'Prova in corso…';
+  $('chatOut').hidden = false;
+  $('chatOut').textContent = 'Apro la chat in secondo piano…';
+  try {
+    const r = await send({ type: 'testChat', url, text, closeAfter });
+    const lines = [r && r.ok ? 'INVIATO ✓' : 'NON RIUSCITO'];
+    for (const [k, label] of CHAT_LABELS) if (r && r[k] !== undefined) lines.push(`${label}: ${r[k]}`);
+    $('chatOut').textContent = lines.join('\n');
+    $('chatOut').className = r && r.ok ? 'ok' : 'bad';
+  } finally {
+    $('chatTest').disabled = false;
+    $('chatTest').textContent = 'Prova attivazione chat';
+  }
+};
 function alertBox(t) { $('report').hidden = false; $('report').textContent = t; }
 
 chrome.storage.onChanged.addListener(() => refresh());

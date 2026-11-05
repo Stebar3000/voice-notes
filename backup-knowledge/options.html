@@ -48,6 +48,18 @@
   </section>
 
   <section>
+    <h2>Prova attivazione chat</h2>
+    <p class="sub" style="margin:0 0 8px">Apre la chat indicata in una scheda in secondo piano, scrive il testo e preme "Invia messaggio". Usare solo con una chat di prova.</p>
+    <label for="chatUrl">Indirizzo della chat di prova (https://claude.ai/chat/…)</label>
+    <input type="text" id="chatUrl" autocomplete="off">
+    <label for="chatText">Testo da inviare</label>
+    <input type="text" id="chatText" autocomplete="off" value="ping">
+    <label><input type="checkbox" id="chatClose"> Chiudi la scheda dopo l'invio</label>
+    <button id="chatTest">Prova attivazione chat</button>
+    <pre id="chatOut" hidden></pre>
+  </section>
+
+  <section>
     <h2>Dropbox</h2>
     <div id="dbxState"></div>
     <a id="toggleDbx">Ricollega Dropbox</a>

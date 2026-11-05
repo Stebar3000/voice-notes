@@ -103,3 +103,67 @@ export function pageDeleteDocById(orgId, pid, uuid) {
     } catch (e) { return { ok: false, error: String(e.message || e) }; }
   })();
 }
+
+// Prova di attivazione di una chat dall'interfaccia (DOM): scrive `text` nel campo della chat e preme "Invia messaggio".
+// Nessuna chiamata interna: fa esattamente quello che farebbe una persona. Riporta cosa ha trovato e quanto ci ha messo.
+export function pageSendMessage(text, waitMs) {
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const t0 = Date.now();
+  const ms = () => Date.now() - t0;
+  const FIELD = ['div.ProseMirror[contenteditable="true"]', '[data-testid="chat-input"]',
+    'div[contenteditable="true"][role="textbox"]', 'div[contenteditable="true"]', 'textarea'];
+  const BUTTON = ['button[aria-label="Invia messaggio"]', 'button[aria-label="Send message"]',
+    'button[aria-label*="Invia" i]', 'button[aria-label*="Send" i]', 'fieldset button[type="submit"]'];
+  const valueOf = (f) => ((f.tagName === 'TEXTAREA' ? f.value : f.innerText) || '').trim();
+  // Quante volte il testo compare come messaggio nella pagina (fuori dal campo): serve a vedere se l'invio è arrivato.
+  const count = (f) => [...document.querySelectorAll('p, div, span')]
+    .filter((e) => e.children.length === 0 && !(f && f.contains(e)) && e.textContent.trim() === text).length;
+  return (async () => {
+    const out = { url: location.href, scheda_nascosta: document.hidden };
+    try {
+      let field = null;
+      while (!field && ms() < waitMs) {
+        for (const s of FIELD) { const f = document.querySelector(s); if (f) { field = f; out.campo = s; break; } }
+        if (!field) await sleep(250);
+      }
+      if (!field) return { ...out, ok: false, error: `campo di input non trovato in ${Math.round(ms() / 1000)} s`, ms: ms() };
+      out.ms_campo = ms();
+      const before = count(field);
+      field.focus();
+      if (field.tagName === 'TEXTAREA') {
+        Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(field, text);
+        field.dispatchEvent(new Event('input', { bubbles: true }));
+      } else {
+        document.execCommand('selectAll', false);
+        document.execCommand('insertText', false, text);
+      }
+      await sleep(300);
+      out.testo_nel_campo = valueOf(field);
+      if (out.testo_nel_campo !== text) return { ...out, ok: false, error: 'il testo non è entrato nel campo', ms: ms() };
+      let btn = null;
+      const tb = ms();
+      while (!btn && ms() - tb < 10000) {
+        for (const s of BUTTON) {
+          const b = document.querySelector(s);
+          if (b && !b.disabled && b.getAttribute('aria-disabled') !== 'true') { btn = b; out.pulsante = s; out.etichetta = b.getAttribute('aria-label') || ''; break; }
+        }
+        if (!btn) await sleep(250);
+      }
+      if (btn) btn.click();
+      else {
+        out.pulsante = 'nessuno: Invio sintetico';
+        field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }));
+      }
+      const ts = ms();
+      while (ms() - ts < 15000 && (valueOf(field) || count(field) <= before)) await sleep(250);
+      out.campo_svuotato = !valueOf(field);
+      out.messaggio_comparso = count(field) > before;
+      out.ms = ms();
+      out.ok = out.campo_svuotato && out.messaggio_comparso;
+      if (!out.ok) out.error = !out.campo_svuotato ? 'il testo è rimasto nel campo: invio non partito' : 'il messaggio non compare nella chat';
+      return out;
+    } catch (e) {
+      return { ...out, ok: false, error: String(e.message || e), ms: ms() };
+    }
+  })();
+}

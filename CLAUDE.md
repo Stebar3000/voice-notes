@@ -576,3 +576,15 @@ Indice delle note di lavoro (deciso 02/11/2026):
   accettato, campo svuotato, messaggio "ping" comparso nella chat di prova (Haiku) che ha risposto. ATTIVAZIONE DI UNA CHAT VIA DOM: FUNZIONA
   con scheda in primo piano e chat già aperta. Non ancora provato: scheda in secondo piano, chat aperta dall'estensione (caricamento della
   pagina, attesa del campo), Chrome con la scheda "congelata". Il pulsante si cerca anche per etichetta inglese (cambio di lingua).
+
+## Estensione v1.0.1: pulsante "Prova attivazione chat" (05/11/2026 sera, su ordine dell'utente)
+- Impostazioni: campi "Indirizzo della chat di prova" (solo `https://claude.ai/chat/<uuid>`), "Testo" (predefinito ping, max 500),
+  casella "Chiudi la scheda dopo l'invio", pulsante. Worker `testChat`: apre la chat in scheda NUOVA in secondo piano (`active:false`),
+  aspetta il caricamento (45 s), inietta `pageSendMessage` (claude.js): aspetta il campo fino a 30 s, scrive con execCommand, cerca il
+  pulsante abilitato (10 s; ripiego Invio sintetico), clicca, verifica campo svuotato + messaggio comparso (15 s); riporta tempi e selettori.
+  Nessun permesso nuovo (scripting + host claude.ai già presenti). Impostazioni della prova salvate in storage (testChat*).
+- Prove simulate (Chromium + claude.ai finto servito da un server locale dietro un proxy locale che rifiuta ogni altro host): 7/7 OK
+  (invio con scheda aperta e chiusa, indirizzo non valido, campo assente, Invio sintetico, pulsante che non invia, testo vuoto).
+  Test nel repository: `backup-knowledge/test/attiva-chat.e2e.mjs`. Limite: Chromium headless segna ogni scheda come visibile,
+  quindi il vero "secondo piano" (document.hidden) si verifica solo sul PC. NB per prove future: `ctx.route` di Playwright NON intercetta
+  le schede aperte dall'estensione e il proxy della sandbox ignora --host-resolver-rules: serve il proxy locale (opzione `proxy`).

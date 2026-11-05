@@ -12,4 +12,8 @@ Mirroring a due vie tra la knowledge dei progetti claude.ai e `/Projects/LLM-Mir
 - Tempi: cursore Dropbox controllato ogni minuto (giro subito se cambia qualcosa); giro completo ogni 15 minuti.
 - File non di testo (PDF, Word, Excel) nella cartella: non copiati; "in attesa di conversione" per un'ora, poi segnalati.
 
-Prove: `node --test test/` (pianificatore) e prova completa in Chromium con claude.ai e Dropbox simulati (05/11/2026).
+- Prova (v1.0.1): pulsante "Prova attivazione chat" nelle impostazioni: apre una chat indicata in una scheda in secondo piano,
+  scrive il testo nel campo e preme "Invia messaggio" (attivazione di una chat via interfaccia, senza chiamate interne).
+
+Prove: `node --test test/core.test.mjs` (pianificatore); prova completa in Chromium con claude.ai e Dropbox simulati (05/11/2026);
+`node test/attiva-chat.e2e.mjs <cartella estensione>` (pulsante di prova della chat, claude.ai finto dietro un proxy locale; serve Playwright).

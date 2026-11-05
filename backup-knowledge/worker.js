@@ -1,6 +1,6 @@
 // Cuore dell'estensione: mirroring a due vie tra la knowledge dei progetti claude.ai e /Projects/LLM-Mirroring/<Progetto>/.
 import { ROOT, GUIDE, REPORT, INSTR, MAX_DOC, isText, isReserved, safeSegment, mapDocs, planSync, dbxHash, stamp } from './core.js';
-import { pageListProjects, pageReadProject, pageAddDoc, pageDeleteDocById } from './claude.js';
+import { pageListProjects, pageReadProject, pageAddDoc, pageDeleteDocById, pageSendMessage } from './claude.js';
 import * as dbx from './dropbox.js';
 
 const MIRROR_MIN = 15;                    // giro completo (anche per le modifiche fatte nella knowledge)
@@ -332,6 +332,37 @@ async function insertProject(pid) {
   }
 }
 
+// ---------- prova: attivare una chat dall'interfaccia (apre la chat in secondo piano, scrive, invia) ----------
+const CHAT_RE = /^https:\/\/claude\.ai\/chat\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+let chatTesting = false;
+async function testChat(url, text, closeAfter) {
+  url = String(url || '').trim();
+  text = String(text || '').trim();
+  if (!CHAT_RE.test(url)) return { ok: false, error: 'indirizzo non valido: deve essere https://claude.ai/chat/<codice della chat>' };
+  if (!text || text.length > 500) return { ok: false, error: 'testo vuoto o più lungo di 500 caratteri' };
+  if (chatTesting) return { ok: false, error: 'una prova è già in corso' };
+  chatTesting = true;
+  const t0 = Date.now();
+  let t;
+  try {
+    try { t = await chrome.tabs.create({ url, active: false }); }
+    catch { t = (await chrome.windows.create({ url, focused: false, state: 'minimized' })).tabs[0]; }
+    const loaded = await waitComplete(t.id, 45e3);
+    const msLoad = Date.now() - t0;
+    if (!loaded) return { ok: false, error: 'la pagina della chat non si è caricata in 45 s', ms_caricamento: msLoad };
+    const r = (await inPage(t.id, pageSendMessage, [text, 30e3])) || { ok: false, error: 'nessuna risposta dalla pagina' };
+    r.ms_caricamento = msLoad;
+    r.ms_totale = Date.now() - t0;
+    if (closeAfter) { try { await chrome.tabs.remove(t.id); r.scheda = 'chiusa dopo l\'invio'; } catch {} }
+    else r.scheda = 'lasciata aperta';
+    return r;
+  } catch (e) {
+    return { ok: false, error: String(e.message || e), ms_totale: Date.now() - t0 };
+  } finally {
+    chatTesting = false;
+  }
+}
+
 // ---------- esito visibile ----------
 async function setBadge(text, color, title) {
   await chrome.action.setBadgeText({ text });
@@ -377,6 +408,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
         case 'insert': return await insertProject(msg.pid);
         case 'runNow': return { ok: true, report: await runMirror('pulsante') };
         case 'allowBig': await store.set({ allowBigCleanup: true }); return { ok: true };
+        case 'testChat': return await testChat(msg.url, msg.text, !!msg.closeAfter);
         default: return { ok: false, error: 'comando sconosciuto' };
       }
     } catch (e) {
