@@ -499,4 +499,20 @@ Indice delle note di lavoro (deciso 02/11/2026):
   proseguire, non aspetta. Se le serve: `send_later` a +3 minuti (cursore ≤1 min + esecuzione + mirroring ≤1 min + qualche secondo
   perché la knowledge mostri il file), poi cerca `_risposte/<id>.md` (chat di progetto) o legge `_comandi/<pozzo>/risposte/<id>.md`
   (chat esterne). Se manca, un solo nuovo tentativo a +5 minuti; poi dichiara "nessuna risposta per <id>" all'utente e non ripete il comando.
-- Ancora da definire: elenco chiuso dei comandi con parametri e limiti; testo della skill per le chat.
+- DECISO 05/11: `_segnali/` NON si fa: sostituita dal comando `allinea` {progetto}. Un solo meccanismo.
+- DECISO 05/11: distinguere **COMANDI** (chiesti da una chat) da **LAVORI FISSI** (fatti dall'estensione da sola).
+  Lavoro fisso 1 = **ingresso delle note** (sostituisce la chat tecnica oraria): file nuovo in `/Applicazioni/VoceAgente/inbox/` →
+  copia (lato server Dropbox) in `/Projects/LLM-Mirroring/Audio Notes/business/note/<stesso nome>` → verifica impronta → spostamento in
+  `acquisite/`; il mirroring porta la nota nella knowledge `business/note/`. Serve un secondo cursore su `inbox/` (oggi il cursore guarda
+  solo LLM-Mirroring). Mai spostare in `acquisite/` senza copia verificata (rischio (a) dell'analisi del 03/11).
+- Comandi estensione (bozza): `allinea` {progetto}; `copia` / `sposta` {da, a}; `pubblica-joplin` {sorgente nella knowledge, nota}
+  con VALIDAZIONE prima di scrivere (riga 1 = titolo = nome file, riga 2 vuota, niente `/ \ : * ? " < > |` nel nome; nuova nota solo in
+  `/Notes/!VOCE-INBOX/`, modifica solo nello stesso percorso); `attiva-chat` solo dopo la prova del punto 3. `elenca` ESCLUSO finché
+  non serve davvero. Limiti comuni: percorsi solo sotto `/Projects/`, `/Applicazioni/VoceAgente/`, `/Notes/` (con le regole Joplin);
+  mai spostare/rinominare in /Notes; nessuna cancellazione definitiva; numero massimo di file per comando.
+- DECISIONE APERTA (tocca lo script, segnalata all'utente 05/11): il registro. Con il mirroring `business/registro/` arriva già su Dropbox
+  in `/Projects/LLM-Mirroring/Audio Notes/business/registro/`; se lo script lo legge lì, la business scrive il registro UNA volta sola
+  (non più in `/Applicazioni/VoceAgente/registro/`). Conseguenze: cambiare il punto 6 del protocollo business e il percorso letto dallo
+  script; ritardo fino a 15 min (knowledge → Dropbox arriva col giro completo, salvo comando `allinea`), irrilevante per un controllo giornaliero.
+- Pozzo dello script: Claude non conosce i moduli attuali (script ristrutturato altrove, ultima copia letta 01/11): informazioni chieste all'utente.
+- Ancora da definire: elenco chiuso del pozzo script; testo della skill per le chat.
