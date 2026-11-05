@@ -396,3 +396,10 @@ Indice delle note di lavoro (deciso 02/11/2026):
   file guida con nome riservato nella cartella del progetto, escluso dal mirroring, con l'uuid del progetto Claude (regge i cambi di nome);
   l'estensione ignora i binari "in attesa di conversione" e li segnala solo se restano lì a lungo. Le cartelle `/Projects/<nome>/knowledge/`
   del backup attuale andranno migrate nel nuovo albero.
+- DECISO 05/11 (utente): ingresso nel mirroring con un PULSANTE per progetto ("Inserisci nel mirroring"): copia completa
+  knowledge → `/Projects/LLM-Mirroring/<NomeProgetto>/` (crea cartelle), poi scrive il file guida. Da lì il progetto è allineato per
+  definizione e il mirroring a due vie parte. Proposta Claude: si allineano SOLO i progetti con file guida; il pulsante funziona solo se
+  la cartella non esiste o è vuota (altrimenti avvisa); niente regola di "unione" al primo giro. Le vecchie cartelle `/Projects/<nome>/
+  knowledge/` non servono più (l'utente può cancellarle a mano).
+  Permessi Dropbox: l'utente ha aggiunto i permessi di lettura (05/11) e ricaricato l'estensione; serve però RIFARE "Autorizza/Collega"
+  perché il vecchio token ha solo i permessi di prima (da verificare alla prima prova).
