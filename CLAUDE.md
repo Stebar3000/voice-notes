@@ -588,3 +588,5 @@ Indice delle note di lavoro (deciso 02/11/2026):
   Test nel repository: `backup-knowledge/test/attiva-chat.e2e.mjs`. Limite: Chromium headless segna ogni scheda come visibile,
   quindi il vero "secondo piano" (document.hidden) si verifica solo sul PC. NB per prove future: `ctx.route` di Playwright NON intercetta
   le schede aperte dall'estensione e il proxy della sandbox ignora --host-resolver-rules: serve il proxy locale (opzione `proxy`).
+- v1.0.1 copiata sul PC (commit f681eec, 7 file), impronte sha256 identiche al repository. DA FARE dall'utente: Ricarica, poi la prova
+  reale con la chat di prova (giro 1 scheda lasciata aperta; giro 2 "Chiudi la scheda dopo l'invio" per vedere se la risposta arriva lo stesso).
