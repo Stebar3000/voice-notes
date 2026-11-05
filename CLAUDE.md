@@ -343,3 +343,11 @@ Indice delle note di lavoro (deciso 02/11/2026):
   nella nuova esperienza di Claude", campo `workspace_upgraded`). Il vecchio indirizzo JSON non vale per le chat della nuova esperienza
   (tutte quelle nuove, inclusa la futura business): strada POST CHIUSA. Resta il ripiego dell'interfaccia (scrivere e inviare).
   Nota: l'utente ha incollato in chat i cookie di sessione; avvisato, ha scelto consapevolmente di non chiudere la sessione.
+
+## Metodo di consegna dei file sul PC (05/11/2026, regola dell'utente)
+- Mai usare il connettore Dropbox per scrivere file che stanno nella copia locale di Dropbox sul PC: lento e costoso (rispedisce
+  tutto il testo). Si lavora sulle cartelle locali via collegamento al PC (app desktop); Dropbox poi sincronizza da solo.
+- Cartella locale concessa (05/11): `C:\Users\steba\Dropbox (Personale)\Projects\Audio Notes` (nel terminale del PC: `$HOME/mnt/Audio Notes`).
+- Aggiornare l'estensione: commit e push su GitHub, poi sul PC `curl` dei file da raw.githubusercontent.com/Stebar3000/voice-notes/main/
+  backup-knowledge/<file> dentro `$HOME/mnt/Audio Notes/backup-knowledge/`, e verifica con sha256sum contro la copia di lavoro.
+  Verificato 05/11: il terminale del PC raggiunge GitHub; copia v0.3.0 sul PC identica (sha256) al repository.
