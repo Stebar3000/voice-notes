@@ -403,3 +403,12 @@ Indice delle note di lavoro (deciso 02/11/2026):
   knowledge/` non servono più (l'utente può cancellarle a mano).
   Permessi Dropbox: l'utente ha aggiunto i permessi di lettura (05/11) e ricaricato l'estensione; serve però RIFARE "Autorizza/Collega"
   perché il vecchio token ha solo i permessi di prima (da verificare alla prima prova).
+- **Estensione v1.0.0 "Mirroring knowledge" (05/11/2026, scritta su ordine dell'utente, commit 62c1e67), copiata sul PC con impronte
+  verificate.** Sostituisce il backup: albero `/Projects/LLM-Mirroring/<Progetto>/`, pulsante "Inserisci nel mirroring" (cartella deve
+  essere assente o vuota), file guida `_mirroring.json` {versione, progetto{uuid,orgId,nome}, file{rel:{nome,h}}, istruzioni_h,
+  aggiornato, ultimo_giro{quando, modifiche[{file,tipo,verso,conflitto?}]}} (h = content_hash Dropbox, calcolato anche sul testo
+  della knowledge), `_resoconto.txt` e guida riscritti solo se cambia qualcosa, cursore Dropbox ogni minuto (non consumato se un giro
+  è appena finito), giro completo ogni 15 min, istruzioni a senso unico, protezioni (lato vuoto, più di metà), binari "in attesa" 1 ora.
+  Prove simulate tutte OK (ingresso, rifiuto secondo ingresso, invariato, modifica K, modifica D, nuovo D in sottocartella, spostamento D,
+  cancellazione K, PDF in attesa, Originali ignorata, conflitto, nomi ripuliti senza doppioni, cursore, permessi Dropbox mancanti).
+  DA FARE dall'utente: Ricarica, "Ricollega Dropbox" (Autorizza+Collega), "Inserisci nel mirroring" su Audio Notes. Prova reale: DA FARE.
