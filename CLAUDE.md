@@ -382,3 +382,7 @@ Indice delle note di lavoro (deciso 02/11/2026):
   e ignora il resto. Punti aperti segnalati da Claude: dove va l'originale (proposta: fuori da `knowledge/`), collisioni di nome
   (es. `x.pdf` e `x.docx` → stesso `x.md`), cosa succede se si modifica il testo derivato e poi cambia l'originale, formato Markdown
   dall'export Google (da verificare).
+  DECISO 05/11: il testo estratto si chiama con la doppia estensione `nome.pdf.md`, `nome.docx.md`, `nome.xlsx.csv`: niente collisioni
+  e la fonte è dichiarata nel nome. Conversione SOLO in ingresso (input only): mai rigenerare automaticamente PDF/Word da un .md modificato.
+  Produrre documenti binari da testo (es. Word da un .md) è un'attività separata, a richiesta, indipendente dalla fonte e dal mirroring.
+  Ancora aperti: dove va l'originale; cosa fare se l'originale viene sostituito dopo che il testo derivato è stato modificato.
