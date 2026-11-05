@@ -338,5 +338,8 @@ Indice delle note di lavoro (deciso 02/11/2026):
   con il vecchio indirizzo JSON `POST /api/organizations/{org}/chat_conversations/{uuid}/completion` (dopo GET della chat per
   `current_leaf_message_uuid`). Scoperta dell'utente con DevTools: l'interfaccia attuale usa anche `claudeai-rpc/anthropic.bard.api.
   v1alpha.ConversationService/*` in formato binario (application/proto); la chiamata d'invio vera non è stata individuata.
-  Se il POST JSON non va, ripiego: l'estensione apre la chat in secondo piano, scrive "elabora" e invia. Esito della prova: DA FARE.
+  Se il POST JSON non va, ripiego: l'estensione apre la chat in secondo piano, scrive "elabora" e invia.
+  ESITO 05/11 00:20: lettura della chat OK (200, 183 messaggi); invio RIFIUTATO 409 `conversation_upgraded` ("Questa chat è disponibile
+  nella nuova esperienza di Claude", campo `workspace_upgraded`). Il vecchio indirizzo JSON non vale per le chat della nuova esperienza
+  (tutte quelle nuove, inclusa la futura business): strada POST CHIUSA. Resta il ripiego dell'interfaccia (scrivere e inviare).
   Nota: l'utente ha incollato in chat i cookie di sessione; avvisato, ha scelto consapevolmente di non chiudere la sessione.
