@@ -627,3 +627,17 @@ Indice delle note di lavoro (deciso 02/11/2026):
   unica "scrivi dove hai letto": modalità manuale (letto da Dropbox) → registro e resoconto creati su Dropbox nella cartella del mirroring
   col connettore (il mirroring li porta nella knowledge alla riaccensione); modalità automatica → nella knowledge. Una sessione è fatta se
   esiste il registro con lo stesso nome nella knowledge OPPURE su Dropbox (copre il registro scritto in automatico poco prima che il PC si spenga).
+
+## 06/11/2026 sera: idea server sempre acceso (Oracle Cloud Always Free) — analisi, NESSUNA decisione
+- Idea dell'utente: Chromium + estensione su una VM gratuita Oracle, così mirroring e risveglio della business funzionano anche col laptop
+  in borsa. Fatti verificati sul web (06/11): Always Free esiste; Ampere A1 (ARM, non AMD) ridotto a 2 OCPU / 12 GB (prima 4/24);
+  l'AMD gratuito è il micro da 1 GB (troppo poco per claude.ai). Oracle può RECUPERARE le istanze gratuite inattive: in 7 giorni CPU
+  (95° percentile) < 20%, rete < 20%, memoria < 20% (solo A1). Una VM con solo Chromium sarebbe a rischio.
+- Punti tecnici segnalati: Chromium per Linux ARM va bene (Chrome di Google no); accesso a claude.ai da IP di datacenter da fare a mano
+  via desktop remoto, possibili controlli anti-bot e scadenza della sessione; se estensione su PC e su VM girano insieme → mirroring
+  e risvegli doppi (ne deve girare UNA sola); la VM custodisce sessione claude.ai e accesso pieno a Dropbox (va blindata).
+- PUNTO BLOCCANTE segnalato da Claude (regola aurea): Condizioni d'uso consumer Anthropic (in vigore dall'8/10/2025), sez. 3 punto 7:
+  vietato accedere ai Servizi con mezzi automatici o non umani (bot, script), salvo API key o permesso esplicito. Febbraio 2026: Anthropic
+  ha ribadito il divieto, con sospensioni di account riportate (The Register). Lettura di Claude (non legale): riguarda anche l'estensione
+  già attiva sul PC (mirroring via API interne e invio automatico di messaggi alle chat), non solo la VM; la VM renderebbe l'automazione
+  continua e senza persona. Rischio: sospensione dell'account (progetti e chat). Decisione dell'UTENTE, in attesa.
