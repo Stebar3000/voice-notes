@@ -641,3 +641,15 @@ Indice delle note di lavoro (deciso 02/11/2026):
   ha ribadito il divieto, con sospensioni di account riportate (The Register). Lettura di Claude (non legale): riguarda anche l'estensione
   già attiva sul PC (mirroring via API interne e invio automatico di messaggi alle chat), non solo la VM; la VM renderebbe l'automazione
   continua e senza persona. Rischio: sospensione dell'account (progetti e chat). Decisione dell'UTENTE, in attesa.
+
+## 06/11/2026 sera: rischio condizioni d'uso ACCETTATO + regola sul tempismo (utente, vincolante)
+- Rischio (Condizioni d'uso consumer di Anthropic, sez. 3 punto 7, accesso con mezzi automatici): l'utente lo conosce e lo ACCETTA
+  consapevolmente, per l'estensione sul PC e per l'eventuale server. Se Anthropic sospendesse l'account, userebbe altri strumenti: i dati
+  dei progetti sono replicati su Dropbox, resterebbero solo da rimettere in piedi le chat. Non riproporre il tema, non ripeterlo.
+- Correzione di Claude: il traffico previsto è minimo (poche note, qualche risveglio, niente di notturno), NON "continuo giorno e notte".
+  Un server sarebbe quasi fermo; non c'è differenza di rischio sostanziale dal PC. Per l'idea server resta da valutare solo la parte
+  tecnica (inattività Oracle, accesso a mano, una sola istanza dell'estensione), solo se l'utente la riprende.
+- **REGOLA DEL TEMPISMO**: dubbi, rischi e vincoli (legali, di costo, di fattibilità, di sicurezza) si dicono PRIMA di iniziare un lavoro,
+  alla prima occasione in cui diventano visibili, non dopo che sono stati spesi conversazioni e crediti. Prima di proporre o scrivere codice
+  che si appoggia a un servizio terzo, controllare subito le condizioni d'uso di quel servizio e riferirne in una riga. Una volta che l'utente
+  ha deciso con le informazioni in mano, la decisione non si rimette in discussione.
