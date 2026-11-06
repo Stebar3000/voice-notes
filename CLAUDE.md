@@ -594,3 +594,21 @@ Indice delle note di lavoro (deciso 02/11/2026):
   entrambi INVIATO, `scheda in secondo piano: true`, caricamento ~6,7 s, campo pronto subito, pulsante "Invia messaggio", totale ~9 s.
   Con la scheda chiusa la risposta della chat è arrivata lo stesso (la generazione continua lato server). ATTIVAZIONE DI UNA CHAT ESISTENTE
   DALL'ESTENSIONE, IN SECONDO PIANO E SENZA LASCIARE SCHEDE: FUNZIONA. Il punto 3 dei "prossimi passi" è chiuso.
+
+## 06/11/2026: conferme e analisi su risveglio della business e PC spento
+- APPROVATI dall'utente: formato id `AAAAMMGG-HHMMSS-xxxxxx` e campo `risposta` (`_comandi` | nome cartella progetto).
+- `docs/specifiche-script-google.md` verificato come allineato alle decisioni: l'utente lo passa così com'è al modello che implementa lo script.
+  VERIFICATO nel codice (core.js `safeSegment`/`mapDocs`): l'estensione sostituisce solo `\ : * ? " < > |` e caratteri di controllo e toglie
+  punto/spazio finali; spazi e parentesi restano, quindi il nome con " (1)" è identico tra Dropbox e knowledge (regola del registro con nome
+  identico valida in entrambi i versi). Lo script non dipende dal prossimo pacchetto dell'estensione: si può implementare subito
+  (oggi `_comandi/` non ha `_mirroring.json`, quindi non è trattata come progetto; `_risposte/` dentro un progetto viene già portata nella knowledge).
+- Precisazioni di Claude al flusso descritto dall'utente: con l'ingresso diretto NON servono copie né cambi di stato (arrivata = in
+  `business/inbox/` senza registro; elaborata = registro con lo stesso nome); l'esito finale della business È il registro (arriva su
+  Dropbox col mirroring), nessun file in più.
+- Proposta (da approvare): risveglio automatico = dopo un giro di mirroring, se in `business/inbox/` c'è una sessione senza registro e non già
+  segnalata, l'estensione apre la chat business e invia `elabora: <nomi dei file>` (la business sa cosa leggere nella knowledge, senza cercare).
+- PC spento (viaggio): l'utente scarta la partenza periodica (spreco). Fatto segnalato da Claude: senza PC le sessioni restano SOLO su
+  Dropbox, non nella knowledge. Proposta: `elabora` scritto a mano (senza nomi) = la business elenca Dropbox `business/inbox/`, confronta con
+  i propri registri e legge le mancanti da Dropbox (lettura secca, ammessa). Il nome identico del registro evita doppie elaborazioni quando
+  il PC si riaccende (l'estensione non risveglia per sessioni che hanno già il registro). Con PC spento i comandi all'estensione (es.
+  `pubblica-joplin`) restano in coda fino alla riaccensione (solo ritardo); Todoist va diretto col connettore.
