@@ -612,3 +612,18 @@ Indice delle note di lavoro (deciso 02/11/2026):
   i propri registri e legge le mancanti da Dropbox (lettura secca, ammessa). Il nome identico del registro evita doppie elaborazioni quando
   il PC si riaccende (l'estensione non risveglia per sessioni che hanno già il registro). Con PC spento i comandi all'estensione (es.
   `pubblica-joplin`) restano in coda fino alla riaccensione (solo ritardo); Todoist va diretto col connettore.
+- Copia dell'utente delle specifiche: `C:\Users\steba\Dropbox (Personale)\Projects\Audio Notes\Claude outputs\specifiche-script-google.md`
+  (cartella dove l'app salva i file consegnati; c'è anche `skill-comandi-mirroring.md`). Verificato 06/11: sha256 identiche a `docs/`.
+  Se un testo consegnato cambia, aggiornare anche la copia in `Claude outputs/` (via terminale del PC, mai col connettore Dropbox).
+- DECISO 06/11 (utente): DUE comandi distinti, nessuna interpretazione del contesto. `elabora` scritto a mano = vai su Dropbox in
+  `/Projects/LLM-Mirroring/Audio Notes/business/inbox/` e prendi le sessioni senza registro (l'utente sa che ci sono). Il messaggio
+  dell'estensione è un altro comando (forma proposta: `elabora dalla knowledge: <nomi dei file>`) = i file sono già nella knowledge.
+- Richiesta utente 06/11: oltre al registro, un RESOCONTO di ogni elaborazione (numeri, non dettagli tecnici). Proposta Claude (da approvare):
+  un file per giro di elaborazione `business/resoconti/AAAA-MM-GG-HHMM.md` (ora del giro): modalità (manuale/automatica), sessioni trovate,
+  note totali, conteggi per esito (note Joplin nuove, note Joplin modificate, task creati, task modificati, altre azioni, non classificabili
+  o non comprensibili, in sospeso, errori); controllo: somma dei conteggi = numero di "## Nota" lette.
+- Problema trovato da Claude (06/11) con PC spento: se la business scrive registro e resoconto solo nella knowledge, non arrivano su Dropbox
+  finché il PC è spento → la mail giornaliera dello script segnalerebbe sessioni "senza registro" false. Proposta (da approvare): regola
+  unica "scrivi dove hai letto": modalità manuale (letto da Dropbox) → registro e resoconto creati su Dropbox nella cartella del mirroring
+  col connettore (il mirroring li porta nella knowledge alla riaccensione); modalità automatica → nella knowledge. Una sessione è fatta se
+  esiste il registro con lo stesso nome nella knowledge OPPURE su Dropbox (copre il registro scritto in automatico poco prima che il PC si spenga).
