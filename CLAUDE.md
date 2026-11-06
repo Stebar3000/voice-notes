@@ -653,3 +653,9 @@ Indice delle note di lavoro (deciso 02/11/2026):
   alla prima occasione in cui diventano visibili, non dopo che sono stati spesi conversazioni e crediti. Prima di proporre o scrivere codice
   che si appoggia a un servizio terzo, controllare subito le condizioni d'uso di quel servizio e riferirne in una riga. Una volta che l'utente
   ha deciso con le informazioni in mano, la decisione non si rimette in discussione.
+- 06/11 21:45 (utente): idea server CONGELATA. Motivo: ROI non giustificato se servono complessità o un piano a pagamento (serve solo a
+  evitare un paio di operazioni a mano); interessa solo se gratis e semplice. Informazione completa in mano all'utente (inattività Oracle;
+  Pay As You Go evita il ritiro secondo un'email Oracle citata da terzi, non confermato nella documentazione; gli script Google girano solo
+  sui server Google e non si spostano su Oracle).
+- PRIORITÀ NUOVA (06/11): definire la chat business (istruzioni di progetto riviste, protocollo aggiornato) e fare un giro completo di prova.
+  La chat tecnica oraria non serve più (resta lì, non si cancella).
