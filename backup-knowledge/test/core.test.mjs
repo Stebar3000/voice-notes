@@ -1,7 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { safeRelPath, mapDocs, planSync, dbxHash, isReserved, isText, asciiJson, safeSegment } from '../core.js';
+import { safeRelPath, mapDocs, planSync, dbxHash, isReserved, isText, isIgnored, asciiJson, safeSegment } from '../core.js';
+
+test('file ignorati (v1.0.2): coordinate e PDF in lavorazione del convertitore, temporanei, Excel', () => {
+  for (const n of ['sub/doc.coord', 'doc.pdf.inlavorazione', 'doc.coord.tmp', 'Dati.xlsx', 'vecchio.XLS', 'macro.xlsm']) {
+    assert.equal(isIgnored(n), true, n);
+  }
+  for (const n of ['doc.pdf', 'doc.pdf.md', 'note.json', 'tabella.csv', 'lettera.docx']) assert.equal(isIgnored(n), false, n);
+});
 
 test('nomi e percorsi', () => {
   assert.equal(safeRelPath('claude/sync-stato.md'), 'claude/sync-stato.md');

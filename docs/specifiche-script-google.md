@@ -4,6 +4,19 @@ Versione 2026-11-05. Documento autosufficiente: chi lo implementa non ha bisogno
 Lo script è di Stefano, fatto in casa, sviluppato in una cartella locale e pubblicato con `clasp push`.
 Si può modificare liberamente, anche in ciò che fa oggi, se serve a rispettare queste specifiche.
 
+### Stato dell'implementazione (aggiornamento 2026-11-10)
+- **Implementato** nello script (progetto Apps Script UniversalDataRouter): §1 esclusioni (`04_Workflow_LLM_Mirror.gs`),
+  §2 modulo Comandi e §3 controllo giornaliero (`06_Workflow_Comandi_e_Controllo.gs`). Il modulo Comandi gira a ogni giro
+  del dispatcher e ogni ora; il controllo alle 08:00 di Lisbona. Trigger e autorizzazione mail: lanciare una volta a mano
+  `InstallaTriggerComandiEControllo()`. Criteri C1–C8, C10–C14 e G1–G8 provati con un Dropbox simulato; C9 (due esecuzioni
+  insieme) si affida al lock dello script e alla presa in carico con `move_v2`, da verificare dal vero.
+- **Cambiato rispetto alla versione 2026-11-05** (decisioni di Stefano del 9-10/11/2026):
+  - gli **Excel** (`.xls`, `.xlsx`) **non si convertono più**: restano come sono (l'estensione li ignora);
+  - un **PDF** si converte solo quando accanto c'è il suo file coordinate `nome.coord`, scritto sul PC dal tasto destro
+    "Crea coordinate per Markdown"; il risultato è `nome.pdf.md` con il layout ricostruito; PDF e `.coord` vanno in `Originali/`;
+  - lo script lavora anche fuori da `/Projects/LLM-Mirroring` e `/Notes` (`/Applicazioni/OCR_Dropzone`, `/Applicazioni/Joplin`):
+    §0.2 descriveva solo le cartelle che riguardano questo documento.
+
 ---
 
 ## 0. Quadro generale (leggere prima di tutto)
@@ -69,7 +82,7 @@ e il suo nome **non** inizia con `_`.
 | inizia con `/projects/llm-mirroring/_comandi/` (tutto il resto) | nessuno |
 | dentro una cartella di primo livello che inizia con `_` | nessuno |
 | dentro `<progetto>/originali/` o `<progetto>/_risposte/` | nessuno |
-| file `.pdf .doc .docx .xls .xlsx` in un progetto (fuori dalle cartelle sopra) | Conversione (invariato) |
+| file `.pdf .doc .docx` in un progetto (fuori dalle cartelle sopra); il PDF solo con il suo `.coord` accanto | Conversione |
 | qualunque altra cosa | nessuno |
 
 `/Notes` continua ad andare al modulo Joplin come oggi. Le scritture dell'estensione in `/Notes` (comando

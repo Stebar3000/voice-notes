@@ -17,6 +17,11 @@ const TEXT_EXT = new Set([
   'go', 'rb', 'php', 'tex', 'rtf', 'srt', 'vtt', 'gs',
 ]);
 
+// Estensioni da ignorare del tutto (né mirroring né "in attesa di conversione"):
+// file coordinate e PDF in lavorazione del convertitore (UniversalDataRouter), temporanei, Excel (non si convertono).
+const IGNORE_EXT = new Set(['coord', 'inlavorazione', 'tmp', 'xlsx', 'xls', 'xlsm']);
+export const isIgnored = (name) => IGNORE_EXT.has(extOf(name));
+
 export function extOf(name) {
   const last = String(name).split('/').pop();
   const dot = last.lastIndexOf('.');

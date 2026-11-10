@@ -10,7 +10,11 @@ Mirroring a due vie tra la knowledge dei progetti claude.ai e `/Projects/LLM-Mir
 - Regole: cambiato da una parte → copiato dall'altra; sparito da una parte (prima c'era) → cancellato dall'altra; cambiato da
   entrambe → vince la knowledge. Protezioni: niente cancellazioni se un lato è vuoto o se sparirebbe più di metà dei file.
 - Tempi: cursore Dropbox controllato ogni minuto (giro subito se cambia qualcosa); giro completo ogni 15 minuti.
-- File non di testo (PDF, Word, Excel) nella cartella: non copiati; "in attesa di conversione" per un'ora, poi segnalati.
+- File non di testo (PDF, Word) nella cartella: non copiati; "in attesa di conversione" per un'ora, poi segnalati.
+- v1.0.2 (10/11/2026): ignorati del tutto (né copiati né "in attesa") i file del convertitore PDF dello script Google
+  (`.coord` con le coordinate del testo, PDF temporaneamente rinominato `.inlavorazione`, `.tmp`) e gli Excel, che non si
+  convertono più. Se durante un giro arriva un cambiamento fatto da altri (es. lo script che scrive `nome.pdf.md`), un nuovo
+  giro parte dopo 5 secondi invece di aspettare il giro completo dei 15 minuti (le proprie scritture restano escluse).
 
 - Prova (v1.0.1): pulsante "Prova attivazione chat" nelle impostazioni: apre una chat indicata in una scheda in secondo piano,
   scrive il testo nel campo e preme "Invia messaggio" (attivazione di una chat via interfaccia, senza chiamate interne).

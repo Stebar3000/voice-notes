@@ -185,6 +185,18 @@ export async function changesSince(cursor) {
   return { changed: n, cursor: r.cursor };
 }
 
+// Cambiamenti dal cursore con i percorsi: {entries: [{tag, path}], cursor}. reset=true se il cursore non vale più.
+export async function changedEntries(cursor) {
+  const out = [];
+  let r;
+  try { r = await rpc('files/list_folder/continue', { cursor }); }
+  catch (e) { if (e.status === 409) return { reset: true }; throw e; }
+  const push = (es) => es.forEach((e) => out.push({ tag: e['.tag'], path: String(e.path_lower || '').toLowerCase() }));
+  push(r.entries);
+  while (r.has_more) { r = await rpc('files/list_folder/continue', { cursor: r.cursor }); push(r.entries); }
+  return { entries: out, cursor: r.cursor };
+}
+
 // Scarica un file come byte. null se non esiste.
 export async function download(path) {
   for (let i = 0; i < 4; i++) {

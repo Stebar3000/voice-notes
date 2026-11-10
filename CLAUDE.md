@@ -659,3 +659,19 @@ Indice delle note di lavoro (deciso 02/11/2026):
   sui server Google e non si spostano su Oracle).
 - PRIORITÀ NUOVA (06/11): definire la chat business (istruzioni di progetto riviste, protocollo aggiornato) e fare un giro completo di prova.
   La chat tecnica oraria non serve più (resta lì, non si cancella).
+
+## 10/11/2026: script Google implementato, convertitore PDF nuovo, estensione 1.0.2 (sessione sul PC, cartella UniversalDataRouter)
+- Lo script Google è il progetto Apps Script **UniversalDataRouter** (cartella locale `Dropbox\Applicazioni\UniversalDataRouter`,
+  `clasp push`; la versione pubblicata dell'app web cambia solo con "Gestisci deployment → Nuova versione"). Interruttore:
+  `MettiInPausa()` / `Riattiva()`; `ElencaTrigger()`. Dettaglio delle correzioni: `REVISIONE_SCRIPT_2026-11-10.md` in quella cartella.
+- `docs/specifiche-script-google.md` IMPLEMENTATO (§1 esclusioni, §2 modulo Comandi, §3 controllo giornaliero), file
+  `06_Workflow_Comandi_e_Controllo.gs`. Da fare dall'utente una volta: `InstallaTriggerComandiEControllo()` (trigger orario dei
+  comandi, controllo 08:00 Lisbona, autorizzazione mail). Criteri provati con Dropbox simulato; C9 da verificare dal vero.
+- Conversione PDF NUOVA (per Dropzone e LLM-Mirroring): sul PC tasto destro "Crea coordinate per Markdown"
+  (`Dropbox\Applicazioni\OCR_Dropzone\rendi_pdf_selezionabile.py`, OCR Google Lens) → `nome.coord` accanto al PDF; lo script
+  converte solo PDF con il `.coord` → `nome.pdf.md` (layout a tabelle dalle coordinate per le scansioni; paragrafi nell'ordine di
+  lettura con grassetti/corsivi per i PDF di testo; fogli con due pagine affiancate divisi). PDF e `.coord` in `Originali/`.
+  Excel NON più convertiti. Word come prima.
+- Estensione 1.0.2 (in `backup-knowledge/`, copia sul PC in `Projects\Audio Notes\backup-knowledge`): ignora `.coord`,
+  `.inlavorazione`, `.tmp`, Excel; nuovo giro dopo 5 s se durante un giro arriva un cambiamento fatto da altri. Test 7/7.
+- Il ciclo "un giro ogni minuto" visto il 10/11 era dello script (stato Joplin salvato dentro `/Notes` che si osservava da solo): corretto.

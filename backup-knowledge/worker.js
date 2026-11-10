@@ -1,5 +1,5 @@
 // Cuore dell'estensione: mirroring a due vie tra la knowledge dei progetti claude.ai e /Projects/LLM-Mirroring/<Progetto>/.
-import { ROOT, GUIDE, REPORT, INSTR, MAX_DOC, isText, isReserved, safeSegment, mapDocs, planSync, dbxHash, stamp } from './core.js';
+import { ROOT, GUIDE, REPORT, INSTR, MAX_DOC, isText, isIgnored, isReserved, safeSegment, mapDocs, planSync, dbxHash, stamp } from './core.js';
 import { pageListProjects, pageReadProject, pageAddDoc, pageDeleteDocById, pageSendMessage } from './claude.js';
 import * as dbx from './dropbox.js';
 
@@ -131,6 +131,11 @@ async function readKnowledge(tabId, orgId, pid) {
 
 function sortObj(o) { return Object.fromEntries(Object.entries(o).sort(([a], [b]) => a.localeCompare(b))); }
 
+// ---------- scritture del giro in corso (per distinguerle dai cambiamenti fatti da altri nel frattempo) ----------
+let ownWrites = new Set();
+const upW = (path, data) => { ownWrites.add(path.toLowerCase()); return dbx.upload(path, data); };
+const rmW = (path) => { ownWrites.add(path.toLowerCase()); return dbx.remove(path); };
+
 // ---------- un giro di mirroring su un progetto ----------
 async function syncProject(tabId, dir, guide, allowBig) {
   const root = `${ROOT}/${dir}`;
@@ -147,7 +152,7 @@ async function syncProject(tabId, dir, guide, allowBig) {
   const dItems = [];
   const now = Date.now();
   for (const f of all) {
-    if (isReserved(f.rel)) continue;
+    if (isReserved(f.rel) || isIgnored(f.rel)) continue;
     if (isText(f.rel)) { dItems.push(f); continue; }
     if (now - Date.parse(f.modified || 0) > PENDING_MS) pr.problems.push(`file non di testo non convertito da più di un'ora: ${f.rel}`);
     else pr.pending.push(f.rel);
@@ -166,7 +171,7 @@ async function syncProject(tabId, dir, guide, allowBig) {
       else if (o.op === 'gone') delS(o.rel);
       else if (o.op === 'up') {
         const k = K.get(o.rel.toLowerCase());
-        const meta = await dbx.upload(`${root}/${o.rel}`, k.bytes);
+        const meta = await upW(`${root}/${o.rel}`, k.bytes);
         if (meta && meta.content_hash && meta.content_hash !== k.h) pr.problems.push(`impronta diversa dopo la scrittura di ${o.rel}`);
         setS(o.rel, k.name, k.h);
         pr.changes.push({ file: o.rel, tipo: state[o.rel] ? 'modificato' : 'nuovo', verso: 'dropbox', ...(o.conflict ? { conflitto: true } : {}) });
@@ -200,7 +205,7 @@ async function syncProject(tabId, dir, guide, allowBig) {
         delS(o.rel);
         pr.changes.push({ file: o.rel, tipo: 'cancellato', verso: 'knowledge' });
       } else if (o.op === 'delD') {
-        await dbx.remove(`${root}/${o.rel}`);
+        await rmW(`${root}/${o.rel}`);
         delS(o.rel);
         pr.changes.push({ file: o.rel, tipo: 'cancellato', verso: 'dropbox', ...(o.conflict ? { conflitto: true } : {}) });
       }
@@ -215,12 +220,12 @@ async function syncProject(tabId, dir, guide, allowBig) {
   const ih = instr ? await dbxHash(enc(instr)) : '';
   if (ih !== instrH) {
     try {
-      if (instr) await dbx.upload(`${root}/${INSTR}`, instr); else await dbx.remove(`${root}/${INSTR}`);
+      if (instr) await upW(`${root}/${INSTR}`, instr); else await rmW(`${root}/${INSTR}`);
       instrH = ih;
       pr.changes.push({ file: INSTR, tipo: instr ? 'modificato' : 'cancellato', verso: 'dropbox' });
     } catch (e) { if (e.code === 'DBX') throw e; pr.problems.push('istruzioni di progetto: ' + (e.message || e)); }
   }
-  // resoconto leggibile e file guida: si riscrivono solo se è cambiato qualcosa (lo script Google ascolta il file guida)
+  // resoconto leggibile e file guida: si riscrivono solo se è cambiato qualcosa
   const stateChanged = JSON.stringify(sortObj(next)) !== JSON.stringify(sortObj(state));
   const problemsKey = pr.problems.join('\n');
   const { lastProblems = {} } = await store.get('lastProblems');
@@ -230,7 +235,7 @@ async function syncProject(tabId, dir, guide, allowBig) {
     if (pr.changes.length) lines.push('Modifiche:', ...pr.changes.map((c) => `- ${c.file}: ${c.tipo} → ${c.verso}${c.conflitto ? ' (conflitto: ha vinto la knowledge)' : ''}`));
     if (pr.pending.length) lines.push('In attesa di conversione:', ...pr.pending.map((p) => '- ' + p));
     lines.push(pr.problems.length ? 'PROBLEMI:\n- ' + pr.problems.join('\n- ') : 'Nessun problema.');
-    try { await dbx.upload(`${root}/${REPORT}`, lines.join('\n') + '\n'); } catch (e) { if (e.code === 'DBX') throw e; }
+    try { await upW(`${root}/${REPORT}`, lines.join('\n') + '\n'); } catch (e) { if (e.code === 'DBX') throw e; }
     lastProblems[pid] = problemsKey;
     await store.set({ lastProblems });
   }
@@ -238,7 +243,7 @@ async function syncProject(tabId, dir, guide, allowBig) {
     const iso = new Date(now).toISOString();
     const g = { ...guide, progetto: { ...guide.progetto, nome: pr.name }, file: sortObj(next), istruzioni_h: instrH,
       aggiornato: iso, ultimo_giro: { quando: iso, modifiche: pr.changes } };
-    await dbx.upload(`${root}/${GUIDE}`, JSON.stringify(g, null, 2) + '\n');      // per ultimo: è il punto di conferma
+    await upW(`${root}/${GUIDE}`, JSON.stringify(g, null, 2) + '\n');      // per ultimo: è il punto di conferma
   }
   return pr;
 }
@@ -256,6 +261,9 @@ async function doMirror(why) {
   const now = Date.now();
   const report = { at: now, why, ok: true, projects: [], error: '', ignored: [] };
   if (!(await dbx.isConnected())) return null;
+  ownWrites = new Set();
+  let c0 = null;                                                    // cursore all'inizio del giro
+  try { c0 = await dbx.latestCursor(ROOT); } catch {}
   let tab = null;
   try {
     const found = await discover();
@@ -280,7 +288,21 @@ async function doMirror(why) {
   } finally {
     if (tab && tab.created) { try { await chrome.tabs.remove(tab.tabId); } catch {} }
   }
-  try { const c = await dbx.latestCursor(ROOT); if (c) await store.set({ cursor: c }); } catch {}   // le nostre scritture non fanno ripartire il giro
+  // Le nostre scritture non fanno ripartire il giro; i cambiamenti fatti da altri durante il giro
+  // (es. lo script Google che scrive un .md) sì: un nuovo giro tra pochi secondi invece che tra 15 minuti.
+  let foreign = false;
+  try {
+    if (c0) {
+      const r = await dbx.changedEntries(c0);
+      if (!r.reset) {
+        foreign = r.entries.some((e) => e.tag !== 'folder' && !ownWrites.has(e.path)
+          && !isIgnored(e.path) && !e.path.includes('/originali/'));
+      }
+    }
+    const c = await dbx.latestCursor(ROOT);
+    if (c) await store.set({ cursor: c });
+  } catch {}
+  if (foreign) setTimeout(() => runMirror('cambio su Dropbox durante il giro'), 5e3);
   const upd = { lastReport: report, allowBigCleanup: false };
   if (report.ok) upd.lastOkAt = now;
   await store.set(upd);
