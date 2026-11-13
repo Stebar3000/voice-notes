@@ -677,6 +677,14 @@ Indice delle note di lavoro (deciso 02/11/2026):
 - Il ciclo "un giro ogni minuto" visto il 10/11 era dello script (stato Joplin salvato dentro `/Notes` che si osservava da solo): corretto.
 
 ## 13/11/2026: adeguamento al progetto Nero (ramo `nero-strato3`, non ancora in `main`; DA PROVARE)
+- **13/11/2026 sera, Android 1.2.0 (ramo `nero-voce-locale`, release `android-nero`; NON compilata né provata): trascrizione locale.**
+  Dopo ogni registrazione la nota entra in una coda (`CodaLocale`, un filo e un wake lock suoi, anche a schermo spento) e viene
+  trascritta sul telefono, senza rete, dal file e non dal microfono: `Pcm` decodifica l'm4a in PCM mono 16 kHz su file temporaneo e lo
+  taglia sulle pause (segmenti da ~3-25 s); `VoceLocale` passa ogni segmento al riconoscitore di Android (`EXTRA_AUDIO_SOURCE` in una
+  pipe, API 33+, it-IT) con tutte le chiamate sul thread principale. Testo pronto = nota `ready` con `via=locale`; se il locale fallisce
+  (max 2 prove) o dà testo vuoto, la nota va a Whisper come prima (`via=whisper`). `Sync` aspetta la coda (max 10 min) e chiede la chiave Groq
+  solo per le note che vanno davvero a Whisper. Impostazioni: interruttore (acceso) e "Prova riconoscitore locale" (diagnosi + ultima nota,
+  senza toccarne lo stato). Elenco note: "locale"/"Whisper"/"in trascrizione…". Il registro ha una riga per nota (mai il testo).
 - Contratto: `docs/nero-3-protocollo.md` nel repository privato Voice-Remote-Commander (§2 cartelle, §3 centralino, §4 rapporto).
 - **Tolta la pulizia Groq** (Android 1.1.0 e web 5.0.0): resta Whisper, il testo consegnato è quello grezzo; via modelli di pulizia,
   regole, titoli e ambiti. Restano il vocabolario (suggerimento per Whisper) e il filtro delle allucinazioni.

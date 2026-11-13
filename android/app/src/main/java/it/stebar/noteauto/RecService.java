@@ -154,6 +154,11 @@ public class RecService extends Service {
         setupSession();
         Note.migrateOnce(this, new Prefs(this));
         watchNetwork();
+        // note ancora da trascrivere (mai provate in locale): in coda; prima si tolgono i PCM temporanei rimasti
+        new Thread(() -> {
+            if (!CodaLocale.occupata()) Pcm.pulisciCache(getApplicationContext());
+            CodaLocale.scansiona(getApplicationContext());
+        }, "scansione-locale").start();
         log("Servizio avviato (versione " + BuildConfigInfo.VERSION + ")");
     }
 
@@ -322,11 +327,12 @@ public class RecService extends Service {
             scheduleIdleSync();
             return;
         }
-        Note.create(f, startMs, (int) sec);
+        Note nuova = Note.create(f, startMs, (int) sec);
         long kb = f != null && f.exists() ? f.length() / 1024 : 0;
         beep(ToneGenerator.TONE_PROP_ACK, 400);
         vibrate(80);
         log("STOP da " + source + screenState() + " · " + sec + " s · " + kb + " KB");
+        CodaLocale.accoda(this, nuova); // trascrizione sul telefono, dal file, anche a schermo spento
         scheduleIdleSync();
     }
 

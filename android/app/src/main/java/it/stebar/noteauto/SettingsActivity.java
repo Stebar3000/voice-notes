@@ -13,10 +13,13 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
+import android.widget.Switch;
 import android.widget.TextView;
 
 import java.text.SimpleDateFormat;
+import java.io.File;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 
 /** Impostazioni: chiave Groq, collegamento a Dropbox, centralino di Nero, pausa prima della consegna, parole difficili. Salva da sola. */
@@ -25,6 +28,7 @@ public class SettingsActivity extends Activity {
     private Prefs prefs;
     private EditText groqKey, appKey, code, sessionMin, vocab, centralinoUrl, centralinoKey;
     private TextView dbxStatus, result;
+    private Switch localeSwitch;
 
     @Override
     protected void onCreate(Bundle b) {
@@ -73,6 +77,15 @@ public class SettingsActivity extends Activity {
         col.addView(sessionMin);
 
         col.addView(section("Trascrizione"));
+        localeSwitch = new Switch(this);
+        localeSwitch.setText("Trascrizione sul telefono (senza rete)");
+        localeSwitch.setTextColor(Color.WHITE);
+        localeSwitch.setTextSize(16);
+        localeSwitch.setChecked(prefs.getBool("voceLocale", true));
+        localeSwitch.setOnCheckedChangeListener((bt, on) -> prefs.putBool("voceLocale", on));
+        col.addView(localeSwitch);
+        col.addView(note("Whisper resta come riserva."));
+        col.addView(row(button("Prova riconoscitore locale", v -> testLocale())));
         col.addView(note("Parole difficili da riconoscere (nomi, luoghi, sigle), separate da virgole."));
         vocab = edit("Es. Bargnani, Lisbona, Todoist, Joplin", true);
         col.addView(vocab);
@@ -206,6 +219,37 @@ public class SettingsActivity extends Activity {
             String err = prefs.groqKey().isEmpty() ? "scrivi prima la chiave" : Groq.test(prefs);
             say(err == null ? "Groq: tutto a posto ✓" : "Groq: " + err);
         }).start();
+    }
+
+    private void testLocale() {
+        say("Provo il riconoscitore locale…");
+        final android.content.Context app = getApplicationContext();
+        new Thread(() -> {
+            StringBuilder sb = new StringBuilder(VoceLocale.stato(app));
+            File ultimo = null;
+            List<Note> all = Note.loadAll(app);
+            for (int i = all.size() - 1; i >= 0 && ultimo == null; i--) {
+                if (all.get(i).audio.exists()) ultimo = all.get(i).audio;
+            }
+            if (ultimo == null) {
+                sb.append("
+Nessuna nota con audio da provare.");
+            } else if (VoceLocale.disponibile(app)) {
+                say(sb + "
+Trascrivo l'ultima nota…");
+                VoceLocale.Esito es = VoceLocale.trascrivi(app, ultimo);
+                sb.append("
+Ultima nota: ").append(es.durSec).append(" s di audio, ").append(es.segmenti)
+                        .append(" segmenti, ").append(String.format(Locale.ITALY, "%.1f", es.ms / 1000.0)).append(" s");
+                if (es.ok) sb.append("
+Testo: ").append(es.testo);
+                else if (es.vuoto) sb.append("
+Nessun testo riconosciuto.");
+                else sb.append("
+Non riuscita: ").append(es.errore);
+            }
+            say(sb.toString());
+        }, "prova-locale").start();
     }
 
     private void startAuth() {

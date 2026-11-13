@@ -2,7 +2,7 @@ name: App Android
 
 on:
   push:
-    branches: [main, nero-strato3]
+    branches: [main, nero-strato3, nero-voce-locale]
     paths: ['android/**', '.github/workflows/android.yml']
   workflow_dispatch:
 
@@ -44,10 +44,10 @@ jobs:
             --notes "Compilata da ${{ github.sha }}" \
             --prerelease --target ${{ github.sha }}
 
-      # Il ramo nero-strato3 ha una release tutta sua: android-prova (di main) non si tocca.
+      # I rami nero-strato3 e nero-voce-locale hanno una release tutta sua: android-prova (di main) non si tocca.
       - name: Pubblica l'APK di Nero (prova)
         id: release_nero
-        if: steps.build.outcome == 'success' && github.ref_name == 'nero-strato3'
+        if: steps.build.outcome == 'success' && (github.ref_name == 'nero-strato3' || github.ref_name == 'nero-voce-locale')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -55,7 +55,7 @@ jobs:
           gh release delete android-nero -y --cleanup-tag || true
           gh release create android-nero note-auto-nero.apk \
             --title "Note Auto – Nero (prova)" \
-            --notes "Compilata da ${{ github.sha }} (ramo nero-strato3)" \
+            --notes "Compilata da ${{ github.sha }} (ramo ${{ github.ref_name }})" \
             --prerelease --target ${{ github.sha }}
 
       # Claude non può leggere le API di Actions: l'esito va in un ramo git che può scaricare.

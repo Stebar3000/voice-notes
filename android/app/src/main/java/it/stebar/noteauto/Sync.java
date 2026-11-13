@@ -68,8 +68,19 @@ final class Sync {
     private static void run(Context ctx, boolean manual) {
         Prefs p = new Prefs(ctx);
         Note.migrateOnce(ctx, p);
+        // Note ancora da trascrivere sul telefono: prima si mettono in coda, poi si aspetta la fine (non vanno a Whisper)
+        CodaLocale.scansiona(ctx);
+        if (CodaLocale.occupata()) {
+            if (manual) {
+                phase = RUNNING;
+                message = "Attendo la trascrizione sul telefono…";
+            }
+            RecService.log("Consegna in attesa della trascrizione locale");
+            if (!CodaLocale.aspetta(10 * 60_000L)) RecService.log("Trascrizione locale ancora in corso dopo 10 minuti: le note in coda restano per il prossimo giro");
+        }
         List<Note> work = new ArrayList<>();
         for (Note n : Note.loadAll(ctx)) {
+            if (CodaLocale.inCoda(n.id)) continue; // ancora in lavorazione sul telefono
             if (manual && Note.ERROR.equals(n.state)) { // "Consegna ora" riprova anche quelle in errore
                 n.state = Note.NEW;
                 n.tries = 0;
@@ -185,6 +196,7 @@ final class Sync {
                 return;
             }
             n.raw = raw;
+            n.via = "whisper";
         }
         n.state = Note.READY;
         n.tries = 0;

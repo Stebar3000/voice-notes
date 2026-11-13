@@ -188,11 +188,17 @@ public class MainActivity extends Activity {
         listText = sb.length() == 0 ? "Nessuna nota ancora." : sb.toString();
     }
 
+    private String origine(Note n) {
+        if ("locale".equals(n.via)) return " · locale";
+        if ("whisper".equals(n.via) || !n.raw.isEmpty()) return " · Whisper";
+        return "";
+    }
+
     private String label(Note n) {
         switch (n.state) {
-            case Note.NEW: return "da trascrivere";
-            case Note.READY: return "pronta, da consegnare";
-            case Note.DELIVERED: return "consegnata ✓";
+            case Note.NEW: return CodaLocale.inCoda(n.id) ? "in trascrizione…" : "da trascrivere";
+            case Note.READY: return "pronta, da consegnare" + origine(n);
+            case Note.DELIVERED: return "consegnata ✓" + origine(n);
             case Note.EMPTY: return "nessun parlato";
             case Note.ERROR: return "ERRORE: " + n.error;
             default: return n.state;

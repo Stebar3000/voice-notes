@@ -42,6 +42,10 @@ final class Note {
     String raw = "";
     String error = "";
     int tries;
+    /** Chi ha fatto il testo: "locale" (riconoscitore del telefono), "whisper" o vuoto (non ancora / note vecchie). */
+    String via = "";
+    /** Quante volte è stata provata la trascrizione locale senza successo (massimo 2). */
+    int locTries;
 
     private Note(File audio) {
         this.audio = audio;
@@ -98,6 +102,8 @@ final class Note {
                 n.raw = j.optString("raw", "");
                 n.error = j.optString("error", "");
                 n.tries = j.optInt("tries", 0);
+                n.via = j.optString("via", "");
+                n.locTries = j.optInt("locTries", 0);
             } catch (Exception e) {
                 // scheda illeggibile: si riparte da "da trascrivere", l'audio c'è
                 n.state = NEW;
@@ -132,6 +138,8 @@ final class Note {
             j.put("raw", raw);
             j.put("error", error);
             j.put("tries", tries);
+            j.put("via", via);
+            j.put("locTries", locTries);
             File tmp = new File(meta.getParentFile(), id + ".json.tmp");
             try (FileOutputStream o = new FileOutputStream(tmp)) {
                 o.write(j.toString().getBytes(StandardCharsets.UTF_8));
