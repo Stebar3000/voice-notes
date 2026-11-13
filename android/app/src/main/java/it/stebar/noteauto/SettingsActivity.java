@@ -223,6 +223,7 @@ public class SettingsActivity extends Activity {
 
     private void testLocale() {
         say("Provo il riconoscitore locale…");
+        VoceLocale.sorgenteIgnorata = false; // la prova riparte sempre da zero
         final android.content.Context app = getApplicationContext();
         new Thread(() -> {
             StringBuilder sb = new StringBuilder(VoceLocale.stato(app));
@@ -232,21 +233,15 @@ public class SettingsActivity extends Activity {
                 if (all.get(i).audio.exists()) ultimo = all.get(i).audio;
             }
             if (ultimo == null) {
-                sb.append("
-Nessuna nota con audio da provare.");
+                sb.append("\nNessuna nota con audio da provare.");
             } else if (VoceLocale.disponibile(app)) {
-                say(sb + "
-Trascrivo l'ultima nota…");
+                say(sb + "\nTrascrivo l'ultima nota…");
                 VoceLocale.Esito es = VoceLocale.trascrivi(app, ultimo);
-                sb.append("
-Ultima nota: ").append(es.durSec).append(" s di audio, ").append(es.segmenti)
+                sb.append("\nUltima nota: ").append(es.durSec).append(" s di audio, ").append(es.segmenti)
                         .append(" segmenti, ").append(String.format(Locale.ITALY, "%.1f", es.ms / 1000.0)).append(" s");
-                if (es.ok) sb.append("
-Testo: ").append(es.testo);
-                else if (es.vuoto) sb.append("
-Nessun testo riconosciuto.");
-                else sb.append("
-Non riuscita: ").append(es.errore);
+                if (es.ok) sb.append("\nTesto: ").append(es.testo);
+                else if (es.vuoto) sb.append("\nNessun testo riconosciuto.");
+                else sb.append("\nNon riuscita: ").append(es.errore);
             }
             say(sb.toString());
         }, "prova-locale").start();

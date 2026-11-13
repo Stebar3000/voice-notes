@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Trascrizione sul telefono (senza rete) con il riconoscitore vocale di Android, dal file registrato:
@@ -36,6 +37,10 @@ final class VoceLocale {
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
     private static final int SILENCE_AFTER_MS = 800;
     private static final long STOP_DELAY_MS = 300;
+    private static final int MIN_INVIO_MS = 3000;    // ogni invio (audio + silenzio) supera la capienza della pipe
+    private static final long PIPE_CAP = 65536;      // capienza di una pipe: se il riconoscitore non legge, la scrittura si ferma qui
+    /** Vero se il riconoscitore ha dato un risultato senza leggere l'audio dal file (avrebbe ascoltato il microfono). */
+    static volatile boolean sorgenteIgnorata;
 
     private VoceLocale() { }
 
@@ -55,6 +60,7 @@ final class VoceLocale {
     static boolean disponibile(Context ctx) {
         if (Build.VERSION.SDK_INT < 33) return false;
         try {
+            if (sorgenteIgnorata) return false;
             return SpeechRecognizer.isOnDeviceRecognitionAvailable(ctx) || SpeechRecognizer.isRecognitionAvailable(ctx);
         } catch (RuntimeException e) {
             return false;
@@ -105,7 +111,17 @@ final class VoceLocale {
 
     // ---------- un segmento ----------
 
-    private static final int OK = 0, TIMEOUT = -2, NON_DISP = -1;
+    private static final int OK = 0, TIMEOUT = -2, NON_DISP = -1, IGNORATA = -4, ANTICIPATO = -5;
+
+    private static String descriviErrore(int e) {
+        switch (e) {
+            case NON_DISP: return "riconoscitore non disponibile";
+            case TIMEOUT: return "tempo scaduto";
+            case IGNORATA: return "il riconoscitore non legge l'audio dal file";
+            case ANTICIPATO: return "risultato arrivato prima della fine dell'audio";
+            default: return "errore " + e;
+        }
+    }
 
     /** Esito di un tentativo su un segmento: errore 0 = testo valido (anche vuoto). */
     private static final class Ris {
@@ -118,6 +134,10 @@ final class VoceLocale {
         final CountDownLatch fine = new CountDownLatch(1);
         final SpeechRecognizer[] rec = new SpeechRecognizer[1];
         final AtomicBoolean finito = new AtomicBoolean(false);
+        final AtomicLong scritto = new AtomicLong(0);
+        final long audio = a - da;
+        final int silenzio = (int) Math.max((long) Pcm.BYTES_PER_SEC * SILENCE_AFTER_MS / 1000,
+                (long) Pcm.BYTES_PER_SEC * MIN_INVIO_MS / 1000 - audio) & ~1;
         ParcelFileDescriptor[] pipe = null;
         Thread scrittore = null;
         try {
@@ -191,9 +211,17 @@ final class VoceLocale {
                             int r = raf.read(buf, 0, (int) Math.min(buf.length, left));
                             if (r < 0) break;
                             os.write(buf, 0, r);
+                            scritto.addAndGet(r);
                             left -= r;
                         }
-                        if (!finito.get()) os.write(new byte[Pcm.BYTES_PER_SEC * SILENCE_AFTER_MS / 1000]);
+                        byte[] zero = new byte[4096];
+                        int resto = silenzio;
+                        while (resto > 0 && !finito.get()) {
+                            int n = Math.min(zero.length, resto);
+                            os.write(zero, 0, n);
+                            scritto.addAndGet(n);
+                            resto -= n;
+                        }
                     } catch (IOException ignored) {
                         // pipe chiusa dall'altro lato: l'esito arriva dal riconoscitore o dal limite di tempo
                     }
@@ -223,6 +251,16 @@ final class VoceLocale {
             if (!arrivato) {
                 finito.set(true);
                 ris.errore = TIMEOUT;
+            } else if (ris.errore == OK) {
+                // Il risultato vale solo se il riconoscitore ha davvero letto l'audio dalla pipe.
+                long w = scritto.get();
+                if (w <= PIPE_CAP) {                       // non ha letto: avrebbe ascoltato il microfono
+                    ris.errore = IGNORATA;
+                    ris.testo = "";
+                } else if (w < audio - Pcm.BYTES_PER_SEC) { // ha chiuso prima della fine: testo incompleto
+                    ris.errore = ANTICIPATO;
+                    ris.testo = "";
+                }
             }
         } catch (IOException e) {
             finito.set(true);
@@ -272,7 +310,8 @@ final class VoceLocale {
                     for (int tentativo = 0; tentativo < 2; tentativo++) {
                         r = riconosci(app, pcm, s[0], s[1]);
                         if (r.errore == OK || r.errore == SpeechRecognizer.ERROR_NO_MATCH
-                                || r.errore == SpeechRecognizer.ERROR_SPEECH_TIMEOUT) break;
+                                || r.errore == SpeechRecognizer.ERROR_SPEECH_TIMEOUT
+                                || r.errore == IGNORATA || r.errore == ANTICIPATO) break;
                         if (r.errore == NON_DISP && tentativo == 0) {
                             // riconoscitore sparito: una seconda prova lo ricrea
                         }
@@ -285,7 +324,11 @@ final class VoceLocale {
                         }
                     } else if (r.errore != SpeechRecognizer.ERROR_NO_MATCH && r.errore != SpeechRecognizer.ERROR_SPEECH_TIMEOUT) {
                         es.falliti++;
-                        es.errore = "errore " + r.errore;
+                        es.errore = descriviErrore(r.errore);
+                        if (r.errore == IGNORATA) {
+                            sorgenteIgnorata = true;
+                            es.nonDisponibile = true;
+                        }
                         break;
                     }
                 }
@@ -369,6 +412,7 @@ final class VoceLocale {
             }
         });
         sb.append(lingua);
+        if (sorgenteIgnorata) sb.append("\nLettura dell'audio dal file: NON supportata da questo riconoscitore (si usa Whisper)");
         return sb.toString();
     }
 
