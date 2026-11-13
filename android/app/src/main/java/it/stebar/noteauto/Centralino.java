@@ -46,6 +46,11 @@ final class Centralino {
         }
     }
 
+    /** Il laptop di casa è acceso? Risposta {ok, vivo, ora, secondi}; tempo massimo 10 s. */
+    static boolean vivo(Prefs p) throws Http.ApiError {
+        return parse(Http.call("GET", p.centralinoUrl() + "/vivo", headers(p), null, 10000)).optBoolean("vivo", false);
+    }
+
     /** I rapporti più recenti (al massimo n), quelli dopo l'id indicato se non è vuoto; i più nuovi per primi. */
     static List<Rapporti.Rapporto> rapporti(Prefs p, String dopo, int n) throws Http.ApiError {
         String url = p.centralinoUrl() + "/rapporti?n=" + n;

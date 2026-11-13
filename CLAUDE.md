@@ -680,13 +680,14 @@ Indice delle note di lavoro (deciso 02/11/2026):
 - Contratto: `docs/nero-3-protocollo.md` nel repository privato Voice-Remote-Commander (§2 cartelle, §3 centralino, §4 rapporto).
 - **Tolta la pulizia Groq** (Android 1.1.0 e web 5.0.0): resta Whisper, il testo consegnato è quello grezzo; via modelli di pulizia,
   regole, titoli e ambiti. Restano il vocabolario (suggerimento per Whisper) e il filtro delle allucinazioni.
-- **Android, due strade** (`Consegna.java`): se `/Nero/stato/sono-vivo.txt` su Dropbox è più recente di 12 minuti → deposito in
-  `/Nero/lotti/in-arrivo/AAAAMMGG-HHMMSS-android.md`; altrimenti `POST /lotto` al centralino e, a risposta ok, copia su Dropbox in
-  `/Nero/lotti/archivio/AAAA-MM/…-cloud.md`. Centralino muto o in errore → Dropbox; 401 → avviso "Chiave del centralino non valida".
-  Una nota è consegnata solo dopo una risposta positiva; un invio = un file/una chiamata con tutte le direttive pronte (forma del §2).
-- Dropbox: app "Full Dropbox", quindi percorsi assoluti `/Nero/…`. Per leggere "sono vivo" serve il permesso `files.content.read`
-  (oltre a `files.content.write`) e un nuovo collegamento; senza, l'app usa la strada del cloud. Tolta l'impostazione "cartella su Dropbox".
-- Nuove impostazioni: indirizzo e chiave del centralino (la chiave sta solo sul telefono). Senza chiave: sempre Dropbox.
+- **Android, due strade** (`Consegna.java`): con la chiave del centralino, `GET /vivo` dice se il laptop è acceso. Vivo → deposito in
+  `/Nero/lotti/in-arrivo/AAAAMMGG-HHMMSS-android.md` su Dropbox; non vivo → `POST /lotto` e, a risposta ok, copia su Dropbox in
+  `/Nero/lotti/archivio/AAAA-MM/…-cloud.md`. Centralino muto o in errore → Dropbox; 401 → avviso "Chiave del centralino non valida"
+  e Dropbox. Se la strada scelta fallisce si prova l'altra. Una nota è consegnata solo dopo una risposta positiva; un invio =
+  un file/una chiamata con tutte le direttive pronte (forma del §2).
+- Dropbox: app "Full Dropbox", solo scrittura, percorsi assoluti `/Nero/…`; nessun nuovo permesso né nuovo collegamento. "Prova Dropbox"
+  scrive `/Nero/lotti/archivio/prova-connessione.txt`. Tolta l'impostazione "cartella su Dropbox".
+- Nuove impostazioni: indirizzo e chiave del centralino (la chiave sta solo sul telefono), con "Prova centralino" (`GET /vivo`). Senza chiave: sempre Dropbox.
 - **Rapporto**: all'apertura, con "Aggiorna" e per 6 minuti dopo una consegna (ogni 15 s) si chiede `GET /rapporti?dopo=<ultimo visto>`.
   Rapporto nuovo → notifica "Nero: rapporto pronto" + suono (Android) o avviso in pagina (web). Schermata "Rapporto" con ordine del §4
   e ultimi 5; "Leggi l'ultimo rapporto" legge sintesi e decisioni con la voce del telefono, solo dal tasto, secondo tocco = stop.

@@ -15,6 +15,10 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
+
 /** Impostazioni: chiave Groq, collegamento a Dropbox, centralino di Nero, pausa prima della consegna, parole difficili. Salva da sola. */
 public class SettingsActivity extends Activity {
 
@@ -51,8 +55,7 @@ public class SettingsActivity extends Activity {
         dbxStatus.setTextSize(15);
         dbxStatus.setPadding(0, 12, 0, 12);
         col.addView(dbxStatus);
-        col.addView(note("Le cartelle di Nero stanno in /Nero (l'app Dropbox è \"Full Dropbox\"). Per sapere se Archie è "
-                + "a casa serve anche il permesso di lettura (files.content.read) nell'app Dropbox, poi collegare di nuovo."));
+        col.addView(note("Le cartelle di Nero stanno in /Nero (l'app Dropbox è \"Full Dropbox\")."));
         col.addView(row(button("Prova Dropbox", v -> testDropbox())));
 
         col.addView(section("Centralino di Nero (strada del cloud)"));
@@ -248,13 +251,15 @@ public class SettingsActivity extends Activity {
             say("Dropbox non è ancora collegato.");
             return;
         }
-        say("Controllo Dropbox…");
+        say("Provo a scrivere su Dropbox…");
         new Thread(() -> {
-            String sig = Consegna.segnale(prefs);
-            if ("vivo".equals(sig)) say("Dropbox ✓ — Archie a casa è attivo (strada di casa).");
-            else if ("assente".equals(sig)) say("Dropbox ✓ — Archie a casa non risponde (strada del cloud).");
-            else say("Dropbox: lettura non riuscita (" + sig + "). Se manca il permesso, abilita files.content.read "
-                        + "nell'app Dropbox e collega di nuovo; fino ad allora si userà la strada del cloud.");
+            try {
+                String when = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.ITALY).format(new Date());
+                Dropbox.upload(prefs, Consegna.RADICE + "/lotti/archivio/prova-connessione.txt", Http.utf8("Prova di Note Auto del " + when + "\n"), true);
+                say("Dropbox ✓ — scritto /Nero/lotti/archivio/prova-connessione.txt");
+            } catch (Http.ApiError e) {
+                say("Dropbox: " + e.getMessage());
+            }
         }).start();
     }
 
@@ -267,8 +272,8 @@ public class SettingsActivity extends Activity {
         say("Provo il centralino…");
         new Thread(() -> {
             try {
-                Centralino.rapporti(prefs, "", 1);
-                say("Centralino: tutto a posto ✓");
+                boolean vivo = Centralino.vivo(prefs);
+                say("Chiave valida ✓ — " + (vivo ? "il laptop risulta acceso (strada di casa)" : "il laptop risulta spento (strada del cloud)"));
             } catch (Http.ApiError e) {
                 say(e.status == 401 ? "Chiave del centralino non valida" : "Centralino: " + e.getMessage());
             }
