@@ -30,7 +30,7 @@ public class MainActivity extends Activity {
     private final Handler handler = new Handler(Looper.getMainLooper());
     private LinearLayout root;
     private TextView state, info, listView;
-    private Button toggleView;
+    private Button toggleView, report;
     private MediaPlayer player;
     private boolean showLog;
     private int shownVersion = -1;
@@ -65,6 +65,8 @@ public class MainActivity extends Activity {
         Button settings = button("Impostazioni", v -> startActivity(new Intent(this, SettingsActivity.class)));
         row1.addView(now, weight());
         row1.addView(settings, weight());
+        report = button("Rapporto", v -> startActivity(new Intent(this, RapportoActivity.class)));
+        row1.addView(report, weight());
         root.addView(row1);
 
         LinearLayout row2 = new LinearLayout(this);
@@ -178,7 +180,7 @@ public class MainActivity extends Activity {
             if (sb.length() > 0) sb.append('\n');
             sb.append(fmt.format(n.startMs)).append(" · ").append(n.durSec / 60).append(':')
                     .append(String.format(Locale.ITALY, "%02d", n.durSec % 60)).append(" · ").append(label(n)).append('\n');
-            String t = !n.title.isEmpty() ? n.title : n.text;
+            String t = n.raw;
             if (!n.error.isEmpty() && !Note.ERROR.equals(n.state)) sb.append("   ⚠ ").append(n.error.length() > 160 ? n.error.substring(0, 160) + "…" : n.error).append('\n');
             if (!t.isEmpty()) sb.append("   ").append(t.length() > 90 ? t.substring(0, 90) + "…" : t.replace('\n', ' ')).append('\n');
         }
@@ -238,6 +240,7 @@ public class MainActivity extends Activity {
             root.setBackgroundColor(bg);
             info.setText("Da consegnare: " + pending + "   ·   versione " + BuildConfigInfo.VERSION);
             toggleView.setText(showLog ? "Note" : "Registro");
+            report.setText(Rapporti.unread ? "Rapporto ●" : "Rapporto");
             if (showLog) {
                 StringBuilder sb = new StringBuilder();
                 synchronized (RecService.LOG) {
@@ -255,6 +258,7 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         shownVersion = -1;
+        Rapporti.check(this, false);
         handler.post(refresh);
     }
 

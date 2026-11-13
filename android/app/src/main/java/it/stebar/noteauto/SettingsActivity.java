@@ -15,15 +15,11 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.Locale;
-
-/** Impostazioni: chiave Groq, collegamento a Dropbox, pausa di sessione, regole di pulizia. Salva da sola. */
+/** Impostazioni: chiave Groq, collegamento a Dropbox, centralino di Nero, pausa prima della consegna, parole difficili. Salva da sola. */
 public class SettingsActivity extends Activity {
 
     private Prefs prefs;
-    private EditText groqKey, appKey, base, code, sessionMin, rules, vocab;
+    private EditText groqKey, appKey, code, sessionMin, vocab, centralinoUrl, centralinoKey;
     private TextView dbxStatus, result;
 
     @Override
@@ -37,12 +33,12 @@ public class SettingsActivity extends Activity {
 
         col.addView(title("Impostazioni"));
 
-        col.addView(section("Groq (trascrizione e pulizia)"));
+        col.addView(section("Groq (trascrizione)"));
         groqKey = edit("Chiave Groq (inizia con gsk_)", false);
         col.addView(groqKey);
         col.addView(row(button("Incolla", v -> paste(groqKey)), button("Prova Groq", v -> testGroq())));
 
-        col.addView(section("Dropbox (consegna delle note)"));
+        col.addView(section("Dropbox (consegna a Nero)"));
         col.addView(note("Una sola volta: crea l'app su Dropbox, scrivi qui la sua App key, tocca 1 e autorizza, "
                 + "copia il codice che Dropbox ti mostra, incollalo qui sotto e tocca 2."));
         appKey = edit("App key di Dropbox", false);
@@ -55,21 +51,25 @@ public class SettingsActivity extends Activity {
         dbxStatus.setTextSize(15);
         dbxStatus.setPadding(0, 12, 0, 12);
         col.addView(dbxStatus);
-        base = edit("Cartella su Dropbox", false);
-        col.addView(base);
+        col.addView(note("Le cartelle di Nero stanno in /Nero (l'app Dropbox è \"Full Dropbox\"). Per sapere se Archie è "
+                + "a casa serve anche il permesso di lettura (files.content.read) nell'app Dropbox, poi collegare di nuovo."));
         col.addView(row(button("Prova Dropbox", v -> testDropbox())));
 
-        col.addView(section("Sessioni di dettatura"));
-        col.addView(note("Pausa (in minuti) dopo la quale una nota nuova apre un file nuovo; "
-                + "dopo l'ultima nota la consegna parte da sola, se c'è rete, trascorso questo tempo."));
+        col.addView(section("Centralino di Nero (strada del cloud)"));
+        col.addView(note("Se Archie a casa non risponde, le note vanno al centralino. Senza chiave: sempre su Dropbox."));
+        centralinoUrl = edit("Indirizzo del centralino", false);
+        col.addView(centralinoUrl);
+        centralinoKey = edit("Chiave del centralino", false);
+        col.addView(centralinoKey);
+        col.addView(row(button("Incolla", v -> paste(centralinoKey)), button("Prova centralino", v -> testCentralino())));
+
+        col.addView(section("Consegna automatica"));
+        col.addView(note("Minuti di pausa dopo l'ultima nota, trascorsi i quali la consegna parte da sola, se c'è rete."));
         sessionMin = edit("Minuti", false);
         sessionMin.setInputType(InputType.TYPE_CLASS_NUMBER);
         col.addView(sessionMin);
 
-        col.addView(section("Pulizia del testo"));
-        col.addView(note("Regole personali (facoltative), una per riga. Hanno la precedenza."));
-        rules = edit("Es. Scrivi sempre \"Sara\" con una sola r", true);
-        col.addView(rules);
+        col.addView(section("Trascrizione"));
         col.addView(note("Parole difficili da riconoscere (nomi, luoghi, sigle), separate da virgole."));
         vocab = edit("Es. Bargnani, Lisbona, Todoist, Joplin", true);
         col.addView(vocab);
@@ -161,10 +161,10 @@ public class SettingsActivity extends Activity {
     private void load() {
         groqKey.setText(prefs.get("groqKey", ""));
         appKey.setText(prefs.get("dbxAppKey", ""));
-        base.setText(prefs.get("dbxBase", Prefs.DEFAULT_BASE));
         code.setText("");
+        centralinoUrl.setText(prefs.get("centralinoUrl", Prefs.DEFAULT_CENTRALINO));
+        centralinoKey.setText(prefs.get("centralinoKey", ""));
         sessionMin.setText(prefs.get("sessionMin", "10"));
-        rules.setText(prefs.get("rules", ""));
         vocab.setText(prefs.get("vocab", ""));
         updateStatus();
     }
@@ -174,9 +174,9 @@ public class SettingsActivity extends Activity {
         if (!newKey.equals(prefs.get("dbxAppKey", ""))) prefs.put("dbxRefresh", ""); // altra app Dropbox: da ricollegare
         prefs.put("groqKey", groqKey.getText().toString().trim());
         prefs.put("dbxAppKey", newKey);
-        prefs.put("dbxBase", base.getText().toString().trim());
+        prefs.put("centralinoUrl", centralinoUrl.getText().toString().trim());
+        prefs.put("centralinoKey", centralinoKey.getText().toString().trim());
         prefs.put("sessionMin", sessionMin.getText().toString().trim());
-        prefs.put("rules", rules.getText().toString());
         prefs.put("vocab", vocab.getText().toString());
     }
 
@@ -248,14 +248,29 @@ public class SettingsActivity extends Activity {
             say("Dropbox non è ancora collegato.");
             return;
         }
-        say("Provo a scrivere su Dropbox…");
+        say("Controllo Dropbox…");
+        new Thread(() -> {
+            String sig = Consegna.segnale(prefs);
+            if ("vivo".equals(sig)) say("Dropbox ✓ — Archie a casa è attivo (strada di casa).");
+            else if ("assente".equals(sig)) say("Dropbox ✓ — Archie a casa non risponde (strada del cloud).");
+            else say("Dropbox: lettura non riuscita (" + sig + "). Se manca il permesso, abilita files.content.read "
+                        + "nell'app Dropbox e collega di nuovo; fino ad allora si userà la strada del cloud.");
+        }).start();
+    }
+
+    private void testCentralino() {
+        save();
+        if (prefs.centralinoKey().isEmpty()) {
+            say("Scrivi prima la chiave del centralino.");
+            return;
+        }
+        say("Provo il centralino…");
         new Thread(() -> {
             try {
-                String when = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.ITALY).format(new Date());
-                String resp = Dropbox.upload(prefs, "/prova-connessione.txt", Http.utf8("Prova di Note Auto del " + when + "\n"), true);
-                say("Dropbox ha risposto ✓\n" + resp);
+                Centralino.rapporti(prefs, "", 1);
+                say("Centralino: tutto a posto ✓");
             } catch (Http.ApiError e) {
-                say("Dropbox: " + e.getMessage());
+                say(e.status == 401 ? "Chiave del centralino non valida" : "Centralino: " + e.getMessage());
             }
         }).start();
     }

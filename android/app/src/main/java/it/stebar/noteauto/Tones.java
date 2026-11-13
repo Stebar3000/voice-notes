@@ -20,6 +20,11 @@ final class Tones {
         play(new int[]{523, 659, 784, 1047}, new int[]{170, 170, 170, 520}, 0.55f);
     }
 
+    /** Tre note che salgono e una più alta: "rapporto di Nero pronto". Diverso da "tutto consegnato". */
+    static void report() {
+        play(new int[]{784, 988, 1175, 1568}, new int[]{140, 140, 140, 360}, 0.5f);
+    }
+
     /** Due bip gravi: errore. */
     static void error() {
         play(new int[]{220, 0, 220}, new int[]{260, 120, 260}, 0.6f);

@@ -49,6 +49,8 @@ public class RecService extends Service {
     private static final long SILENT_CHECK_MS = 3000;  // dopo quanto, con microfono muto, si avvisa
     private static final long RETRY_MS = 5 * 60_000L;
     private static final int MAX_RETRIES = 6;
+    private static final long REPORT_MS = 15_000L;     // dopo una consegna: un controllo dei rapporti ogni 15 s...
+    private static final int REPORT_POLLS = 24;        // ...per 6 minuti
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private MediaRecorder recorder;
@@ -65,6 +67,7 @@ public class RecService extends Service {
     private int maxAmp;
     private boolean silentWarned;
     private int retries;
+    private int reportPolls;
     private String lastStatus = "Pronto";
 
     static void log(String s) {
@@ -90,6 +93,29 @@ public class RecService extends Service {
         RecService s = instance;
         if (s != null) s.retries = 0;
     }
+
+    /** Dopo una consegna: controlla i rapporti ogni 15 s per 6 minuti (senza tenere sveglio il telefono). */
+    static void watchReport() {
+        RecService s = instance;
+        if (s != null) s.handler.post(() -> {
+            s.reportPolls = 0;
+            s.handler.removeCallbacks(s.reportRun);
+            s.handler.postDelayed(s.reportRun, REPORT_MS);
+        });
+    }
+
+    static void stopReportWatch() {
+        RecService s = instance;
+        if (s != null) s.handler.post(() -> s.handler.removeCallbacks(s.reportRun));
+    }
+
+    private final Runnable reportRun = new Runnable() {
+        @Override
+        public void run() {
+            Rapporti.check(RecService.this, false);
+            if (++reportPolls < REPORT_POLLS) handler.postDelayed(this, REPORT_MS);
+        }
+    };
 
     private void doScheduleRetry() {
         if (retries >= MAX_RETRIES) return;

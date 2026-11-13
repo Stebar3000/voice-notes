@@ -71,6 +71,14 @@ textarea{min-height:150px;resize:vertical;line-height:1.45}
 #confirm .box{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;max-width:420px;width:100%}
 #confirm p{margin:0 0 14px;font-size:17px;line-height:1.4}
 .empty{color:var(--muted);text-align:center;margin:40px 0}
+.rap h3,#rapList h3{font-size:17px;color:#93c5fd;margin:18px 0 6px}
+.rap ul{margin:0;padding-left:20px;line-height:1.5}
+.rap a{color:#93c5fd}
+.muted{color:var(--muted);font-size:13px;font-weight:400}
+.dubbi{margin-top:44px;padding-top:14px;border-top:1px solid var(--line);color:#d1d5db}
+.dubbi h3{color:var(--muted)}
+button.rapitem{display:block;width:100%;text-align:left;margin:0 0 8px;font-size:14px}
+button.rapitem.on{border-color:var(--accent)}
 .ver{color:var(--muted);font-size:12px;text-align:center;margin-top:28px}
 </style>
 </head>
@@ -92,6 +100,7 @@ textarea{min-height:150px;resize:vertical;line-height:1.45}
   </div>
   <div class="tabs">
     <button id="tabNotes" class="on">Note</button>
+    <button id="tabRap">Rapporto</button>
     <button id="tabSettings">Impostazioni</button>
   </div>
 
@@ -106,30 +115,38 @@ textarea{min-height:150px;resize:vertical;line-height:1.45}
     <div class="row"><button id="deleteAll" class="danger">Elimina tutte le note</button></div>
   </section>
 
+  <section id="rapView" hidden>
+    <div class="row">
+      <button id="rapRefresh" class="primary">Aggiorna</button>
+      <button id="rapRead">Leggi l'ultimo rapporto</button>
+    </div>
+    <div class="summary" id="rapStatus"></div>
+    <div id="rapBody"></div>
+    <div id="rapList"></div>
+  </section>
+
   <section id="settingsView" hidden>
     <label for="key">Chiave Groq</label>
     <input id="key" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="gsk_...">
-    <p class="hint">Serve per trascrivere e ripulire le note. Resta solo su questo telefono, non viene mai pubblicata.</p>
+    <p class="hint">Serve per trascrivere le note. Resta solo su questo telefono, non viene mai pubblicata.</p>
     <div class="row"><button id="saveKey" class="primary">Salva chiave</button><button id="testKey">Prova chiave</button></div>
-
-    <div class="check"><input id="cleanup" type="checkbox"><label for="cleanup" style="margin:0">Ripulisci il testo con l'AI</label></div>
-    <p class="hint">Corregge gli errori di trascrizione, mette la punteggiatura, toglie esitazioni e ripetizioni, assegna titolo e ambito.</p>
-
-    <label for="rules">Regole personali</label>
-    <textarea id="rules"></textarea>
-    <p class="hint">Istruzioni in italiano per la pulizia e lo smistamento delle note. Puoi cambiarle quando vuoi: valgono dalle note successive (o con "Riprova" su una nota).</p>
 
     <label for="vocab">Parole e nomi ricorrenti</label>
     <textarea id="vocab" style="min-height:80px" placeholder="Es.: Bargnani, Lisbona, Todoist, Dropbox"></textarea>
     <p class="hint">Aiuta la trascrizione a scrivere giusti nomi propri e termini particolari.</p>
 
+    <label for="centralino">Centralino di Nero</label>
+    <input id="centralino" type="text" autocapitalize="off" spellcheck="false">
+    <label for="nkey">Chiave del centralino</label>
+    <input id="nkey" type="password" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <p class="hint">Le note trascritte partono da qui verso Archie e i rapporti arrivano da qui. Senza chiave le note restano su questo telefono. La chiave resta solo qui, non viene mai pubblicata.</p>
+    <div class="row"><button id="testCentralino">Prova centralino</button></div>
+
     <details>
       <summary>Avanzate</summary>
       <label for="sttModel">Modello trascrizione</label>
       <input id="sttModel" type="text" autocapitalize="off" spellcheck="false">
-      <label for="llmModel">Modello pulizia</label>
-      <input id="llmModel" type="text" autocapitalize="off" spellcheck="false">
-      <div class="row"><button id="resetRules" class="small">Ripristina regole e modelli predefiniti</button></div>
+      <div class="row"><button id="resetModel" class="small">Ripristina il modello predefinito</button></div>
     </details>
     <div class="row"><button id="saveSettings" class="primary">Salva impostazioni</button></div>
   </section>

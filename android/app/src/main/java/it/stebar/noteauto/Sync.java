@@ -6,7 +6,6 @@ import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.os.PowerManager;
 
-import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
@@ -14,8 +13,8 @@ import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Cuore dell'app: per ogni nota ancora da lavorare trascrive (Groq Whisper), ripulisce (Groq LLM),
- * poi consegna su Dropbox un file per sessione di dettatura. Alla fine segnala l'esito con suono e schermata.
+ * Cuore dell'app: per ogni nota ancora da lavorare trascrive (Groq Whisper, testo grezzo), poi consegna a Nero
+ * tutte le direttive pronte in un solo invio (strada scelta da Consegna). Alla fine segnala l'esito con suono e schermata.
  */
 final class Sync {
 
@@ -94,8 +93,8 @@ final class Sync {
             fail("Manca la chiave Groq: apri Impostazioni", true, false);
             return;
         }
-        if (!p.dropboxConnected()) {
-            fail("Dropbox non collegato: apri Impostazioni", true, false);
+        if (!p.dropboxConnected() && p.centralinoKey().isEmpty()) {
+            fail("Né Dropbox né centralino configurati: apri Impostazioni", true, false);
             return;
         }
 
@@ -108,7 +107,7 @@ final class Sync {
 
         int bad = 0;
         try {
-            // 1. trascrizione e pulizia
+            // 1. trascrizione
             for (Note n : work) {
                 if (!Note.NEW.equals(n.state)) continue;
                 progress++;
@@ -132,42 +131,31 @@ final class Sync {
                 }
             }
 
-            // 2. consegna: un file per sessione di dettatura
+            // 2. consegna: un solo invio con tutte le direttive pronte
             List<Note> ready = new ArrayList<>();
             for (Note n : work) if (Note.READY.equals(n.state)) ready.add(n);
-            int delivered = 0, files = 0;
-            long gap = p.sessionMinutes() * 60_000L;
-            int i = 0;
-            while (i < ready.size()) {
-                List<Note> group = new ArrayList<>();
-                group.add(ready.get(i));
-                int j = i + 1;
-                while (j < ready.size()) {
-                    Note prev = ready.get(j - 1), cur = ready.get(j);
-                    if (cur.startMs - (prev.startMs + prev.durSec * 1000L) > gap) break;
-                    group.add(cur);
-                    j++;
-                }
+            int delivered = 0;
+            String via = "", warn = "";
+            if (!ready.isEmpty()) {
                 progress = total;
-                message = "Consegno su Dropbox…";
+                message = "Consegno a Nero…";
                 RecService.status(message);
-                String name = new SimpleDateFormat("yyyy-MM-dd-HHmm", Locale.ITALY).format(group.get(0).startMs);
                 try {
-                    String resp = Dropbox.upload(p, "/inbox/" + name + ".md", format(group).getBytes(StandardCharsets.UTF_8), false);
-                    RecService.log("Dropbox ha risposto: " + resp);
+                    Consegna.Esito es = Consegna.invia(p, format(ready));
+                    via = es.via;
+                    warn = es.avviso;
                 } catch (Http.ApiError e) {
-                    if (e.status == 0) throw new Abort("Nessuna rete verso Dropbox", manual, true);
-                    throw new Abort("Dropbox: " + cut(e.getMessage()), true, e.retryable());
+                    if (e.status == 0) throw new Abort("Nessuna rete verso Nero e Dropbox", manual, true);
+                    throw new Abort("Consegna: " + cut(e.getMessage()), true, e.retryable());
                 }
-                for (Note n : group) {
+                for (Note n : ready) {
                     n.state = Note.DELIVERED;
-                    n.session = name;
+                    n.error = "";
                     n.save();
                 }
-                delivered += group.size();
-                files++;
-                RecService.log("CONSEGNATO " + name + ".md (" + group.size() + " note)");
-                i = j;
+                delivered = ready.size();
+                RecService.log("CONSEGNATO " + delivered + " direttive (" + via + ")" + (warn.isEmpty() ? "" : " · " + warn));
+                RecService.watchReport();
             }
 
             // 3. esito
@@ -179,7 +167,7 @@ final class Sync {
                         + " (audio conservato)";
                 fail(m, true, left > 0);
             } else {
-                done(delivered, files);
+                done(delivered, via, warn);
             }
         } catch (Abort a) {
             RecService.log("SINCRONIZZAZIONE INTERROTTA: " + a.getMessage());
@@ -192,57 +180,40 @@ final class Sync {
             String raw = Groq.transcribe(n.audio, p);
             if (Groq.isHallucination(raw)) {
                 n.state = Note.EMPTY;
-                n.text = "";
                 n.error = "";
                 n.save();
                 return;
             }
             n.raw = raw;
-            n.save(); // la trascrizione è al sicuro anche se la pulizia fallisce
-        }
-        try {
-            Groq.Cleaned c = Groq.cleanup(n.raw, p);
-            n.text = c.text;
-            n.title = c.title;
-            n.cleaned = true;
-            n.error = "";
-        } catch (Http.ApiError e) {
-            throw e; // rete, 401, 429, 5xx: si riprova più tardi, la trascrizione resta salvata
-        } catch (Exception e) {
-            n.text = n.raw;
-            n.title = "";
-            n.cleaned = false;
-            n.error = "Pulizia non riuscita: " + cut(e.getMessage());
         }
         n.state = Note.READY;
         n.tries = 0;
+        n.error = "";
         n.save();
     }
 
-    /** Testo del file consegnato per una sessione. */
+    /** Testo consegnato (forma del protocollo di Nero, §2): una direttiva per nota, trascrizione grezza. */
     static String format(List<Note> g) {
-        SimpleDateFormat day = new SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.ITALY);
+        SimpleDateFormat day = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.ITALY);
         SimpleDateFormat hm = new SimpleDateFormat("HH:mm", Locale.ITALY);
         StringBuilder sb = new StringBuilder();
-        sb.append("Sessione di dettatura del ").append(day.format(g.get(0).startMs)).append(" — ")
-                .append(g.size()).append(g.size() == 1 ? " nota" : " note").append("\n\n");
+        sb.append("# Direttive ").append(day.format(System.currentTimeMillis())).append(" (android)\n");
         int k = 1;
         for (Note n : g) {
-            sb.append("## Nota ").append(k++).append(" — ").append(hm.format(n.startMs));
-            if (!n.title.isEmpty()) sb.append(" — ").append(n.title);
-            sb.append("\n\n").append(n.text.trim()).append("\n\n");
-            if (!n.cleaned) sb.append("(Pulizia automatica non riuscita: è la trascrizione grezza.)\n\n");
+            sb.append("\n## Direttiva ").append(k++).append(" — ").append(hm.format(n.startMs))
+                    .append('\n').append(n.raw.trim()).append('\n');
         }
         return sb.toString();
     }
 
-    private static void done(int delivered, int files) {
+    private static void done(int delivered, String via, String warn) {
         phase = DONE;
         message = delivered == 0 ? "Nessun parlato da consegnare"
-                : "Consegnate " + delivered + (delivered == 1 ? " nota" : " note") + (files > 1 ? " in " + files + " file" : "");
+                : "Consegnate " + delivered + (delivered == 1 ? " nota" : " note") + " (" + via + ")"
+                + (warn.isEmpty() ? "" : "\n" + warn);
         RecService.status("Tutto consegnato");
         RecService.resetRetry();
-        RecService.log("TUTTO CONSEGNATO: " + message);
+        RecService.log("TUTTO CONSEGNATO: " + message.replace('\n', ' '));
         if (!recording()) Tones.done();
     }
 
@@ -280,7 +251,7 @@ final class Sync {
         }
     }
 
-    private static boolean recording() {
+    static boolean recording() {
         RecService s = RecService.instance;
         return s != null && s.isRecording();
     }

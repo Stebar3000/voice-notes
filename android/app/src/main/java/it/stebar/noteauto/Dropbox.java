@@ -12,7 +12,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Accesso a Dropbox dal telefono, solo per scrivere file. Autorizzazione OAuth con PKCE (senza segreti nell'app):
+ * Accesso a Dropbox dal telefono: scrive file e legge il segnale "sono vivo" di Nero. Autorizzazione OAuth con PKCE (senza segreti nell'app):
  * l'utente autorizza una volta nel browser, incolla il codice, e l'app conserva un "refresh token" che non scade.
  */
 final class Dropbox {
@@ -71,14 +71,37 @@ final class Dropbox {
         return accessToken;
     }
 
-    /** Scrive un file di testo. path è relativo alla cartella di base delle impostazioni, es. "/inbox/2026-11-03-0815.md". */
-    static String upload(Prefs p, String relPath, byte[] data, boolean overwrite) throws Http.ApiError {
-        String full = p.dbxBase() + relPath;
+    /** Scrive un file di testo. path è assoluto dalla radice di Dropbox (l'app è "Full Dropbox"), es. "/Nero/lotti/in-arrivo/x.md". */
+    static String upload(Prefs p, String fullPath, byte[] data, boolean overwrite) throws Http.ApiError {
         try {
-            return send(p, full, data, overwrite, false);
+            return send(p, fullPath, data, overwrite, false);
         } catch (Http.ApiError e) {
-            if (e.status == 401) return send(p, full, data, overwrite, true); // token scaduto: rinnova e riprova una volta
+            if (e.status == 401) return send(p, fullPath, data, overwrite, true); // token scaduto: rinnova e riprova una volta
             else throw e;
+        }
+    }
+
+    /** Legge un file di testo (serve il permesso files.content.read nell'app Dropbox). Percorso assoluto. */
+    static String read(Prefs p, String fullPath) throws Http.ApiError {
+        try {
+            return fetch(p, fullPath, false);
+        } catch (Http.ApiError e) {
+            if (e.status == 401) return fetch(p, fullPath, true);
+            else throw e;
+        }
+    }
+
+    private static String fetch(Prefs p, String fullPath, boolean forceRefresh) throws Http.ApiError {
+        try {
+            Map<String, String> h = new HashMap<>();
+            h.put("Authorization", "Bearer " + token(p, forceRefresh));
+            h.put("Dropbox-API-Arg", asciiJson(new JSONObject().put("path", fullPath).toString()));
+            h.put("Content-Type", "application/octet-stream");
+            return Http.call("POST", "https://content.dropboxapi.com/2/files/download", h, new byte[0], 15000);
+        } catch (Http.ApiError e) {
+            throw e;
+        } catch (Exception e) {
+            throw new Http.ApiError(-1, e.toString());
         }
     }
 

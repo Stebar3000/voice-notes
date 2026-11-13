@@ -6,7 +6,7 @@ import android.content.SharedPreferences;
 /** Impostazioni salvate solo sul telefono (mai nel repository). */
 final class Prefs {
 
-    static final String DEFAULT_BASE = "/Applicazioni/VoceAgente";
+    static final String DEFAULT_CENTRALINO = "https://nero-centralino.stebar3000.workers.dev";
 
     private final SharedPreferences p;
 
@@ -30,25 +30,23 @@ final class Prefs {
 
     String sttModel() { return get("sttModel", "whisper-large-v3"); }
 
-    String llmModel() { return get("llmModel", "openai/gpt-oss-120b"); }
-
-    String rules() { return get("rules", ""); }
-
     String vocab() { return get("vocab", ""); }
 
     String dbxAppKey() { return get("dbxAppKey", "").trim(); }
 
     String dbxRefresh() { return get("dbxRefresh", ""); }
 
-    /** Cartella di base su Dropbox, senza barra finale. */
-    String dbxBase() {
-        String b = get("dbxBase", DEFAULT_BASE).trim();
-        while (b.endsWith("/")) b = b.substring(0, b.length() - 1);
-        if (!b.isEmpty() && !b.startsWith("/")) b = "/" + b;
-        return b;
+    /** Indirizzo del centralino di Nero, senza barra finale. */
+    String centralinoUrl() {
+        String u = get("centralinoUrl", DEFAULT_CENTRALINO).trim();
+        while (u.endsWith("/")) u = u.substring(0, u.length() - 1);
+        return u.isEmpty() ? DEFAULT_CENTRALINO : u;
     }
 
-    /** Minuti di pausa dopo i quali una nuova nota apre una nuova sessione di dettatura. */
+    /** Chiave del centralino: vuota = si consegna sempre su Dropbox. */
+    String centralinoKey() { return get("centralinoKey", "").trim(); }
+
+    /** Minuti di pausa dopo l'ultima nota, trascorsi i quali parte la consegna automatica. */
     int sessionMinutes() {
         try {
             int m = Integer.parseInt(get("sessionMin", "10").trim());

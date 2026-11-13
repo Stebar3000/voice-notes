@@ -675,3 +675,22 @@ Indice delle note di lavoro (deciso 02/11/2026):
 - Estensione 1.0.2 (in `backup-knowledge/`, copia sul PC in `Projects\Audio Notes\backup-knowledge`): ignora `.coord`,
   `.inlavorazione`, `.tmp`, Excel; nuovo giro dopo 5 s se durante un giro arriva un cambiamento fatto da altri. Test 7/7.
 - Il ciclo "un giro ogni minuto" visto il 10/11 era dello script (stato Joplin salvato dentro `/Notes` che si osservava da solo): corretto.
+
+## 13/11/2026: adeguamento al progetto Nero (ramo `nero-strato3`, non ancora in `main`; DA PROVARE)
+- Contratto: `docs/nero-3-protocollo.md` nel repository privato Voice-Remote-Commander (§2 cartelle, §3 centralino, §4 rapporto).
+- **Tolta la pulizia Groq** (Android 1.1.0 e web 5.0.0): resta Whisper, il testo consegnato è quello grezzo; via modelli di pulizia,
+  regole, titoli e ambiti. Restano il vocabolario (suggerimento per Whisper) e il filtro delle allucinazioni.
+- **Android, due strade** (`Consegna.java`): se `/Nero/stato/sono-vivo.txt` su Dropbox è più recente di 12 minuti → deposito in
+  `/Nero/lotti/in-arrivo/AAAAMMGG-HHMMSS-android.md`; altrimenti `POST /lotto` al centralino e, a risposta ok, copia su Dropbox in
+  `/Nero/lotti/archivio/AAAA-MM/…-cloud.md`. Centralino muto o in errore → Dropbox; 401 → avviso "Chiave del centralino non valida".
+  Una nota è consegnata solo dopo una risposta positiva; un invio = un file/una chiamata con tutte le direttive pronte (forma del §2).
+- Dropbox: app "Full Dropbox", quindi percorsi assoluti `/Nero/…`. Per leggere "sono vivo" serve il permesso `files.content.read`
+  (oltre a `files.content.write`) e un nuovo collegamento; senza, l'app usa la strada del cloud. Tolta l'impostazione "cartella su Dropbox".
+- Nuove impostazioni: indirizzo e chiave del centralino (la chiave sta solo sul telefono). Senza chiave: sempre Dropbox.
+- **Rapporto**: all'apertura, con "Aggiorna" e per 6 minuti dopo una consegna (ogni 15 s) si chiede `GET /rapporti?dopo=<ultimo visto>`.
+  Rapporto nuovo → notifica "Nero: rapporto pronto" + suono (Android) o avviso in pagina (web). Schermata "Rapporto" con ordine del §4
+  e ultimi 5; "Leggi l'ultimo rapporto" legge sintesi e decisioni con la voce del telefono, solo dal tasto, secondo tocco = stop.
+- Web app: solo strada del cloud (niente Dropbox); se il centralino non risponde le note restano in attesa e si riprova. Si consegnano
+  solo le note trascritte con la 5.0.0.
+- Build: il push su `nero-strato3` compila e pubblica la release separata `android-nero` ("Note Auto – Nero (prova)");
+  `android-prova` resta di `main`. Il codice non è stato compilato sul PC (manca l'SDK): l'esito è nel ramo `build-status`.

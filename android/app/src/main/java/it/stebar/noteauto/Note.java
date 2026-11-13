@@ -21,7 +21,7 @@ import java.util.Locale;
 
 /**
  * Una nota = un file audio (rec-AAAAMMGG-HHMMSS.m4a) e un file di dati accanto (stesso nome, .json)
- * con lo stato: new (da trascrivere), ready (testo pronto, da consegnare), delivered (consegnata),
+ * con lo stato: new (da trascrivere), ready (trascrizione pronta, da consegnare), delivered (consegnata),
  * empty (nessun parlato), error (non recuperabile da sola), old (registrazione della versione di prova: ignorata).
  */
 final class Note {
@@ -40,12 +40,8 @@ final class Note {
     int durSec;
     String state = NEW;
     String raw = "";
-    String text = "";
-    String title = "";
     String error = "";
-    String session = "";
     int tries;
-    boolean cleaned;
 
     private Note(File audio) {
         this.audio = audio;
@@ -100,12 +96,8 @@ final class Note {
                 n.durSec = j.optInt("durSec", 0);
                 n.state = j.optString("state", NEW);
                 n.raw = j.optString("raw", "");
-                n.text = j.optString("text", "");
-                n.title = j.optString("title", "");
                 n.error = j.optString("error", "");
-                n.session = j.optString("session", "");
                 n.tries = j.optInt("tries", 0);
-                n.cleaned = j.optBoolean("cleaned", false);
             } catch (Exception e) {
                 // scheda illeggibile: si riparte da "da trascrivere", l'audio c'è
                 n.state = NEW;
@@ -138,12 +130,8 @@ final class Note {
             j.put("durSec", durSec);
             j.put("state", state);
             j.put("raw", raw);
-            j.put("text", text);
-            j.put("title", title);
             j.put("error", error);
-            j.put("session", session);
             j.put("tries", tries);
-            j.put("cleaned", cleaned);
             File tmp = new File(meta.getParentFile(), id + ".json.tmp");
             try (FileOutputStream o = new FileOutputStream(tmp)) {
                 o.write(j.toString().getBytes(StandardCharsets.UTF_8));

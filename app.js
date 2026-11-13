@@ -1,35 +1,24 @@
-// Note Auto v4 — registratore vocale per la guida.
-// Tocco ovunque = avvia / ferma e salva. L'audio viene sempre salvato sul telefono;
-// trascrizione (Whisper) e pulizia (LLM) via Groq avvengono dopo, quando c'è rete.
+// Note Auto v5 (Nero) — registratore vocale per la guida.
+// Tocco ovunque = avvia / ferma e salva. L'audio viene sempre salvato sul telefono; la trascrizione (Whisper, via Groq)
+// avviene dopo, quando c'è rete. Il testo grezzo va al centralino di Nero (strada del cloud: la web app non ha Dropbox);
+// se il centralino non risponde le note restano qui in attesa e si riprova.
 'use strict';
 
-const VERSION = '4.1.0';
+const VERSION = '5.0.0';
 const GROQ = 'https://api.groq.com/openai/v1';
+const DEFAULT_CENTRALINO = 'https://nero-centralino.stebar3000.workers.dev';
+const DEVICE = 'iphone';
+const WATCH_EVERY_MS = 15000;   // dopo una consegna: controllo dei rapporti ogni 15 s...
+const WATCH_FOR_MS = 6 * 60000; // ...per 6 minuti, finché la pagina è aperta
+const KEEP_RAPPORTI = 5;
 const LONG_PRESS_MS = 700;      // pressione lunga su "☰ Note" per aprire le note
 const MIN_GAP_MS = 700;         // ignora tocchi troppo ravvicinati (rimbalzi)
 const MIN_NOTE_SEC = 1;         // registrazioni più corte vengono scartate
 const CHUNK_MS = 2000;          // l'audio viene scritto sul telefono ogni 2 s
 
-const DEFAULT_RULES = [
-  '- Se dico "ambito" seguito da un nome (es. "ambito lavoro"), usa quel nome come ambito e togli quelle parole dal testo.',
-  '- Se dico "tag" seguito da un nome (es. "tag telefonata"), è un promemoria rapido: ambito = "Promemoria", titolo = quel nome.',
-  '- Se non indico l\'ambito, deducilo dal contenuto con una o due parole.',
-].join('\n');
-const DEFAULTS = { key: '', cleanup: true, rules: DEFAULT_RULES, vocab: '',
-  sttModel: 'whisper-large-v3', llmModel: 'openai/gpt-oss-120b' };
-// Modelli di riserva per la pulizia, provati in ordine se quello scelto non risponde.
-const LLM_FALLBACKS = ['openai/gpt-oss-120b', 'llama-3.3-70b-versatile', 'openai/gpt-oss-20b', 'llama-3.1-8b-instant'];
+const DEFAULTS = { key: '', vocab: '', sttModel: 'whisper-large-v3', centralino: DEFAULT_CENTRALINO, nkey: '' };
 // Frasi che Whisper "inventa" su silenzio o rumore: se la nota contiene solo una di queste, non c'è parlato.
 const HALLUCINATIONS = /^(grazie( a tutti| mille| per l'attenzione| per la visione)?|ciao( a tutti)?|buonasera|sottotitoli( creati dalla comunità amara\.org| a cura di .*)?|amara\.org|\.+)[.!?\s]*$/i;
-
-const SYSTEM_PROMPT = `Ripulisci una nota dettata a voce mentre l'autore guida, trascritta automaticamente: può contenere errori di riconoscimento.
-Regole:
-1. Correggi gli errori di trascrizione evidenti deducendo dal contesto la parola giusta. Non inventare contenuti.
-2. Aggiungi punteggiatura, maiuscole e, se serve, paragrafi.
-3. Elimina esitazioni (ehm, allora, cioè ripetuti), false partenze e ripetizioni. Mantieni tutto il contenuto, il tono e la prima persona dell'autore.
-4. Non aggiungere commenti, spiegazioni o riassunti. Se un passaggio è incomprensibile lascialo com'è tra [parentesi quadre].
-Rispondi SOLO con un oggetto JSON con queste chiavi:
-{"titolo": "titolo breve, massimo 8 parole", "ambito": "argomento in una o due parole", "testo": "il testo ripulito"}`;
 
 // ---------- utilità ----------
 const $ = (id) => document.getElementById(id);
@@ -163,7 +152,7 @@ async function startRecording() {
     catch (e) { recorder = new MediaRecorder(stream); }
     const id = Date.now();
     current = { id, start: performance.now(), mime: recorder.mimeType || mime || 'audio/mp4', i: 0 };
-    await putNote({ id, created: id, dur: 0, mime: current.mime, status: 'recording', raw: '', text: '', title: '', scope: '', error: '' });
+    await putNote({ id, created: id, dur: 0, mime: current.mime, status: 'recording', raw: '', text: '', error: '' });
     recorder.ondataavailable = (e) => {
       if (!e.data || !e.data.size || !current) return;
       const c = { noteId: current.id, i: current.i++ };
@@ -230,8 +219,6 @@ async function finalizeNote(id, dur) {
 async function recoverOrphans() { // registrazioni interrotte da una chiusura dell'app
   for (const n of await allNotes()) {
     if (n.status === 'recording' && (!current || n.id !== current.id)) await finalizeNote(n.id, null);
-    // dopo un aggiornamento dell'app, ritenta una volta la pulizia delle note dove era fallita
-    else if (n.status === 'done' && /^Pulizia non riuscita/.test(n.error || '') && n.ver !== VERSION) await updateNote(n.id, { status: 'pending', nextTry: 0, tries: 0, error: '' });
   }
 }
 
@@ -254,9 +241,13 @@ async function refreshFoot() {
   const s = getSettings();
   const pend = notes.filter((n) => n.status === 'pending').length;
   const err = notes.filter((n) => n.status === 'error').length;
+  const waiting = toDeliver(notes).length;
   const parts = [];
+  $('menu').textContent = unread ? '☰ Note ●' : '☰ Note';
   if (!s.key) parts.push('Manca la chiave Groq: le note restano solo audio.');
+  if (!s.nkey) parts.push('Manca la chiave del centralino: le note restano qui.');
   if (pend) parts.push(`${pend} da trascrivere${navigator.onLine ? '' : ' (senza rete)'}`);
+  if (waiting) parts.push(`${waiting} da consegnare${navigator.onLine ? '' : ' (senza rete)'}`);
   if (err) parts.push(`${err} con errori`);
   parts.push('Tieni premuto ☰ per le note');
   $('foot').textContent = parts.join(' · ');
@@ -284,18 +275,18 @@ function onUp() {
   else if (state === 'recording') stopRecording();
 }
 
-// ---------- coda di trascrizione e pulizia ----------
-let processing = false;
+// ---------- coda di trascrizione e consegna ----------
+let processing = false, delivering = false, nkeyBad = false;
 class ApiError extends Error { constructor(status, msg) { super(msg); this.status = status; } }
 
-async function groqFetch(path, opts, key, timeoutMs) {
+async function apiFetch(base, path, opts, key, timeoutMs) {
   const ctl = new AbortController();
   const t = setTimeout(() => ctl.abort(), timeoutMs);
   try {
-    const r = await fetch(GROQ + path, { ...opts, signal: ctl.signal, headers: { ...(opts.headers || {}), Authorization: 'Bearer ' + key } });
+    const r = await fetch(base + path, { ...opts, signal: ctl.signal, headers: { ...(opts.headers || {}), Authorization: 'Bearer ' + key } });
     if (!r.ok) {
       let msg = '';
-      try { const j = await r.json(); msg = j.error && j.error.message || ''; } catch (e) {}
+      try { const j = await r.json(); msg = (j.error && j.error.message) || j.errore || ''; } catch (e) {}
       throw new ApiError(r.status, msg || ('HTTP ' + r.status));
     }
     return r.json();
@@ -304,6 +295,8 @@ async function groqFetch(path, opts, key, timeoutMs) {
     throw new ApiError(0, 'rete non disponibile');
   } finally { clearTimeout(t); }
 }
+const groqFetch = (path, opts, key, timeoutMs) => apiFetch(GROQ, path, opts, key, timeoutMs);
+const nero = (path, opts, s, timeoutMs = 15000) => apiFetch(s.centralino.replace(/\/+$/, ''), path, opts, s.nkey, timeoutMs);
 
 async function transcribe(n, s) {
   const ext = /webm/.test(n.mime) ? 'webm' : /ogg/.test(n.mime) ? 'ogg' : 'm4a';
@@ -318,68 +311,12 @@ async function transcribe(n, s) {
   return (j.text || '').trim();
 }
 
-function parseJsonLoose(txt) {
-  const t = String(txt || '').replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '');
-  try { return JSON.parse(t); } catch (e) {}
-  const a = t.indexOf('{'), b = t.lastIndexOf('}');
-  if (a >= 0 && b > a) return JSON.parse(t.slice(a, b + 1));
-  throw new Error('risposta non in formato JSON');
-}
-
-async function cleanupWith(model, raw, s, jsonMode) {
-  const body = {
-    model, temperature: 0.2,
-    messages: [
-      { role: 'system', content: SYSTEM_PROMPT + (s.rules.trim() ? '\n\nRegole personali dell\'autore (hanno la precedenza):\n' + s.rules.trim() : '') },
-      { role: 'user', content: raw },
-    ],
-  };
-  if (jsonMode) body.response_format = { type: 'json_object' };
-  if (/gpt-oss/.test(model)) body.reasoning_effort = 'low';
-  const j = await groqFetch('/chat/completions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }, s.key, 90000);
-  const out = parseJsonLoose(j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content);
-  const text = String(out.testo || '').trim();
-  if (!text) throw new Error('risposta senza testo');
-  return { text, title: String(out.titolo || '').trim(), scope: String(out.ambito || '').trim() };
-}
-
-// Prova il modello scelto e poi quelli di riserva. Ricorda quello che funziona.
-async function cleanup(raw, s) {
-  const models = [...new Set([s.llmModel, ...LLM_FALLBACKS].filter(Boolean))];
-  const errors = [];
-  for (const m of models) {
-    for (const jsonMode of [true, false]) {
-      try {
-        const r = await cleanupWith(m, raw, s, jsonMode);
-        if (m !== s.llmModel) { const cur = getSettings(); cur.llmModel = m; saveSettings(cur); s.llmModel = m; }
-        return r;
-      } catch (e) {
-        if (e instanceof ApiError && (e.status === 0 || e.status === 401 || e.status === 429 || e.status >= 500)) throw e;
-        errors.push(`${m}${jsonMode ? '' : ' (senza JSON)'}: ${e.message || e}`);
-      }
-    }
-  }
-  const err = new Error(errors.join(' | '));
-  err.details = errors;
-  throw err;
-}
-
+// Trascrive la nota: il testo consegnato è quello grezzo di Whisper. Solo le note di questa versione (toSend) vengono consegnate.
 async function processNote(n, s) {
   try {
-    if (!n.raw) {
-      let raw = await transcribe(n, s);
-      if (HALLUCINATIONS.test(raw)) raw = '';
-      n = await updateNote(n.id, { raw: raw || ' ' });
-      if (!raw) { await updateNote(n.id, { status: 'done', text: '(nessun parlato riconosciuto)', error: '' }); return; }
-    }
-    if (HALLUCINATIONS.test(n.raw.trim())) { await updateNote(n.id, { status: 'done', text: '(nessun parlato riconosciuto)', title: '', scope: '', error: '', ver: VERSION }); return; }
-    let result = { text: n.raw.trim(), title: '', scope: '' };
-    if (s.cleanup) {
-      try { result = await cleanup(n.raw.trim(), s); }
-      catch (e) { if (e instanceof ApiError && (e.status === 0 || e.status === 429 || e.status >= 500)) throw e; // ritenta più tardi
-        result.error = 'Pulizia non riuscita, tenuta la trascrizione originale. Dettagli: ' + String(e.message || e).slice(0, 400); }
-    }
-    await updateNote(n.id, { status: 'done', text: result.text, title: result.title, scope: result.scope, error: result.error || '', tries: 0, ver: VERSION });
+    const raw = n.raw && n.raw.trim() ? n.raw.trim() : await transcribe(n, s);
+    if (!raw || HALLUCINATIONS.test(raw)) { await updateNote(n.id, { status: 'done', raw: ' ', text: '(nessun parlato riconosciuto)', error: '', ver: VERSION }); return; }
+    await updateNote(n.id, { status: 'done', raw, text: raw, toSend: true, error: '', tries: 0, ver: VERSION });
   } catch (e) {
     const st = e instanceof ApiError ? e.status : -1;
     const tries = (n.tries || 0) + 1;
@@ -395,15 +332,149 @@ async function processNote(n, s) {
 async function processQueue(force) {
   if (processing) return;
   const s = getSettings();
-  if (!s.key || !navigator.onLine) { refreshFoot(); return; }
+  if (!navigator.onLine) { refreshFoot(); return; }
   processing = true;
   try {
-    const now = Date.now();
-    const todo = (await allNotes()).filter((n) => n.status === 'pending' && (force || !n.nextTry || n.nextTry <= now)).sort((a, b) => a.id - b.id);
-    for (const n of todo) { await processNote(n, s); refreshFoot(); if (!$('panel').hidden) renderList(); }
+    if (s.key) {
+      const now = Date.now();
+      const todo = (await allNotes()).filter((n) => n.status === 'pending' && (force || !n.nextTry || n.nextTry <= now)).sort((a, b) => a.id - b.id);
+      for (const n of todo) { await processNote(n, s); refreshFoot(); if (!$('panel').hidden) renderList(); }
+    }
   } catch (e) { /* rete assente: riproveremo */ }
-  finally { processing = false; refreshFoot(); if (!$('panel').hidden) renderList(); }
+  finally { processing = false; }
+  await deliverQueue();
+  refreshFoot(); if (!$('panel').hidden) renderList();
 }
+
+// Testo del lotto (protocollo di Nero §2): una direttiva per nota, trascrizione grezza.
+function formatLotto(notes, device, now) {
+  const hm = (ms) => { const d = new Date(ms); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+  const d = new Date(now);
+  let out = `# Direttive ${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${hm(now)} (${device})\n`;
+  notes.forEach((n, i) => { out += `\n## Direttiva ${i + 1} — ${hm(n.created)}\n${n.text.trim()}\n`; });
+  return out;
+}
+
+const toDeliver = (notes) => notes.filter((n) => n.status === 'done' && n.toSend && !n.sent && n.text && n.text.trim()).sort((a, b) => a.id - b.id);
+
+// Un invio = una chiamata con tutte le direttive pronte. Nota consegnata solo dopo la risposta ok del centralino; se non risponde riprova al giro dopo.
+async function deliverQueue() {
+  if (delivering) return;
+  const s = getSettings();
+  if (!s.nkey || !navigator.onLine) return;
+  delivering = true;
+  try {
+    const todo = toDeliver(await allNotes());
+    if (!todo.length) return;
+    const j = await nero('/lotto', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ testo: formatLotto(todo, DEVICE, Date.now()), dispositivo: DEVICE }) }, s);
+    if (!j || j.ok !== true) throw new ApiError(-1, (j && j.errore) || 'risposta negativa del centralino');
+    const at = Date.now();
+    for (const n of todo) await updateNote(n.id, { sent: at });
+    nkeyBad = false;
+    startRapportoWatch();
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 401 && !nkeyBad) { nkeyBad = true; toast('Chiave del centralino non valida'); }
+    // altri errori (rete, 5xx, tempo scaduto): le note restano in attesa e si riprova
+  } finally { delivering = false; }
+}
+
+// ---------- rapporti di Nero ----------
+let watchTimer = null, watchUntil = 0, checkingRapporti = false, unread = false, rapStatus = '';
+const lsGet = (k, d) => { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+function savedRapporti() { try { const a = JSON.parse(lsGet('noteauto.rapporti', '[]')); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+
+const asList = (v) => (Array.isArray(v) ? v : []).map((x) => (x && typeof x === 'object' ? (x.testo ?? JSON.stringify(x)) : String(x ?? ''))).map((x) => x.trim()).filter(Boolean);
+// Solo collegamenti web: il campo "chat" arriva dal centralino e non deve poter eseguire altro.
+const safeUrl = (u) => (/^https?:\/\//i.test(String(u || '').trim()) ? String(u).trim() : '');
+
+// Ciò che si legge ad alta voce: la sintesi, poi "Decisioni rapide:" e le decisioni se ci sono.
+function testoDaLeggere(r) {
+  let t = String((r && r.sintesi) || '').trim();
+  const dec = asList(r && r.decisioni);
+  if (dec.length) t += ' Decisioni rapide: ' + dec.map((d) => (/[.!?]$/.test(d) ? d : d + '.')).join(' ');
+  return t.trim();
+}
+
+// Il rapporto nell'ordine del protocollo: chi ha lavorato, fatto, decisioni rapide, da sapere, problemi; in fondo, separati, i dubbi.
+function rapportoHtml(r) {
+  const sec = (name, items) => (items.length ? `<h3>${name}</h3><ul>${items.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : '');
+  const chat = safeUrl(r.chat);
+  const dubbi = asList(r.dubbi);
+  return `<div class="rap"><h3>Ha lavorato: ${esc(r.chi || 'Nero')}${r.lotto ? ` <span class="muted">(lotto ${esc(r.lotto)})</span>` : ''}</h3>`
+    + (chat ? `<p><a href="${esc(chat)}" target="_blank" rel="noopener">Apri la chat</a></p>` : '')
+    + (r.sintesi ? `<p class="text">${esc(r.sintesi)}</p>` : '')
+    + sec('Fatto', asList(r.fatto)) + sec('Decisioni rapide', asList(r.decisioni)) + sec('Da sapere', asList(r.da_sapere)) + sec('Problemi', asList(r.problemi))
+    + (dubbi.length ? `<div class="dubbi"><h3>Dubbi (quando vuoi)</h3><ul>${dubbi.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>` : '')
+    + '</div>';
+}
+
+// Chiede i rapporti nuovi. manual = tasto "Aggiorna" o apertura della sezione: l'esito si mostra sempre.
+async function checkRapporti(manual) {
+  const s = getSettings();
+  if (checkingRapporti || !navigator.onLine) return;
+  if (!s.nkey) { if (manual) { rapStatus = 'Manca la chiave del centralino: apri le Impostazioni.'; renderRapporto(); } return; }
+  checkingRapporti = true;
+  try {
+    const seen = lsGet('noteauto.rapSeen', '');
+    const j = await nero(`/rapporti?n=${KEEP_RAPPORTI}${seen ? '&dopo=' + encodeURIComponent(seen) : ''}`, { method: 'GET' }, s);
+    const nuovi = (j && j.ok && Array.isArray(j.rapporti)) ? j.rapporti : [];
+    const firstRound = lsGet('noteauto.rapInit', '') !== '1'; // i rapporti già esistenti la prima volta non fanno avviso
+    lsSet('noteauto.rapInit', '1');
+    if (nuovi.length) {
+      const ids = new Set(nuovi.map((r) => String(r.id)));
+      lsSet('noteauto.rapporti', JSON.stringify([...nuovi, ...savedRapporti().filter((r) => !ids.has(String(r.id)))].slice(0, KEEP_RAPPORTI)));
+      lsSet('noteauto.rapSeen', String(nuovi[0].id));
+      if (!firstRound) { unread = true; stopRapportoWatch(); toast('Nero: rapporto pronto'); refreshFoot(); }
+    }
+    rapStatus = manual ? (nuovi.length ? (nuovi.length === 1 ? 'Un rapporto nuovo' : nuovi.length + ' rapporti nuovi') : 'Nessun rapporto nuovo') : '';
+  } catch (e) {
+    if (e.status === 401) rapStatus = 'Chiave del centralino non valida';
+    else if (manual) rapStatus = 'Centralino non raggiungibile: ' + (e.message || e);
+  } finally { checkingRapporti = false; renderRapporto(); }
+}
+
+// Dopo una consegna: un controllo ogni 15 s per 6 minuti, finché la pagina è aperta.
+function startRapportoWatch() {
+  watchUntil = Date.now() + WATCH_FOR_MS;
+  clearInterval(watchTimer);
+  watchTimer = setInterval(() => {
+    if (Date.now() > watchUntil) { stopRapportoWatch(); return; }
+    if (document.visibilityState === 'visible') checkRapporti(false);
+  }, WATCH_EVERY_MS);
+}
+function stopRapportoWatch() { clearInterval(watchTimer); watchTimer = null; }
+
+let shownRap = 0;
+function renderRapporto() {
+  if ($('panel').hidden || $('rapView').hidden) return;
+  $('rapStatus').textContent = rapStatus;
+  const all = savedRapporti();
+  if (!all.length) { $('rapBody').innerHTML = `<div class="empty">${getSettings().nkey ? 'Nessun rapporto ancora. Dopo una consegna arriva da solo; oppure tocca Aggiorna.' : 'Nessun rapporto. Scrivi la chiave del centralino nelle Impostazioni.'}</div>`; $('rapList').innerHTML = ''; return; }
+  if (shownRap >= all.length) shownRap = 0;
+  $('rapBody').innerHTML = rapportoHtml(all[shownRap]);
+  $('rapList').innerHTML = '<h3>Ultimi rapporti</h3>' + all.map((r, i) => {
+    const sint = String(r.sintesi || '').replace(/\s+/g, ' ');
+    return `<button class="rapitem${i === shownRap ? ' on' : ''}" data-i="${i}">${esc(r.lotto || r.chi || 'Rapporto')} · ${esc(sint.length > 90 ? sint.slice(0, 90) + '…' : sint)}</button>`;
+  }).join('');
+}
+
+// Lettura ad alta voce solo dal tasto; un secondo tocco la ferma.
+function toggleSpeech() {
+  const synth = window.speechSynthesis;
+  if (!synth) { toast('Questo telefono non sa leggere ad alta voce.'); return; }
+  if (synth.speaking || synth.pending) { synth.cancel(); $('rapRead').textContent = "Leggi l'ultimo rapporto"; return; }
+  const all = savedRapporti();
+  if (!all.length) { toast('Nessun rapporto da leggere.'); return; }
+  const u = new SpeechSynthesisUtterance(testoDaLeggere(all[0]));
+  u.lang = 'it-IT';
+  const v = synth.getVoices().find((x) => /^it/i.test(x.lang));
+  if (v) u.voice = v;
+  u.onend = u.onerror = () => { $('rapRead').textContent = "Leggi l'ultimo rapporto"; };
+  $('rapRead').textContent = 'Ferma la lettura';
+  synth.speak(u);
+}
+function stopSpeech() { try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (e) {} const b = $('rapRead'); if (b) b.textContent = "Leggi l'ultimo rapporto"; }
 
 // ---------- pannello note ----------
 function openPanel() {
@@ -413,39 +484,45 @@ function openPanel() {
 function closePanel() {
   $('panel').hidden = true; $('rec').hidden = false;
   document.querySelectorAll('#list audio').forEach((a) => a.pause());
+  stopSpeech();
   showScreen('idle');
 }
 function showTab(t) {
   $('tabNotes').classList.toggle('on', t === 'notes');
+  $('tabRap').classList.toggle('on', t === 'rapporto');
   $('tabSettings').classList.toggle('on', t === 'settings');
   $('notesView').hidden = t !== 'notes';
+  $('rapView').hidden = t !== 'rapporto';
   $('settingsView').hidden = t !== 'settings';
-  $('panel').querySelector('h1').textContent = t === 'notes' ? 'Note' : 'Impostazioni';
-  if (t === 'notes') renderList(); else loadSettingsForm();
+  $('panel').querySelector('h1').textContent = t === 'notes' ? 'Note' : t === 'rapporto' ? 'Rapporto' : 'Impostazioni';
+  if (t !== 'rapporto') stopSpeech();
+  if (t === 'notes') renderList();
+  else if (t === 'rapporto') { unread = false; refreshFoot(); renderRapporto(); checkRapporti(true); }
+  else loadSettingsForm();
 }
 
-const statusLabel = { pending: ['in attesa di trascrizione', 'pending'], done: ['pronta', 'done'], error: ['errore', 'error'], recording: ['in registrazione', 'pending'] };
+function noteLabel(n) {
+  if (n.status === 'done' && n.toSend) return n.sent ? ['consegnata', 'done'] : ['pronta, da consegnare', 'pending'];
+  return ({ pending: ['in attesa di trascrizione', 'pending'], done: ['pronta', 'done'], error: ['errore', 'error'], recording: ['in registrazione', 'pending'] })[n.status] || [n.status, ''];
+}
 
 let exportCache = null;
 async function renderList() {
   buildExport().then((x) => { exportCache = x; }).catch(() => {});
   const notes = (await allNotes()).filter((n) => n.status !== 'recording').sort((a, b) => b.id - a.id);
-  const done = notes.filter((n) => n.status === 'done').length;
-  $('summary').textContent = notes.length ? `${notes.length} note · ${done} pronte · ${notes.length - done} in attesa o con errori` : '';
+  const sent = notes.filter((n) => n.sent).length;
+  $('summary').textContent = notes.length ? `${notes.length} note · ${sent} consegnate · ${notes.length - sent} in attesa o senza parlato` : '';
   if (!notes.length) { $('list').innerHTML = '<div class="empty">Nessuna nota. Torna al registratore e tocca lo schermo per registrare.</div>'; return; }
   $('list').innerHTML = notes.map((n) => {
-    const [lab, cls] = statusLabel[n.status] || [n.status, ''];
+    const [lab, cls] = noteLabel(n);
     const body = n.status === 'done' ? n.text : (n.raw && n.raw.trim() ? n.raw : '');
     return `<div class="note" data-id="${n.id}">
       <div class="meta"><span>${fmtDate(n.created)} · ${fmtDur(n.dur || 0)}</span><span class="badge ${cls}">${lab}</span></div>
-      ${n.title ? `<div class="title">${esc(n.title)}</div>` : ''}
-      ${n.scope ? `<div class="scope">${esc(n.scope)}</div>` : ''}
       ${body ? `<div class="text">${esc(body)}</div>` : ''}
       ${n.error ? `<div class="err">${esc(n.error)}</div>` : ''}
-      ${n.status === 'done' && n.raw && n.raw.trim() && n.raw.trim() !== n.text ? `<details><summary>Trascrizione originale</summary><div class="text">${esc(n.raw)}</div></details>` : ''}
       <div class="row">
         <button class="small" data-act="play">▶ Ascolta</button>
-        <button class="small" data-act="redo">${n.status === 'done' ? 'Rielabora' : 'Riprova'}</button>
+        ${n.status === 'done' ? '' : '<button class="small" data-act="redo">Riprova</button>'}
         <button class="small danger" data-act="del">Elimina</button>
       </div></div>`;
   }).join('');
@@ -459,9 +536,7 @@ async function onListClick(e) {
   if (act === 'del') {
     if (await confirmBox('Eliminare questa nota e il suo audio?')) { await delNote(id); renderList(); refreshFoot(); }
   } else if (act === 'redo') {
-    const n = await getNote(id);
-    const keepRaw = n.status === 'done' && n.raw && n.raw.trim();
-    await updateNote(id, { status: 'pending', nextTry: 0, tries: 0, error: '', ...(keepRaw ? {} : { raw: '' }) });
+    await updateNote(id, { status: 'pending', nextTry: 0, tries: 0, error: '', raw: '' });
     renderList();
     if (!getSettings().key) toast('Inserisci prima la chiave Groq nelle Impostazioni.');
     else if (!navigator.onLine) toast('Nessuna rete: la nota verrà elaborata appena torna.');
@@ -485,17 +560,9 @@ async function buildExport() {
   const notes = (await allNotes()).filter((n) => n.status !== 'recording').sort((a, b) => a.id - b.id);
   const d = new Date();
   let out = `# Note Auto — ${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}\n\n`;
-  const groups = {};
   for (const n of notes) {
-    const g = n.status === 'done' ? (n.scope || 'Generale') : 'Da trascrivere';
-    (groups[g] = groups[g] || []).push(n);
-  }
-  for (const g of Object.keys(groups).sort((a, b) => (a === 'Da trascrivere') - (b === 'Da trascrivere') || a.localeCompare(b, 'it'))) {
-    out += `## ${g}\n\n`;
-    for (const n of groups[g]) {
-      out += `### ${n.title || 'Nota'} — ${fmtDate(n.created)} (${fmtDur(n.dur || 0)})\n\n`;
-      out += n.status === 'done' ? `${n.text}\n\n` : `(audio non ancora trascritto)\n\n`;
-    }
+    out += `## ${fmtDate(n.created)} (${fmtDur(n.dur || 0)})\n\n`;
+    out += n.status === 'done' ? `${n.text}\n\n` : `(audio non ancora trascritto)\n\n`;
   }
   return { text: out, count: notes.length };
 }
@@ -525,22 +592,23 @@ async function copyAll() {
 // ---------- impostazioni ----------
 function loadSettingsForm() {
   const s = getSettings();
-  $('key').value = s.key; $('cleanup').checked = s.cleanup; $('rules').value = s.rules;
-  $('vocab').value = s.vocab; $('sttModel').value = s.sttModel; $('llmModel').value = s.llmModel;
+  $('key').value = s.key; $('vocab').value = s.vocab; $('sttModel').value = s.sttModel;
+  $('centralino').value = s.centralino; $('nkey').value = s.nkey;
 }
 function readSettingsForm() {
   const s = getSettings();
-  s.key = $('key').value.trim(); s.cleanup = $('cleanup').checked; s.rules = $('rules').value;
-  s.vocab = $('vocab').value; s.sttModel = $('sttModel').value.trim() || DEFAULTS.sttModel; s.llmModel = $('llmModel').value.trim() || DEFAULTS.llmModel;
+  s.key = $('key').value.trim(); s.vocab = $('vocab').value; s.sttModel = $('sttModel').value.trim() || DEFAULTS.sttModel;
+  s.centralino = $('centralino').value.trim() || DEFAULTS.centralino; s.nkey = $('nkey').value.trim();
   return s;
 }
 async function onSaveSettings() {
-  const before = getSettings().key;
+  const before = getSettings();
   const s = readSettingsForm();
   if (!saveSettings(s)) { toast('Salvataggio non riuscito.'); return; }
-  if (s.key && s.key !== before) { // chiave nuova: riprova le note bloccate per chiave non valida
+  if (s.key && s.key !== before.key) { // chiave nuova: riprova le note bloccate per chiave non valida
     for (const n of await allNotes()) if (n.status === 'error' && /Chiave/.test(n.error)) await updateNote(n.id, { status: 'pending', error: '', tries: 0, nextTry: 0 });
   }
+  if (s.nkey !== before.nkey || s.centralino !== before.centralino) nkeyBad = false;
   toast('Impostazioni salvate.');
   processQueue(true);
 }
@@ -550,6 +618,13 @@ async function onTestKey() {
   toast('Verifico…');
   try { await groqFetch('/models', { method: 'GET' }, key, 15000); toast('Chiave valida ✓'); }
   catch (e) { toast(e.status === 401 || e.status === 403 ? 'Chiave non valida.' : 'Verifica non riuscita: ' + e.message); }
+}
+async function onTestCentralino() {
+  const s = readSettingsForm();
+  if (!s.nkey) { toast('Scrivi prima la chiave del centralino.'); return; }
+  toast('Verifico…');
+  try { await nero('/rapporti?n=1', { method: 'GET' }, s); toast('Centralino ✓'); }
+  catch (e) { toast(e.status === 401 ? 'Chiave del centralino non valida.' : 'Verifica non riuscita: ' + e.message); }
 }
 
 // ---------- piccoli dialoghi ----------
@@ -574,7 +649,11 @@ function init() {
 
   $('back').onclick = closePanel;
   $('tabNotes').onclick = () => showTab('notes');
+  $('tabRap').onclick = () => showTab('rapporto');
   $('tabSettings').onclick = () => showTab('settings');
+  $('rapRefresh').onclick = () => { rapStatus = 'Controllo…'; renderRapporto(); checkRapporti(true); };
+  $('rapRead').onclick = toggleSpeech;
+  $('rapList').addEventListener('click', (e) => { const b = e.target.closest('button[data-i]'); if (b) { shownRap = Number(b.dataset.i); renderRapporto(); } });
   $('list').addEventListener('click', onListClick);
   $('share').onclick = shareAll;
   $('copy').onclick = copyAll;
@@ -591,11 +670,12 @@ function init() {
   $('saveKey').onclick = onSaveSettings;
   $('saveSettings').onclick = onSaveSettings;
   $('testKey').onclick = onTestKey;
-  $('resetRules').onclick = () => { $('rules').value = DEFAULTS.rules; $('sttModel').value = DEFAULTS.sttModel; $('llmModel').value = DEFAULTS.llmModel; toast('Valori predefiniti ripristinati: premi Salva.'); };
+  $('testCentralino').onclick = onTestCentralino;
+  $('resetModel').onclick = () => { $('sttModel').value = DEFAULTS.sttModel; toast('Modello predefinito ripristinato: premi Salva.'); };
 
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') { if (state === 'recording') stopRecording({ reason: 'interrupted' }); }
-    else { keepAwake(); refreshFoot(); processQueue(); }
+    else { keepAwake(); refreshFoot(); processQueue(); checkRapporti(false); }
   });
   window.addEventListener('online', () => processQueue(true));
   window.addEventListener('offline', refreshFoot);
@@ -604,6 +684,9 @@ function init() {
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
   keepAwake();
   showScreen('idle');
-  recoverOrphans().then(() => { refreshFoot(); processQueue(); });
+  recoverOrphans().then(() => { refreshFoot(); processQueue(); checkRapporti(false); });
 }
-init();
+
+// Nel browser parte subito; sotto Node (prove) si esportano solo le funzioni pure.
+if (typeof document !== 'undefined') init();
+else module.exports = { formatLotto, testoDaLeggere, rapportoHtml, safeUrl, asList, toDeliver, HALLUCINATIONS };

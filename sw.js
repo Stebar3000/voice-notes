@@ -1,6 +1,6 @@
 // Service worker: tiene in memoria l'app così si apre anche senza rete.
 // Strategia: risposta immediata dalla cache, aggiornamento in background (vale dall'apertura successiva).
-const CACHE = 'noteauto-4.1.0';
+const CACHE = 'noteauto-5.0.0';
 const ASSETS = ['./', './index.html', './app.js', './manifest.json', './icons/icon-180.png', './icons/icon-192.png', './icons/icon-512.png'];
 
 self.addEventListener('install', (e) => {

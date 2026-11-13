@@ -2,7 +2,7 @@ name: App Android
 
 on:
   push:
-    branches: [main]
+    branches: [main, nero-strato3]
     paths: ['android/**', '.github/workflows/android.yml']
   workflow_dispatch:
 
@@ -33,7 +33,7 @@ jobs:
 
       - name: Pubblica l'APK
         id: release
-        if: steps.build.outcome == 'success'
+        if: steps.build.outcome == 'success' && github.ref_name == 'main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -44,13 +44,27 @@ jobs:
             --notes "Compilata da ${{ github.sha }}" \
             --prerelease --target ${{ github.sha }}
 
+      # Il ramo nero-strato3 ha una release tutta sua: android-prova (di main) non si tocca.
+      - name: Pubblica l'APK di Nero (prova)
+        id: release_nero
+        if: steps.build.outcome == 'success' && github.ref_name == 'nero-strato3'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk note-auto-nero.apk
+          gh release delete android-nero -y --cleanup-tag || true
+          gh release create android-nero note-auto-nero.apk \
+            --title "Note Auto – Nero (prova)" \
+            --notes "Compilata da ${{ github.sha }} (ramo nero-strato3)" \
+            --prerelease --target ${{ github.sha }}
+
       # Claude non può leggere le API di Actions: l'esito va in un ramo git che può scaricare.
       - name: Scrivi l'esito nel ramo build-status
         if: always()
         run: |
           mkdir -p /tmp/st && cp build.log /tmp/st/ 2>/dev/null || echo "nessun log" > /tmp/st/build.log
           cd /tmp/st
-          echo "build=${{ steps.build.outcome }} release=${{ steps.release.outcome }} commit=${{ github.sha }} data=$(date -u +%FT%TZ)" > status.txt
+          echo "build=${{ steps.build.outcome }} release=${{ steps.release.outcome }} release_nero=${{ steps.release_nero.outcome }} ramo=${{ github.ref_name }} commit=${{ github.sha }} data=$(date -u +%FT%TZ)" > status.txt
           git init -q && git checkout -q -b build-status
           git -c user.name=ci -c user.email=ci@localhost add -A
           git -c user.name=ci -c user.email=ci@localhost commit -qm "esito ${{ github.sha }}"

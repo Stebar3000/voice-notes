@@ -34,7 +34,7 @@ final class Http {
         try {
             c = (HttpURLConnection) new URL(url).openConnection();
             c.setRequestMethod(method);
-            c.setConnectTimeout(20000);
+            c.setConnectTimeout(Math.min(20000, timeoutMs));
             c.setReadTimeout(timeoutMs);
             c.setRequestProperty("User-Agent", "NoteAuto/" + BuildConfigInfo.VERSION);
             if (headers != null) {
@@ -71,7 +71,7 @@ final class Http {
         }
     }
 
-    /** Estrae il messaggio d'errore dalle risposte di Groq e Dropbox. */
+    /** Estrae il messaggio d'errore dalle risposte di Groq, Dropbox e del centralino di Nero. */
     private static String message(String s, int code) {
         try {
             JSONObject j = new JSONObject(s);
@@ -80,6 +80,7 @@ final class Http {
             if (!j.optString("error_summary").isEmpty()) return j.optString("error_summary");
             if (!j.optString("error_description").isEmpty()) return j.optString("error_description");
             if (!j.optString("error").isEmpty()) return j.optString("error");
+            if (!j.optString("errore").isEmpty()) return j.optString("errore");
         } catch (Exception ignored) {
             // non è JSON
         }
