@@ -61,8 +61,9 @@ final class Groq {
             field(b, boundary, "response_format", "json");
             String vocab = p.vocab().trim();
             if (!vocab.isEmpty()) field(b, boundary, "prompt", vocab.length() > 600 ? vocab.substring(0, 600) : vocab);
-            b.write(Http.utf8("--" + boundary + "\r\nContent-Disposition: form-data; name=\"file\"; filename=\"nota.m4a\"\r\n"
-                    + "Content-Type: audio/mp4\r\n\r\n"));
+            boolean wav = audio.getName().endsWith(".wav");
+            b.write(Http.utf8("--" + boundary + "\r\nContent-Disposition: form-data; name=\"file\"; filename=\"" + (wav ? "nota.wav" : "nota.m4a") + "\"\r\n"
+                    + "Content-Type: " + (wav ? "audio/wav" : "audio/mp4") + "\r\n\r\n"));
             b.write(data);
             b.write(Http.utf8("\r\n--" + boundary + "--\r\n"));
         } catch (IOException e) {

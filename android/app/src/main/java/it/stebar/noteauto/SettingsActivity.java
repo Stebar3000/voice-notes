@@ -227,6 +227,7 @@ public class SettingsActivity extends Activity {
         final android.content.Context app = getApplicationContext();
         new Thread(() -> {
             StringBuilder sb = new StringBuilder(VoceLocale.stato(app));
+            sb.append("\n\n").append(provaDiretta(app, sb));
             File ultimo = null;
             List<Note> all = Note.loadAll(app);
             for (int i = all.size() - 1; i >= 0 && ultimo == null; i--) {
@@ -245,6 +246,40 @@ public class SettingsActivity extends Activity {
             }
             say(sb.toString());
         }, "prova-locale").start();
+    }
+
+    /** Prova in diretta: 8 secondi dal microfono con lo stesso percorso della registrazione. Bloccante. */
+    private String provaDiretta(android.content.Context app, StringBuilder prima) {
+        RecService rs = RecService.instance;
+        if (rs != null && rs.isRecording()) return "Prova in diretta saltata: c'è una registrazione in corso.";
+        File f = new File(app.getCacheDir(), "prova-diretta.wav");
+        Registrazione r = new Registrazione(app, f);
+        long t0 = android.os.SystemClock.elapsedRealtime();
+        try {
+            r.avvia();
+        } catch (java.io.IOException e) {
+            return "Prova in diretta: microfono non partito (" + e.getMessage() + ")";
+        }
+        for (int i = 8; i > 0; i--) {
+            say(prima + "\n\nParla ora: ancora " + i + " s…");
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+        }
+        Registrazione.Stats st = r.ferma();
+        say(prima + "\n\nChiudo il riconoscitore…");
+        String testo = r.chiudiDiretta();
+        //noinspection ResultOfMethodCallIgnored
+        f.delete();
+        long ms = android.os.SystemClock.elapsedRealtime() - t0;
+        return "In diretta (8 s): " + (testo.isEmpty() ? "nessun testo" : "\"" + testo + "\"")
+                + "\nLivello medio " + st.medio + ", picco " + st.picco + " (su 32767), guadagno max "
+                + String.format(Locale.ITALY, "%.1f", st.guadagnoMax) + "\n" + r.riepilogoDiretta()
+                + " · tempo " + String.format(Locale.ITALY, "%.1f", ms / 1000.0) + " s"
+                + (st.guasto.isEmpty() ? "" : "\nGuasto: " + st.guasto);
     }
 
     private void startAuth() {

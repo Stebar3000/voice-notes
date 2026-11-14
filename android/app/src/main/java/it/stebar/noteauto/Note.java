@@ -80,7 +80,7 @@ final class Note {
     /** Tutte le note, dalla più vecchia. Non scrive nulla su disco. */
     static List<Note> loadAll(Context c) {
         List<Note> out = new ArrayList<>();
-        File[] files = dir(c).listFiles((d, n) -> n.startsWith("rec-") && n.endsWith(".m4a"));
+        File[] files = dir(c).listFiles((d, n) -> n.startsWith("rec-") && (n.endsWith(".m4a") || n.endsWith(".wav")));
         if (files == null) return out;
         Arrays.sort(files, (a, b) -> a.getName().compareTo(b.getName()));
         for (File f : files) {
@@ -104,6 +104,7 @@ final class Note {
                 n.tries = j.optInt("tries", 0);
                 n.via = j.optString("via", "");
                 n.locTries = j.optInt("locTries", 0);
+                if (n.durSec == 0 && n.audio.getName().endsWith(".wav")) n.durSec = Wav.durataSec(n.audio); // registrazione interrotta
             } catch (Exception e) {
                 // scheda illeggibile: si riparte da "da trascrivere", l'audio c'è
                 n.state = NEW;
@@ -112,10 +113,35 @@ final class Note {
         return n;
     }
 
+    /** Una nota per id (cerca tra le schede su disco); null se non c'è. */
+    static Note cerca(Context c, String id) {
+        for (Note n : loadAll(c)) if (n.id.equals(id)) return n;
+        return null;
+    }
+
+    /** Cancella i wav delle note consegnate da più di {@code giorni} giorni (la scheda resta). Solo note consegnate. */
+    static void pulisciConsegnate(Context c, int giorni) {
+        long limite = System.currentTimeMillis() - giorni * 86_400_000L;
+        for (Note n : loadAll(c)) {
+            if (DELIVERED.equals(n.state) && Wav.isWav(n.audio) && n.audio.exists() && n.audio.lastModified() < limite) {
+                if (n.audio.delete()) RecService.log("Pulizia: cancellato l'audio consegnato " + n.id);
+            }
+        }
+    }
+
+    /** Cancella audio e scheda (registrazione scartata). */
+    void scarta() {
+        //noinspection ResultOfMethodCallIgnored
+        audio.delete();
+        //noinspection ResultOfMethodCallIgnored
+        meta.delete();
+        version++;
+    }
+
     /** Segna come "old" le registrazioni che esistono già, la prima volta con l'app completa. */
     static synchronized void migrateOnce(Context c, Prefs p) {
         if (p.getBool("migrated1", false)) return;
-        File[] files = dir(c).listFiles((d, n) -> n.startsWith("rec-") && n.endsWith(".m4a"));
+        File[] files = dir(c).listFiles((d, n) -> n.startsWith("rec-") && (n.endsWith(".m4a") || n.endsWith(".wav")));
         if (files != null) {
             for (File f : files) {
                 Note n = new Note(f);

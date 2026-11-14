@@ -33,10 +33,18 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 final class VoceLocale {
 
+    /** Registrazioni con riconoscimento in diretta in corso: finché ce n'è una, la ritrascrizione da file cede il passo. */
+    static final java.util.concurrent.atomic.AtomicInteger dirette = new java.util.concurrent.atomic.AtomicInteger();
+    /** Vero mentre una sessione di riconoscimento da file è aperta. */
+    static volatile boolean fileInCorso;
+
+    static boolean cedi() { return dirette.get() > 0; }
+
     private static final Object LOCK = new Object(); // mai due sessioni di riconoscimento insieme
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
     private static final int SILENCE_AFTER_MS = 800;
     private static final long STOP_DELAY_MS = 300;
+    private static final int RITMO = 4;               // scrittura nella pipe a circa 4 volte il tempo reale
     private static final int MIN_INVIO_MS = 3000;    // ogni invio (audio + silenzio) supera la capienza della pipe
     private static final long PIPE_CAP = 65536;      // capienza di una pipe: se il riconoscitore non legge, la scrittura si ferma qui
     /** Vero se il riconoscitore ha dato un risultato senza leggere l'audio dal file (avrebbe ascoltato il microfono). */
@@ -54,6 +62,8 @@ final class VoceLocale {
         int segmenti;
         int falliti;
         int durSec;
+        boolean interrotto;  // ha ceduto il passo a una registrazione: non è un fallimento
+        int sessioni;        // sessioni di riconoscimento usate
         long ms;
     }
 
@@ -69,7 +79,7 @@ final class VoceLocale {
 
     // ---------- thread principale ----------
 
-    private static void sulMain(Runnable r) {
+    static void sulMain(Runnable r) {
         if (Looper.myLooper() == Looper.getMainLooper()) {
             r.run();
             return;
@@ -97,12 +107,12 @@ final class VoceLocale {
         return null;
     }
 
-    private static Intent intentBase() {
+    static Intent intentBase(boolean parziali) {
         Intent i = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
         i.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
         i.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "it-IT");
         i.putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true);
-        i.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false);
+        i.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, parziali);
         if (Build.VERSION.SDK_INT >= 33) {
             i.putExtra(RecognizerIntent.EXTRA_ENABLE_FORMATTING, RecognizerIntent.FORMATTING_OPTIMIZE_QUALITY);
         }
@@ -111,7 +121,7 @@ final class VoceLocale {
 
     // ---------- un segmento ----------
 
-    private static final int OK = 0, TIMEOUT = -2, NON_DISP = -1, IGNORATA = -4, ANTICIPATO = -5;
+    private static final int OK = 0, TIMEOUT = -2, NON_DISP = -1, IGNORATA = -4, ANTICIPATO = -5, INTERROTTA = -6;
 
     private static String descriviErrore(int e) {
         switch (e) {
@@ -129,8 +139,13 @@ final class VoceLocale {
         String testo = "";
     }
 
-    private static Ris riconosci(final Context ctx, final File pcm, final long da, final long a) {
+    private static Ris riconosci(final Context ctx, final File pcm, final long offset, final long da, final long a) {
         final Ris ris = new Ris();
+        if (cedi()) {
+            ris.errore = INTERROTTA;
+            return ris;
+        }
+        fileInCorso = true;
         final CountDownLatch fine = new CountDownLatch(1);
         final SpeechRecognizer[] rec = new SpeechRecognizer[1];
         final AtomicBoolean finito = new AtomicBoolean(false);
@@ -185,7 +200,7 @@ final class VoceLocale {
 
                     @Override public void onEvent(int eventType, Bundle params) { }
                 });
-                Intent i = intentBase();
+                Intent i = intentBase(false);
                 i.putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE, lettura);
                 i.putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE_CHANNEL_COUNT, 1);
                 i.putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE_ENCODING, AudioFormat.ENCODING_PCM_16BIT);
@@ -204,15 +219,26 @@ final class VoceLocale {
                 scrittore = new Thread(() -> {
                     try (OutputStream os = new ParcelFileDescriptor.AutoCloseOutputStream(scrittura);
                          RandomAccessFile raf = new RandomAccessFile(pcm, "r")) {
-                        raf.seek(da);
+                        raf.seek(offset + da);
                         byte[] buf = new byte[8192];
                         long left = a - da;
+                        final long t0 = SystemClock.elapsedRealtime();
                         while (left > 0 && !finito.get()) {
                             int r = raf.read(buf, 0, (int) Math.min(buf.length, left));
                             if (r < 0) break;
                             os.write(buf, 0, r);
                             scritto.addAndGet(r);
                             left -= r;
+                            // ritmo controllato: circa 4 volte il tempo reale
+                            long dovuto = scritto.get() * 1000L / ((long) Pcm.BYTES_PER_SEC * RITMO) - (SystemClock.elapsedRealtime() - t0);
+                            if (dovuto > 0) {
+                                try {
+                                    Thread.sleep(dovuto);
+                                } catch (InterruptedException e) {
+                                    Thread.currentThread().interrupt();
+                                    break;
+                                }
+                            }
                         }
                         byte[] zero = new byte[4096];
                         int resto = silenzio;
@@ -243,12 +269,23 @@ final class VoceLocale {
             }
 
             boolean arrivato = false;
+            boolean ceduto = false;
+            long scadenza = SystemClock.elapsedRealtime() + durataMs * 3 + 20_000;
             try {
-                arrivato = fine.await(durataMs * 3 + 20_000, TimeUnit.MILLISECONDS);
+                while (!arrivato && SystemClock.elapsedRealtime() < scadenza) {
+                    if (cedi()) { // parte una registrazione in diretta: questa sessione si interrompe subito
+                        ceduto = true;
+                        break;
+                    }
+                    arrivato = fine.await(300, TimeUnit.MILLISECONDS);
+                }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
-            if (!arrivato) {
+            if (ceduto) {
+                finito.set(true);
+                ris.errore = INTERROTTA;
+            } else if (!arrivato) {
                 finito.set(true);
                 ris.errore = TIMEOUT;
             } else if (ris.errore == OK) {
@@ -257,7 +294,7 @@ final class VoceLocale {
                 if (w <= PIPE_CAP) {                       // non ha letto: avrebbe ascoltato il microfono
                     ris.errore = IGNORATA;
                     ris.testo = "";
-                } else if (w < audio - Pcm.BYTES_PER_SEC) { // ha chiuso prima della fine: testo incompleto
+                } else if (w < audio - Pcm.BYTES_PER_SEC / 3) { // ha chiuso prima della fine: testo incompleto, si scarta (mai testo sbagliato)
                     ris.errore = ANTICIPATO;
                     ris.testo = "";
                 }
@@ -282,6 +319,7 @@ final class VoceLocale {
                 try { scrittore.join(2000); } catch (InterruptedException ignored) { }
             }
         }
+        fileInCorso = false;
         return ris;
     }
 
@@ -292,7 +330,9 @@ final class VoceLocale {
         final Context app = ctx.getApplicationContext();
         Esito es = new Esito();
         long t0 = SystemClock.elapsedRealtime();
-        File pcm = new File(app.getCacheDir(), "tr-" + System.nanoTime() + ".pcm");
+        final boolean wav = Wav.isWav(audio);
+        File pcm = wav ? audio : new File(app.getCacheDir(), "tr-" + System.nanoTime() + ".pcm");
+        final long offset = wav ? Wav.HEADER : 0;
         synchronized (LOCK) {
             try {
                 if (!disponibile(app)) {
@@ -300,21 +340,19 @@ final class VoceLocale {
                     es.errore = "riconoscitore non disponibile";
                     return es;
                 }
-                Pcm.decodifica(audio, pcm);
-                es.durSec = (int) (pcm.length() / Pcm.BYTES_PER_SEC);
-                List<long[]> segs = Pcm.segmenta(pcm);
+                if (!wav) Pcm.decodifica(audio, pcm);
+                es.durSec = (int) ((pcm.length() - offset) / Pcm.BYTES_PER_SEC);
+                List<long[]> segs = Pcm.segmenta(pcm, offset);
                 es.segmenti = segs.size();
                 StringBuilder sb = new StringBuilder();
                 for (long[] s : segs) {
                     Ris r = null;
                     for (int tentativo = 0; tentativo < 2; tentativo++) {
-                        r = riconosci(app, pcm, s[0], s[1]);
+                        es.sessioni++;
+                        r = riconosci(app, pcm, offset, s[0], s[1]);
                         if (r.errore == OK || r.errore == SpeechRecognizer.ERROR_NO_MATCH
                                 || r.errore == SpeechRecognizer.ERROR_SPEECH_TIMEOUT
-                                || r.errore == IGNORATA || r.errore == ANTICIPATO) break;
-                        if (r.errore == NON_DISP && tentativo == 0) {
-                            // riconoscitore sparito: una seconda prova lo ricrea
-                        }
+                                || r.errore == IGNORATA || r.errore == INTERROTTA) break;
                         try { Thread.sleep(500); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
                     }
                     if (r.errore == OK) {
@@ -322,6 +360,10 @@ final class VoceLocale {
                             if (sb.length() > 0) sb.append(' ');
                             sb.append(r.testo);
                         }
+                    } else if (r.errore == INTERROTTA) {
+                        es.interrotto = true;
+                        es.errore = "interrotta dalla registrazione";
+                        break;
                     } else if (r.errore != SpeechRecognizer.ERROR_NO_MATCH && r.errore != SpeechRecognizer.ERROR_SPEECH_TIMEOUT) {
                         es.falliti++;
                         es.errore = descriviErrore(r.errore);
@@ -333,14 +375,16 @@ final class VoceLocale {
                     }
                 }
                 es.testo = sb.toString().trim();
-                es.ok = es.falliti == 0 && !es.testo.isEmpty();
-                es.vuoto = es.falliti == 0 && es.testo.isEmpty();
+                es.ok = es.falliti == 0 && !es.interrotto && !es.testo.isEmpty();
+                es.vuoto = es.falliti == 0 && !es.interrotto && es.testo.isEmpty();
             } catch (IOException | RuntimeException e) {
                 es.falliti++;
                 es.errore = e.getClass().getSimpleName();
             } finally {
-                //noinspection ResultOfMethodCallIgnored
-                pcm.delete();
+                if (!wav) {
+                    //noinspection ResultOfMethodCallIgnored
+                    pcm.delete();
+                }
                 es.ms = SystemClock.elapsedRealtime() - t0;
             }
         }
@@ -380,7 +424,7 @@ final class VoceLocale {
                     return;
                 }
                 rec[0] = r;
-                r.checkRecognitionSupport(intentBase(), app.getMainExecutor(), new RecognitionSupportCallback() {
+                r.checkRecognitionSupport(intentBase(false), app.getMainExecutor(), new RecognitionSupportCallback() {
                     @Override
                     public void onSupportResult(RecognitionSupport s) {
                         lingua.setLength(0);

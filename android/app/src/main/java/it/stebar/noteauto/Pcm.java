@@ -188,11 +188,17 @@ final class Pcm {
     // ---------- segmentazione ----------
 
     /** Energia (RMS) per finestre da 20 ms. */
-    static float[] energie(File pcm) throws IOException {
+    static float[] energie(File pcm, long offset) throws IOException {
         float[] e = new float[1024];
         int n = 0;
         byte[] b = new byte[WIN_BYTES];
         try (InputStream in = new BufferedInputStream(new FileInputStream(pcm), 1 << 16)) {
+            long salto = offset;
+            while (salto > 0) {
+                long k = in.skip(salto);
+                if (k <= 0) break;
+                salto -= k;
+            }
             while (true) {
                 int len = 0;
                 while (len < WIN_BYTES) {
@@ -225,9 +231,9 @@ final class Pcm {
         return Math.max(MIN_ABS_THRESHOLD, Math.min(noise * 3f, loud * 0.3f));
     }
 
-    /** Intervalli [inizio, fine) in byte del file PCM, da dare uno per volta al riconoscitore. */
-    static List<long[]> segmenta(File pcm) throws IOException {
-        return segmenta(energie(pcm));
+    /** Intervalli [inizio, fine) in byte, contati dopo i primi {@code offset} byte del file (44 per un wav), da dare uno per volta al riconoscitore. */
+    static List<long[]> segmenta(File pcm, long offset) throws IOException {
+        return segmenta(energie(pcm, offset));
     }
 
     static List<long[]> segmenta(float[] e) {

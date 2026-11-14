@@ -5,10 +5,10 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ServiceInfo;
 import android.media.AudioManager;
-import android.media.MediaRecorder;
 import android.media.ToneGenerator;
 import android.media.VolumeProvider;
 import android.media.session.MediaSession;
@@ -53,7 +53,8 @@ public class RecService extends Service {
     private static final int REPORT_POLLS = 24;        // ...per 6 minuti
 
     private final Handler handler = new Handler(Looper.getMainLooper());
-    private MediaRecorder recorder;
+    private Registrazione reg;
+    private Note currentNote;
     private File current;
     private long startMs;          // orologio di sistema, per la scheda della nota
     private long startElapsed;     // orologio monotono, per la durata
@@ -156,8 +157,14 @@ public class RecService extends Service {
         watchNetwork();
         // note ancora da trascrivere (mai provate in locale): in coda; prima si tolgono i PCM temporanei rimasti
         new Thread(() -> {
-            if (!CodaLocale.occupata()) Pcm.pulisciCache(getApplicationContext());
-            CodaLocale.scansiona(getApplicationContext());
+            Context app = getApplicationContext();
+            File[] wavs = Note.dir(app).listFiles((d, n) -> n.startsWith("rec-") && n.endsWith(".wav"));
+            if (wavs != null) {
+                for (File w : wavs) Wav.riparaSeServe(w); // registrazioni rimaste a metà: intestazione dalla dimensione del file
+                Note.pulisciConsegnate(app, 30);
+            }
+            if (!CodaLocale.occupata()) Pcm.pulisciCache(app);
+            CodaLocale.scansiona(app);
         }, "scansione-locale").start();
         log("Servizio avviato (versione " + BuildConfigInfo.VERSION + ")");
     }
@@ -230,20 +237,13 @@ public class RecService extends Service {
         try {
             File dir = Note.dir(this);
             String stamp = new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.ITALY).format(new Date());
-            current = new File(dir, "rec-" + stamp + ".m4a");
+            current = new File(dir, "rec-" + stamp + ".wav");
             Note.recordingPath = current.getAbsolutePath();
-            recorder = Build.VERSION.SDK_INT >= 31 ? new MediaRecorder(this) : new MediaRecorder();
-            recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
-            recorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
-            recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
-            recorder.setAudioChannels(1);
-            recorder.setAudioSamplingRate(44100);
-            recorder.setAudioEncodingBitRate(64000);
-            recorder.setOutputFile(current.getAbsolutePath());
-            recorder.prepare();
-            recorder.start();
-            recording = true;
             startMs = System.currentTimeMillis();
+            currentNote = Note.create(current, startMs, 0); // la scheda esiste dal primo istante
+            reg = new Registrazione(this, current);
+            reg.avvia();
+            recording = true;
             startElapsed = SystemClock.elapsedRealtime();
             maxAmp = 0;
             silentWarned = false;
@@ -256,12 +256,15 @@ public class RecService extends Service {
             log("AVVIO da " + source + screenState());
         } catch (Exception e) {
             log("ERRORE avvio: " + e);
-            releaseRecorder();
             recording = false;
+            reg = null;
             Note.recordingPath = null;
-            if (current != null) { //noinspection ResultOfMethodCallIgnored
+            if (currentNote != null) {
+                currentNote.scarta();
+            } else if (current != null) { //noinspection ResultOfMethodCallIgnored
                 current.delete();
             }
+            currentNote = null;
             Tones.error();
         }
     }
@@ -270,16 +273,19 @@ public class RecService extends Service {
     private final Runnable ampCheck = new Runnable() {
         @Override
         public void run() {
-            if (!recording || recorder == null) return;
-            try {
-                maxAmp = Math.max(maxAmp, recorder.getMaxAmplitude());
-            } catch (RuntimeException ignored) {
-                // non ancora pronto
-            }
+            Registrazione r = reg;
+            if (!recording || r == null) return;
+            maxAmp = Math.max(maxAmp, r.ampMax());
             long elapsed = SystemClock.elapsedRealtime() - startElapsed;
             if (!silentWarned && elapsed >= SILENT_CHECK_MS && maxAmp == 0) {
                 silentWarned = true;
                 log("ATTENZIONE: il microfono non sente nulla (silenziato da Android?)");
+                Tones.error();
+                vibrate(400);
+            }
+            if (!silentWarned && !r.guasto().isEmpty()) {
+                silentWarned = true;
+                log("ATTENZIONE: " + r.guasto());
                 Tones.error();
                 vibrate(400);
             }
@@ -290,27 +296,22 @@ public class RecService extends Service {
     private void stopRec(String source) {
         handler.removeCallbacks(ampCheck);
         long elapsedMs = SystemClock.elapsedRealtime() - startElapsed;
-        boolean stopOk = true;
-        try {
-            maxAmp = Math.max(maxAmp, recorder.getMaxAmplitude());
-        } catch (RuntimeException ignored) { }
-        try {
-            recorder.stop();
-        } catch (RuntimeException e) {
-            stopOk = false; // succede con registrazioni brevissime: senza dati validi
-        }
-        releaseRecorder();
+        final Registrazione r = reg;
+        reg = null;
+        final Registrazione.Stats st = r != null ? r.ferma() : new Registrazione.Stats();
+        maxAmp = Math.max(maxAmp, st.picco);
         recording = false;
         Note.recordingPath = null;
         if (wakeLock.isHeld()) wakeLock.release();
         updateNotification("Pronto");
-        File f = current;
+        final File f = current;
+        final Note nota = currentNote;
+        currentNote = null;
         long sec = elapsedMs / 1000;
 
-        if (elapsedMs < MIN_NOTE_MS || !stopOk) {
-            if (f != null) { //noinspection ResultOfMethodCallIgnored
-                f.delete();
-            }
+        if (elapsedMs < MIN_NOTE_MS || f == null || nota == null) {
+            if (nota != null) nota.scarta();
+            if (r != null) new Thread(r::chiudiDiretta, "diretta-scarto").start();
             vibrate(80);
             Tones.tooShort();
             log("STOP da " + source + screenState() + " · troppo breve, scartata");
@@ -318,35 +319,73 @@ public class RecService extends Service {
             return;
         }
         if (elapsedMs >= 2000 && maxAmp == 0) {
-            if (f != null) { //noinspection ResultOfMethodCallIgnored
-                f.delete();
-            }
+            nota.scarta();
+            if (r != null) new Thread(r::chiudiDiretta, "diretta-scarto").start();
             vibrate(400);
             Tones.error();
             log("STOP da " + source + screenState() + " · " + sec + " s · MICROFONO MUTO: registrazione scartata");
             scheduleIdleSync();
             return;
         }
-        Note nuova = Note.create(f, startMs, (int) sec);
-        long kb = f != null && f.exists() ? f.length() / 1024 : 0;
+        nota.durSec = (int) sec;
+        nota.save();
+        long kb = f.exists() ? f.length() / 1024 : 0;
         beep(ToneGenerator.TONE_PROP_ACK, 400);
         vibrate(80);
         log("STOP da " + source + screenState() + " · " + sec + " s · " + kb + " KB");
-        CodaLocale.accoda(this, nuova); // trascrizione sul telefono, dal file, anche a schermo spento
+        finalizza(nota, r, st);
         scheduleIdleSync();
+    }
+
+    /**
+     * Dopo lo stop (fuori dal thread principale): il riconoscitore in diretta chiude e dà il testo finale. Se c'è testo la
+     * nota è pronta; altrimenti entra subito nella coda della trascrizione dal file. La nota non si perde mai: l'audio c'è.
+     */
+    private void finalizza(final Note nota, final Registrazione r, final Registrazione.Stats st) {
+        final Context app = getApplicationContext();
+        final String id = nota.id;
+        CodaLocale.segnaFinale(id);
+        new Thread(() -> {
+            PowerManager.WakeLock wl = null;
+            try {
+                try {
+                    wl = app.getSystemService(PowerManager.class).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "noteauto:fine");
+                    wl.acquire(60_000L);
+                } catch (RuntimeException ignored) { }
+                String testo = r != null ? r.chiudiDiretta() : "";
+                String strada;
+                Note f = Note.cerca(app, id);
+                if (f != null && !testo.isEmpty() && Note.NEW.equals(f.state) && f.raw.isEmpty()) {
+                    f.raw = testo;
+                    f.via = "locale";
+                    f.state = Note.READY;
+                    f.tries = 0;
+                    f.error = "";
+                    f.save();
+                    strada = "diretta, testo pronto";
+                } else {
+                    strada = "diretta senza testo: si passa al file";
+                    if (f != null) CodaLocale.accoda(app, f);
+                }
+                log("NOTA " + id + " · " + st.sec + " s · livello medio " + st.medio + " picco " + st.picco
+                        + " guadagno max " + String.format(Locale.ITALY, "%.1f", st.guadagnoMax) + " · "
+                        + (r != null ? r.riepilogoDiretta() : "diretta non attiva") + " · " + strada
+                        + (st.guasto.isEmpty() ? "" : " · GUASTO: " + st.guasto));
+            } catch (Throwable t) {
+                log("Errore nella chiusura della nota " + id + ": " + t);
+                Note f = Note.cerca(app, id);
+                if (f != null) CodaLocale.accoda(app, f);
+            } finally {
+                CodaLocale.liberaFinale(id);
+                if (wl != null && wl.isHeld()) wl.release();
+            }
+        }, "finale-nota").start();
     }
 
     /** Dopo una nota, se non ne arriva un'altra entro la pausa di sessione, parte la consegna (se c'è rete). */
     private void scheduleIdleSync() {
         handler.removeCallbacks(idleSync);
         handler.postDelayed(idleSync, new Prefs(this).sessionMinutes() * 60_000L);
-    }
-
-    private void releaseRecorder() {
-        if (recorder != null) {
-            try { recorder.release(); } catch (RuntimeException ignored) { }
-            recorder = null;
-        }
     }
 
     private void beep(int type, int ms) {

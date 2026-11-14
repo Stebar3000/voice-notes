@@ -677,6 +677,19 @@ Indice delle note di lavoro (deciso 02/11/2026):
 - Il ciclo "un giro ogni minuto" visto il 10/11 era dello script (stato Joplin salvato dentro `/Notes` che si osservava da solo): corretto.
 
 ## 13/11/2026: adeguamento al progetto Nero (ramo `nero-strato3`, non ancora in `main`; DA PROVARE)
+- **14/11/2026, Android 1.3.0 (ramo `nero-voce-locale`; NON compilata né provata): registrazione con un solo microfono e due uscite.**
+  Prova del 13/11 sul Moto G35 (Android 16): la trascrizione dal file m4a non dava testo (audio a volume bassissimo e poco fedele), mentre la
+  dettatura in diretta di Android offline è quasi perfetta. Perciò `MediaRecorder` è sostituito da `AudioRecord` (16 kHz mono 16 bit,
+  `VOICE_RECOGNITION`, altrimenti `MIC`) in `Registrazione`, con guadagno automatico prudente (picco obiettivo, massimo ×8, mai clipping) e due
+  uscite in diretta: (A) un `.wav` scritto in continuo, intestazione aggiornata ogni 5 s e comunque lunghezza ricavabile dalla dimensione del
+  file (`Wav`, riparato all'avvio del servizio); la scheda della nota esiste dal primo istante; (B) `Diretta`: gli stessi byte, tramite coda in memoria
+  e thread a parte (non rallenta mai il wav), a `createOnDeviceSpeechRecognizer` in sessioni segmentate (`EXTRA_SEGMENTED_SESSION`), con riavvio
+  automatico della sessione e spegnimento dopo tre sessioni di fila finite subito senza testo. Allo stop si chiude la pipe, si aspetta il risultato
+  (~6 s) e la nota, se c'è testo, è pronta (`via=locale`). Se non c'è testo entra subito in `CodaLocale` e viene ritrascritta dal wav (pipe a ~4 volte
+  il tempo reale; risultati arrivati prima della fine dell'audio scartati: mai testo sbagliato). Ultima spiaggia: Whisper, DOPO i testi: `Sync` invia
+  prima le note già testuali, poi trascrive le altre (wav compresso in AAC con `Aac`) e fa un secondo invio. In registrazione menu e lista spariscono e
+  tutto lo schermo è il pulsante. Il registro riporta per nota durata, livello medio/picco, guadagno, sessioni, riavvii e strada. I wav consegnati da
+  più di 30 giorni si cancellano. "Prova riconoscitore locale" ora fa anche una prova in diretta di 8 s.
 - **13/11/2026 sera, Android 1.2.0 (ramo `nero-voce-locale`, release `android-nero`; NON compilata né provata): trascrizione locale.**
   Dopo ogni registrazione la nota entra in una coda (`CodaLocale`, un filo e un wake lock suoi, anche a schermo spento) e viene
   trascritta sul telefono, senza rete, dal file e non dal microfono: `Pcm` decodifica l'm4a in PCM mono 16 kHz su file temporaneo e lo

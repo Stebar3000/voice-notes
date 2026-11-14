@@ -17,6 +17,7 @@ final class CodaLocale {
     static final int MAX_PROVE = 2;
 
     private static final LinkedHashSet<String> CODA = new LinkedHashSet<>();
+    private static final java.util.HashSet<String> FINALI = new java.util.HashSet<>(); // note che il riconoscitore in diretta sta chiudendo
     private static String inCorso;
     private static boolean attivo;
 
@@ -27,11 +28,26 @@ final class CodaLocale {
     }
 
     static synchronized boolean inCoda(String id) {
-        return CODA.contains(id) || id.equals(inCorso);
+        return CODA.contains(id) || id.equals(inCorso) || FINALI.contains(id);
     }
 
     static synchronized boolean occupata() {
-        return !CODA.isEmpty() || inCorso != null;
+        return !CODA.isEmpty() || inCorso != null || !FINALI.isEmpty();
+    }
+
+    /** La nota è appena stata registrata e la diretta sta dando il testo finale: nessun altro la tocca. */
+    static void segnaFinale(String id) {
+        synchronized (CodaLocale.class) {
+            FINALI.add(id);
+        }
+        Note.version++;
+    }
+
+    static void liberaFinale(String id) {
+        synchronized (CodaLocale.class) {
+            FINALI.remove(id);
+        }
+        Note.version++;
     }
 
     private static boolean idonea(Note n) {
@@ -42,20 +58,21 @@ final class CodaLocale {
     /** Mette in coda una nota appena salvata. */
     static void accoda(Context ctx, Note n) {
         if (!abilitata(ctx) || !idonea(n)) return;
-        aggiungi(ctx.getApplicationContext(), n.id);
+        aggiungi(ctx.getApplicationContext(), n.id, true);
     }
 
     /** Mette in coda tutte le note ancora da trascrivere e non provate (o provate meno di 2 volte). */
     static void scansiona(Context ctx) {
         if (!abilitata(ctx)) return;
         for (Note n : Note.loadAll(ctx)) {
-            if (idonea(n)) aggiungi(ctx.getApplicationContext(), n.id);
+            if (idonea(n)) aggiungi(ctx.getApplicationContext(), n.id, false);
         }
     }
 
-    private static void aggiungi(final Context app, String id) {
+    private static void aggiungi(final Context app, String id, boolean forza) {
         boolean avvia;
         synchronized (CodaLocale.class) {
+            if (!forza && FINALI.contains(id)) return; // la diretta la sta ancora chiudendo
             if (!CODA.add(id)) return;
             avvia = !attivo;
             if (avvia) attivo = true;
@@ -104,6 +121,10 @@ final class CodaLocale {
                     CODA.remove(id);
                     inCorso = id;
                 }
+                // mai due sessioni insieme: con una registrazione in diretta in corso la coda aspetta
+                while (VoceLocale.cedi()) {
+                    try { Thread.sleep(300); } catch (InterruptedException e) { break; }
+                }
                 Note.version++;
                 try {
                     una(app, id);
@@ -127,6 +148,13 @@ final class CodaLocale {
         for (Note x : tutte) if (x.id.equals(id)) n = x;
         if (n == null || !idonea(n)) return;
         VoceLocale.Esito es = VoceLocale.trascrivi(app, n.audio);
+        if (es.interrotto) { // ha ceduto il passo a una registrazione: torna in coda, senza contare come prova
+            synchronized (CodaLocale.class) {
+                CODA.add(id);
+            }
+            RecService.log("LOCALE " + n.id + " · interrotta dalla registrazione, torna in coda");
+            return;
+        }
         String esito;
         if (es.ok) {
             // la scheda può essere cambiata nel frattempo (non dovrebbe): si rilegge prima di scrivere
@@ -140,7 +168,7 @@ final class CodaLocale {
                 f.error = "";
                 f.save();
             }
-            esito = "riuscita";
+            esito = "riuscita (da file)";
         } else if (es.vuoto) {
             n.locTries = MAX_PROVE; // resta a Whisper, che controlla le allucinazioni
             n.save();
@@ -154,7 +182,7 @@ final class CodaLocale {
             n.save();
             esito = "fallita (" + es.errore + "), prova " + n.locTries + " di " + MAX_PROVE;
         }
-        RecService.log("LOCALE " + n.id + " · audio " + es.durSec + " s · " + es.segmenti + " segmenti · "
+        RecService.log("LOCALE " + n.id + " · audio " + es.durSec + " s · " + es.segmenti + " segmenti · " + es.sessioni + " sessioni · "
                 + String.format(java.util.Locale.ITALY, "%.1f", es.ms / 1000.0) + " s · " + esito);
     }
 }

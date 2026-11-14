@@ -31,6 +31,7 @@ public class MainActivity extends Activity {
     private LinearLayout root;
     private TextView state, info, listView;
     private Button toggleView, report;
+    private android.view.View menuRow1, menuRow2, listScroll; // spariscono mentre si registra
     private MediaPlayer player;
     private boolean showLog;
     private int shownVersion = -1;
@@ -68,6 +69,7 @@ public class MainActivity extends Activity {
         report = button("Rapporto", v -> startActivity(new Intent(this, RapportoActivity.class)));
         row1.addView(report, weight());
         root.addView(row1);
+        menuRow1 = row1;
 
         LinearLayout row2 = new LinearLayout(this);
         Button play = button("Ascolta l'ultima", v -> playLast());
@@ -83,6 +85,7 @@ public class MainActivity extends Activity {
         row2.addView(toggleView, weight());
         row2.addView(close, weight());
         root.addView(row2);
+        menuRow2 = row2;
 
         ScrollView sv = new ScrollView(this);
         listView = new TextView(this);
@@ -91,6 +94,11 @@ public class MainActivity extends Activity {
         listView.setPadding(0, 16, 0, 0);
         sv.addView(listView);
         root.addView(sv, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 3f));
+        listScroll = sv;
+        // mentre si registra tutto lo schermo è il pulsante: anche il bordo fuori dalla scritta prende il tocco
+        root.setOnClickListener(v -> {
+            if (RecService.instance != null && RecService.instance.isRecording()) RecService.instance.toggle("tocco sullo schermo");
+        });
 
         setContentView(root);
         askPermissions();
@@ -196,7 +204,10 @@ public class MainActivity extends Activity {
 
     private String label(Note n) {
         switch (n.state) {
-            case Note.NEW: return CodaLocale.inCoda(n.id) ? "in trascrizione…" : "da trascrivere";
+            case Note.NEW:
+                if (CodaLocale.inCoda(n.id)) return "in trascrizione…";
+                if (n.locTries >= CodaLocale.MAX_PROVE || !new Prefs(this).getBool("voceLocale", true)) return "in attesa di Whisper";
+                return "da trascrivere";
             case Note.READY: return "pronta, da consegnare" + origine(n);
             case Note.DELIVERED: return "consegnata ✓" + origine(n);
             case Note.EMPTY: return "nessun parlato";
@@ -241,6 +252,11 @@ public class MainActivity extends Activity {
             } else {
                 text = "PRONTO\ntasto volume";
             }
+            int vis = rec ? android.view.View.GONE : android.view.View.VISIBLE;
+            info.setVisibility(vis);
+            menuRow1.setVisibility(vis);
+            menuRow2.setVisibility(vis);
+            listScroll.setVisibility(vis);
             state.setText(text);
             state.setTextSize(size);
             root.setBackgroundColor(bg);

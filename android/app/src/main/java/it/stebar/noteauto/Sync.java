@@ -6,6 +6,8 @@ import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.os.PowerManager;
 
+import java.io.File;
+import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
@@ -100,10 +102,7 @@ final class Sync {
         int toTranscribe = 0;
         for (Note n : work) if (Note.NEW.equals(n.state)) toTranscribe++;
 
-        if (toTranscribe > 0 && p.groqKey().isEmpty()) {
-            fail("Manca la chiave Groq: apri Impostazioni", true, false);
-            return;
-        }
+        // La chiave Groq serve solo per le note che vanno davvero a Whisper, e solo dopo aver consegnato i testi già pronti.
         if (!p.dropboxConnected() && p.centralinoKey().isEmpty()) {
             fail("Né Dropbox né centralino configurati: apri Impostazioni", true, false);
             return;
@@ -117,15 +116,30 @@ final class Sync {
         RecService.log("SINCRONIZZAZIONE: " + work.size() + " note da lavorare" + (manual ? " (manuale)" : ""));
 
         int bad = 0;
+        int delivered = 0;
+        String via = "", warn = "";
+        boolean senzaChiave = false;
         try {
-            // 1. trascrizione
+            // 1. i testi già pronti (locali o già trascritti) partono subito: un audio lento non li trattiene
+            List<Note> pronte = new ArrayList<>();
+            for (Note n : work) if (Note.READY.equals(n.state)) pronte.add(n);
+            if (!pronte.isEmpty()) {
+                Consegna.Esito es = inviaPronte(pronte, p, manual);
+                via = es.via;
+                warn = es.avviso;
+                delivered += pronte.size();
+            }
+
+            // 2. ultima spiaggia: Whisper per le note ancora senza testo (se c'è la chiave)
+            if (toTranscribe > 0 && p.groqKey().isEmpty()) senzaChiave = true;
             for (Note n : work) {
+                if (senzaChiave) break;
                 if (!Note.NEW.equals(n.state)) continue;
                 progress++;
                 message = "Trascrivo la nota " + progress + " di " + total;
                 RecService.status(message);
                 try {
-                    processNote(n, p);
+                    processNote(ctx, n, p);
                 } catch (Http.ApiError e) {
                     if (e.status == 401 || e.status == 403) throw new Abort("Chiave Groq non valida: controlla Impostazioni", true, false);
                     if (e.status == 0) throw new Abort("Nessuna rete verso Groq", manual, true);
@@ -142,37 +156,24 @@ final class Sync {
                 }
             }
 
-            // 2. consegna: un solo invio con tutte le direttive pronte
-            List<Note> ready = new ArrayList<>();
-            for (Note n : work) if (Note.READY.equals(n.state)) ready.add(n);
-            int delivered = 0;
-            String via = "", warn = "";
-            if (!ready.isEmpty()) {
-                progress = total;
-                message = "Consegno a Nero…";
-                RecService.status(message);
-                try {
-                    Consegna.Esito es = Consegna.invia(p, format(ready));
-                    via = es.via;
-                    warn = es.avviso;
-                } catch (Http.ApiError e) {
-                    if (e.status == 0) throw new Abort("Nessuna rete verso Nero e Dropbox", manual, true);
-                    throw new Abort("Consegna: " + cut(e.getMessage()), true, e.retryable());
-                }
-                for (Note n : ready) {
-                    n.state = Note.DELIVERED;
-                    n.error = "";
-                    n.save();
-                }
-                delivered = ready.size();
-                RecService.log("CONSEGNATO " + delivered + " direttive (" + via + ")" + (warn.isEmpty() ? "" : " · " + warn));
-                RecService.watchReport();
+            // 3. secondo invio: le note appena trascritte da Whisper
+            List<Note> dopo = new ArrayList<>();
+            for (Note n : work) if (Note.READY.equals(n.state)) dopo.add(n);
+            if (!dopo.isEmpty()) {
+                Consegna.Esito es = inviaPronte(dopo, p, manual);
+                via = es.via;
+                warn = es.avviso;
+                delivered += dopo.size();
             }
 
-            // 3. esito
+            // 4. esito
             int left = 0;
             for (Note n : work) if (Note.NEW.equals(n.state) || Note.READY.equals(n.state)) left++;
-            if (left > 0 || bad > 0) {
+            if (senzaChiave) {
+                String m = (delivered > 0 ? "Consegnate " + delivered + ". " : "") + "Manca la chiave Groq: " + left
+                        + (left == 1 ? " nota aspetta" : " note aspettano") + " Whisper (apri Impostazioni)";
+                fail(m, true, false);
+            } else if (left > 0 || bad > 0) {
                 String m = (delivered > 0 ? "Consegnate " + delivered + ", ma " : "") + (left + bad)
                         + (left + bad == 1 ? " nota non è stata lavorata" : " note non sono state lavorate")
                         + " (audio conservato)";
@@ -186,9 +187,61 @@ final class Sync {
         }
     }
 
-    private static void processNote(Note n, Prefs p) throws Http.ApiError {
+    /** Un invio a Nero con tutte le direttive date; segna le note come consegnate solo a risposta positiva. */
+    private static Consegna.Esito inviaPronte(List<Note> ready, Prefs p, boolean manual) throws Abort {
+        message = "Consegno a Nero…";
+        RecService.status(message);
+        Consegna.Esito es;
+        try {
+            es = Consegna.invia(p, format(ready));
+        } catch (Http.ApiError e) {
+            if (e.status == 0) throw new Abort("Nessuna rete verso Nero e Dropbox", manual, true);
+            throw new Abort("Consegna: " + cut(e.getMessage()), true, e.retryable());
+        }
+        for (Note n : ready) {
+            n.state = Note.DELIVERED;
+            n.error = "";
+            n.save();
+        }
+        RecService.log("CONSEGNATO " + ready.size() + " direttive (" + es.via + ")" + (es.avviso.isEmpty() ? "" : " · " + es.avviso));
+        RecService.watchReport();
+        return es;
+    }
+
+    private static void processNote(Context ctx, Note n, Prefs p) throws Http.ApiError {
         if (n.raw.isEmpty()) {
-            String raw = Groq.transcribe(n.audio, p);
+            File src = n.audio;
+            File tmp = null;
+            String forma = src.getName().endsWith(".wav") ? "wav" : "m4a";
+            if (Wav.isWav(src)) { // prima del caricamento si comprime in AAC (circa un ottavo dei dati); se non riesce va il wav
+                File c = new File(ctx.getCacheDir(), "up-" + System.nanoTime() + ".m4a");
+                try {
+                    Aac.comprimi(src, c);
+                    if (c.length() > 0) {
+                        tmp = c;
+                        src = c;
+                        forma = "m4a compresso";
+                    } else {
+                        //noinspection ResultOfMethodCallIgnored
+                        c.delete();
+                    }
+                } catch (IOException e) {
+                    //noinspection ResultOfMethodCallIgnored
+                    c.delete();
+                    RecService.log("Compressione non riuscita (" + e.getMessage() + "): si manda il wav");
+                }
+            }
+            final long kb = src.length() / 1024;
+            String raw;
+            try {
+                raw = Groq.transcribe(src, p);
+            } finally {
+                if (tmp != null) {
+                    //noinspection ResultOfMethodCallIgnored
+                    tmp.delete();
+                }
+            }
+            RecService.log("WHISPER " + n.id + " · " + n.durSec + " s · " + forma + " · " + kb + " KB inviati");
             if (Groq.isHallucination(raw)) {
                 n.state = Note.EMPTY;
                 n.error = "";
