@@ -31,7 +31,7 @@ final class Diretta {
     private static final long PIPE_CAP = 65536;                // capienza di una pipe
     private static final long SESSIONE_BREVE_MS = 5000;        // una sessione che muore prima, senza testo, è "a vuoto"
     private static final int VUOTE_MAX = 3;
-    private static final long ATTESA_FINALE_MS = 6000;
+    private static final long ATTESA_FINALE_MS = 8000;
 
     private final Context app;
     private final LinkedBlockingDeque<byte[]> coda = new LinkedBlockingDeque<>();
@@ -340,16 +340,17 @@ final class Diretta {
         if (s != null) {
             if (attiva && !scrittore.isAlive() && !s.finitaOra()) {
                 try { s.os.close(); } catch (IOException ignored) { } // fine dell'audio
-                try { Thread.sleep(300); } catch (InterruptedException ignored) { }
-                if (!s.finitaOra()) {
-                    VoceLocale.sulMain(() -> {
-                        if (!s.finitaOra() && s.rec != null) {
-                            try { s.rec.stopListening(); } catch (RuntimeException ignored) { }
-                        }
-                    });
-                }
+                // La sessione finisce da sola quando il riconoscitore ha smaltito l'audio rimasto: stopListening()
+                // troppo presto tronca le ultime parole, quindi solo come ultima risorsa.
                 try {
-                    s.fine.await(ATTESA_FINALE_MS, TimeUnit.MILLISECONDS);
+                    if (!s.fine.await(ATTESA_FINALE_MS - 2500, TimeUnit.MILLISECONDS)) {
+                        VoceLocale.sulMain(() -> {
+                            if (!s.finitaOra() && s.rec != null) {
+                                try { s.rec.stopListening(); } catch (RuntimeException ignored) { }
+                            }
+                        });
+                        s.fine.await(2500, TimeUnit.MILLISECONDS);
+                    }
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 }

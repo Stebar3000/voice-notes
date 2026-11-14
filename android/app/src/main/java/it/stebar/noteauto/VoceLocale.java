@@ -251,10 +251,15 @@ final class VoceLocale {
                     } catch (IOException ignored) {
                         // pipe chiusa dall'altro lato: l'esito arriva dal riconoscitore o dal limite di tempo
                     }
-                    try {
-                        Thread.sleep(STOP_DELAY_MS);
-                    } catch (InterruptedException e) {
-                        return;
+                    // Fine dell'audio = pipe chiusa: la sessione finisce da sola quando il riconoscitore ha smaltito tutto.
+                    // stopListening() troppo presto tronca il riconoscimento (testo vuoto): solo come ultima risorsa.
+                    long limite = SystemClock.elapsedRealtime() + Math.max(5000L, durataMs);
+                    while (!finito.get() && SystemClock.elapsedRealtime() < limite) {
+                        try {
+                            Thread.sleep(100);
+                        } catch (InterruptedException e) {
+                            return;
+                        }
                     }
                     if (!finito.get()) {
                         sulMain(() -> {

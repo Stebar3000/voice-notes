@@ -158,7 +158,7 @@ public class RecService extends Service {
         // note ancora da trascrivere (mai provate in locale): in coda; prima si tolgono i PCM temporanei rimasti
         new Thread(() -> {
             Context app = getApplicationContext();
-            File[] wavs = Note.dir(app).listFiles((d, n) -> n.startsWith("rec-") && n.endsWith(".wav"));
+            File[] wavs = Note.dir(app).listFiles((d, nome) -> nome.startsWith("rec-") && nome.endsWith(".wav"));
             if (wavs != null) {
                 for (File w : wavs) Wav.riparaSeServe(w); // registrazioni rimaste a metà: intestazione dalla dimensione del file
                 Note.pulisciConsegnate(app, 30);
