@@ -37,6 +37,9 @@ public class MainActivity extends Activity {
     private int shownVersion = -1;
     private int pending;
     private String listText = "";
+    private final List<Note> listNotes = new ArrayList<>();   // note mostrate nell'elenco, con l'intervallo di caratteri di ciascuna
+    private final List<int[]> listSpans = new ArrayList<>();
+    private float touchX, touchY;
 
     @Override
     protected void onCreate(Bundle b) {
@@ -92,6 +95,15 @@ public class MainActivity extends Activity {
         listView.setTextSize(14);
         listView.setTextColor(Color.WHITE);
         listView.setPadding(0, 16, 0, 0);
+        // un tocco su una nota apre il testo intero (solo a riposo; la registrazione si avvia dal tocco sulla scritta in alto)
+        listView.setOnTouchListener((v, ev) -> {
+            if (ev.getAction() == android.view.MotionEvent.ACTION_UP) {
+                touchX = ev.getX();
+                touchY = ev.getY();
+            }
+            return false;
+        });
+        listView.setOnClickListener(v -> noteAt(touchX, touchY));
         sv.addView(listView);
         root.addView(sv, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 3f));
         listScroll = sv;
@@ -164,7 +176,13 @@ public class MainActivity extends Activity {
         if (s != null && s.isRecording()) return;
         List<Note> all = Note.loadAll(this);
         if (all.isEmpty()) return;
-        File f = all.get(all.size() - 1).audio;
+        playFile(all.get(all.size() - 1).audio);
+    }
+
+    private void playFile(File f) {
+        RecService s = RecService.instance;
+        if (s != null && s.isRecording()) return;
+        if (!f.exists()) return;
         try {
             if (player != null) player.release();
             player = new MediaPlayer();
@@ -181,19 +199,76 @@ public class MainActivity extends Activity {
         SimpleDateFormat fmt = new SimpleDateFormat("dd/MM HH:mm", Locale.ITALY);
         StringBuilder sb = new StringBuilder();
         int p = 0;
+        List<Note> mostrate = new ArrayList<>();
+        List<int[]> spans = new ArrayList<>();
         for (int i = all.size() - 1; i >= 0; i--) {
             Note n = all.get(i);
             if (Note.NEW.equals(n.state) || Note.READY.equals(n.state)) p++;
             if (Note.OLD.equals(n.state)) continue;
             if (sb.length() > 0) sb.append('\n');
+            int from = sb.length();
             sb.append(fmt.format(n.startMs)).append(" · ").append(n.durSec / 60).append(':')
                     .append(String.format(Locale.ITALY, "%02d", n.durSec % 60)).append(" · ").append(label(n)).append('\n');
             String t = n.raw;
             if (!n.error.isEmpty() && !Note.ERROR.equals(n.state)) sb.append("   ⚠ ").append(n.error.length() > 160 ? n.error.substring(0, 160) + "…" : n.error).append('\n');
             if (!t.isEmpty()) sb.append("   ").append(t.length() > 90 ? t.substring(0, 90) + "…" : t.replace('\n', ' ')).append('\n');
+            mostrate.add(n);
+            spans.add(new int[]{from, sb.length()});
+        }
+        synchronized (listNotes) {
+            listNotes.clear();
+            listNotes.addAll(mostrate);
+            listSpans.clear();
+            listSpans.addAll(spans);
         }
         pending = p;
         listText = sb.length() == 0 ? "Nessuna nota ancora." : sb.toString();
+    }
+
+    /** Tocco sull'elenco (solo a riposo): trova la nota sotto il dito e ne mostra il testo intero. */
+    private void noteAt(float x, float y) {
+        RecService rs = RecService.instance;
+        if (showLog || (rs != null && rs.isRecording())) return;
+        android.text.Layout lay = listView.getLayout();
+        if (lay == null) return;
+        int line = lay.getLineForVertical((int) (y - listView.getPaddingTop()));
+        int off = lay.getOffsetForHorizontal(line, x);
+        Note hit = null;
+        synchronized (listNotes) {
+            for (int i = 0; i < listSpans.size(); i++) {
+                int[] sp = listSpans.get(i);
+                if (off >= sp[0] && off <= sp[1]) hit = listNotes.get(i);
+            }
+        }
+        if (hit != null) mostraNota(hit);
+    }
+
+    private void mostraNota(final Note n) {
+        Note fresca = Note.cerca(this, n.id); // dati aggiornati
+        final Note c = fresca != null ? fresca : n;
+        String strada = "locale".equals(c.via) ? "locale" : ("whisper".equals(c.via) || !c.raw.isEmpty()) ? "Whisper" : label(c);
+        String testa = new SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.ITALY).format(c.startMs) + " · " + (c.durSec / 60) + ":"
+                + String.format(Locale.ITALY, "%02d", c.durSec % 60) + " · " + strada;
+        String corpo = c.raw.isEmpty() ? "(nessun testo)" : c.raw;
+        if (!c.error.isEmpty() && !Note.ERROR.equals(c.state)) corpo += "\n\n⚠ " + c.error;
+        TextView tv = new TextView(this);
+        tv.setText(testa + "\n\n" + corpo);
+        tv.setTextSize(16);
+        tv.setTextIsSelectable(true);
+        tv.setPadding(40, 24, 40, 8);
+        ScrollView sc = new ScrollView(this);
+        sc.addView(tv);
+        final String daCopiare = c.raw;
+        new android.app.AlertDialog.Builder(this)
+                .setView(sc)
+                .setPositiveButton("Chiudi", null)
+                .setNegativeButton("Copia", (dlg, w) -> {
+                    android.content.ClipboardManager cb = getSystemService(android.content.ClipboardManager.class);
+                    if (cb != null) cb.setPrimaryClip(android.content.ClipData.newPlainText("nota", daCopiare));
+                    android.widget.Toast.makeText(this, "Copiato", android.widget.Toast.LENGTH_SHORT).show();
+                })
+                .setNeutralButton("Ascolta", (dlg, w) -> playFile(c.audio))
+                .show();
     }
 
     private String origine(Note n) {
