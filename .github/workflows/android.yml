@@ -2,7 +2,7 @@ name: App Android
 
 on:
   push:
-    branches: [main, nero-strato3, nero-voce-locale]
+    branches: ['**']
     paths: ['android/**', '.github/workflows/android.yml']
   workflow_dispatch:
 
@@ -31,32 +31,44 @@ jobs:
           set -o pipefail
           gradle -p android assembleDebug --stacktrace --no-daemon 2>&1 | tee build.log
 
-      - name: Pubblica l'APK
+      # Da main: l'APK di Nero, con il numero di versione del pacchetto (versionName di build.gradle).
+      #   - release "android-nero": sempre l'ultima (il collegamento che si usa per installare);
+      #   - release "nero-v<versione>": una per versione, non si cancella (storia).
+      # I rami di lavoro pubblicano solo "android-nero-prova".
+      - name: Versione
+        id: ver
+        run: |
+          V=$(grep -o 'versionName "[^"]*"' android/app/build.gradle | cut -d'"' -f2)
+          echo "v=$V" >> "$GITHUB_OUTPUT"
+
+      - name: Pubblica l'APK di Nero
         id: release
         if: steps.build.outcome == 'success' && github.ref_name == 'main'
         env:
           GH_TOKEN: ${{ github.token }}
+          V: ${{ steps.ver.outputs.v }}
         run: |
-          cp android/app/build/outputs/apk/debug/app-debug.apk note-auto-prova.apk
-          gh release delete android-prova -y --cleanup-tag || true
-          gh release create android-prova note-auto-prova.apk \
-            --title "Note Auto – app Android" \
-            --notes "Compilata da ${{ github.sha }}" \
-            --prerelease --target ${{ github.sha }}
+          cp android/app/build/outputs/apk/debug/app-debug.apk note-auto-nero.apk
+          NOTE="Nero $V, compilata da ${{ github.sha }}. Note di versione: NOTE-DI-VERSIONE.md nel repository Voice-Remote-Commander."
+          gh release delete android-nero -y --cleanup-tag || true
+          gh release create android-nero note-auto-nero.apk --title "Note Auto – Nero $V" --notes "$NOTE" --target ${{ github.sha }}
+          if gh release view "nero-v$V" >/dev/null 2>&1; then
+            gh release upload "nero-v$V" note-auto-nero.apk --clobber
+          else
+            gh release create "nero-v$V" note-auto-nero.apk --title "Note Auto – Nero $V" --notes "$NOTE" --target ${{ github.sha }} --latest=false
+          fi
 
-      # I rami nero-strato3 e nero-voce-locale hanno una release tutta sua: android-prova (di main) non si tocca.
-      - name: Pubblica l'APK di Nero (prova)
+      - name: Pubblica l'APK di prova (rami di lavoro)
         id: release_nero
-        if: steps.build.outcome == 'success' && (github.ref_name == 'nero-strato3' || github.ref_name == 'nero-voce-locale')
+        if: steps.build.outcome == 'success' && github.ref_name != 'main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cp android/app/build/outputs/apk/debug/app-debug.apk note-auto-nero.apk
-          gh release delete android-nero -y --cleanup-tag || true
-          gh release create android-nero note-auto-nero.apk \
-            --title "Note Auto – Nero (prova)" \
-            --notes "Compilata da ${{ github.sha }} (ramo ${{ github.ref_name }})" \
-            --prerelease --target ${{ github.sha }}
+          cp android/app/build/outputs/apk/debug/app-debug.apk note-auto-nero-prova.apk
+          gh release delete android-nero-prova -y --cleanup-tag || true
+          gh release create android-nero-prova note-auto-nero-prova.apk \
+            --title "Note Auto – Nero (prova, ramo ${{ github.ref_name }})" \
+            --notes "Compilata da ${{ github.sha }}" --prerelease --target ${{ github.sha }}
 
       # Claude non può leggere le API di Actions: l'esito va in un ramo git che può scaricare.
       - name: Scrivi l'esito nel ramo build-status
@@ -64,7 +76,7 @@ jobs:
         run: |
           mkdir -p /tmp/st && cp build.log /tmp/st/ 2>/dev/null || echo "nessun log" > /tmp/st/build.log
           cd /tmp/st
-          echo "build=${{ steps.build.outcome }} release=${{ steps.release.outcome }} release_nero=${{ steps.release_nero.outcome }} ramo=${{ github.ref_name }} commit=${{ github.sha }} data=$(date -u +%FT%TZ)" > status.txt
+          echo "build=${{ steps.build.outcome }} release=${{ steps.release.outcome }} release_nero=${{ steps.release_nero.outcome }} versione=${{ steps.ver.outputs.v }} ramo=${{ github.ref_name }} commit=${{ github.sha }} data=$(date -u +%FT%TZ)" > status.txt
           git init -q && git checkout -q -b build-status
           git -c user.name=ci -c user.email=ci@localhost add -A
           git -c user.name=ci -c user.email=ci@localhost commit -qm "esito ${{ github.sha }}"

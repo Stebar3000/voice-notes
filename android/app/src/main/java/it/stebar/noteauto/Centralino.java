@@ -20,6 +20,8 @@ final class Centralino {
         Map<String, String> h = new HashMap<>();
         h.put("Authorization", "Bearer " + p.centralinoKey());
         h.put("Content-Type", "application/json");
+        h.put("X-Nero-Da", "android");               // il centralino ricorda la versione installata
+        h.put("X-Nero-Versione", BuildConfigInfo.VERSION);
         return h;
     }
 

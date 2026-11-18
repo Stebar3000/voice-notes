@@ -4,7 +4,7 @@
 // se il centralino non risponde le note restano qui in attesa e si riprova.
 'use strict';
 
-const VERSION = '5.0.0';
+const VERSION = '2.0.0'; // versione del pacchetto Nero (NOTE-DI-VERSIONE.md)
 const GROQ = 'https://api.groq.com/openai/v1';
 const DEFAULT_CENTRALINO = 'https://nero-centralino.stebar3000.workers.dev';
 const DEVICE = 'iphone';
@@ -296,7 +296,9 @@ async function apiFetch(base, path, opts, key, timeoutMs) {
   } finally { clearTimeout(t); }
 }
 const groqFetch = (path, opts, key, timeoutMs) => apiFetch(GROQ, path, opts, key, timeoutMs);
-const nero = (path, opts, s, timeoutMs = 15000) => apiFetch(s.centralino.replace(/\/+$/, ''), path, opts, s.nkey, timeoutMs);
+// Il centralino ricorda la versione installata di chi chiama (X-Nero-Da, X-Nero-Versione).
+const nero = (path, opts, s, timeoutMs = 15000) => apiFetch(s.centralino.replace(/\/+$/, ''), path,
+  { ...opts, headers: { ...((opts && opts.headers) || {}), 'X-Nero-Da': 'web', 'X-Nero-Versione': VERSION } }, s.nkey, timeoutMs);
 
 async function transcribe(n, s) {
   const ext = /webm/.test(n.mime) ? 'webm' : /ogg/.test(n.mime) ? 'ogg' : 'm4a';

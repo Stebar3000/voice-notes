@@ -716,3 +716,9 @@ Indice delle note di lavoro (deciso 02/11/2026):
   solo le note trascritte con la 5.0.0.
 - Build: il push su `nero-strato3` compila e pubblica la release separata `android-nero` ("Note Auto – Nero (prova)");
   `android-prova` resta di `main`. Il codice non è stato compilato sul PC (manca l'SDK): l'esito è nel ramo `build-status`.
+
+## Nero 2.0.0 (18/11/2026): versione unica
+Da qui l'app Android e la web app portano il numero del pacchetto Nero (2.0.0, prima 1.3.1 e 5.0.0) e lo mandano
+al centralino a ogni chiamata (X-Nero-Da, X-Nero-Versione). La compilazione su main pubblica `android-nero` (sempre
+l'ultima) e `nero-vX.Y.Z` (una per versione); i rami di lavoro `android-nero-prova`. La release `android-prova` non
+si aggiorna più. Note di versione: NOTE-DI-VERSIONE.md nel repository privato Voice-Remote-Commander.
