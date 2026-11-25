@@ -4,7 +4,7 @@
 // se il centralino non risponde le note restano qui in attesa e si riprova.
 'use strict';
 
-const VERSION = '2.1.0'; // versione del pacchetto Nero (NOTE-DI-VERSIONE.md)
+const VERSION = '2.2.0'; // versione del pacchetto Nero (NOTE-DI-VERSIONE.md)
 const GROQ = 'https://api.groq.com/openai/v1';
 const DEFAULT_CENTRALINO = 'https://nero-centralino.stebar3000.workers.dev';
 const DEVICE = 'iphone';

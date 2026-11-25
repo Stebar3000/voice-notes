@@ -6,9 +6,9 @@ import java.util.Locale;
 import java.util.TimeZone;
 
 /**
- * Consegna delle direttive a Nero (protocollo: docs/nero-3-protocollo.md §2 e §3). Due strade:
- * casa (file in /Nero/lotti/in-arrivo/ su Dropbox, quando il centralino dice che il laptop è acceso) e cloud (POST /lotto al
- * centralino, con copia su Dropbox). Se la strada scelta non riesce si prova l'altra: una nota è consegnata solo
+ * Consegna delle direttive a Nero (protocollo: docs/nero-3-protocollo.md §2 e §3). Dalla 2.2.0 (C-05) la strada è una:
+ * POST /lotto al centralino, con copia su Dropbox; è il centralino a mandare il lotto a casa (se viva) o al cloud.
+ * Riserva: se il centralino non risponde, file in /Nero/lotti/in-arrivo/ su Dropbox. Una nota è consegnata solo
  * dopo una risposta positiva.
  */
 final class Consegna {
@@ -36,15 +36,7 @@ final class Consegna {
         String nome = f.format(now) + "-android";
         String mese = nome.substring(0, 4) + "-" + nome.substring(4, 6);
         String avviso = "";
-        boolean casaPrima = true; // senza chiave, o se il centralino non risponde, si parte da Dropbox
-        if (cloud) {
-            try {
-                casaPrima = Centralino.vivo(p);
-            } catch (Http.ApiError e) {
-                RecService.log("Segnale \"sono vivo\" non letto: " + e.getMessage());
-                if (e.status == 401) avviso = "Chiave del centralino non valida";
-            }
-        }
+        boolean casaPrima = false; // 2.2.0: prima il centralino; Dropbox solo se il centralino non risponde
         Http.ApiError last = null;
         for (int k = 0; k < 2; k++) {
             boolean casa = (k == 0) == casaPrima;
