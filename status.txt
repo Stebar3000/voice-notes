@@ -1,0 +1,1 @@
+build=success release=success release_nero=skipped versione=2.3.0 ramo=main commit=0aecd6f7205a952dbc17126a1d001fbb610fea42 data=2026-11-26T03:55:47Z
